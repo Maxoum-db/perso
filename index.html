@@ -320,13 +320,13 @@ input,select,textarea{font-size:16px!important}
 <!-- WEEKLY TOUR PLANNER -->
 <div class="tab-content" id="tab-tour">
 <div class="tour-config">
-<div class="fg"><label>Base de d&eacute;part</label><select class="sel" id="t-base" onchange="genTour()"><option value="villeneuve">Villeneuve-d'Ascq (59)</option><option value="herouville">H&eacute;rouville-Saint-Clair (14)</option></select></div>
-<div class="fg"><label>Semaine</label><select class="sel" id="t-week" onchange="updateWeekLabel();genTour()"></select></div>
-<div class="fg"><label>Rayon max (km)</label><select class="sel" id="t-radius" onchange="genTour()"><option value="80">80 km</option><option value="120">120 km</option><option value="180" selected>180 km</option><option value="250">250 km</option><option value="350">350 km</option><option value="500">500 km</option></select></div>
-<div class="fg"><label>Clients / jour</label><select class="sel" id="t-perday" onchange="genTour()"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="10">10</option></select></div>
-<div class="fg"><label>Statut</label><select class="sel" id="t-stat" onchange="genTour()"><option value="all">Tous</option><option value="clients">Clients actifs</option><option value="priority" selected>Score &gt; 20</option><option value="prospects">Prospects seuls</option><option value="ca">Avec CA uniquement</option></select></div>
-<div class="fg"><label>CA min (&euro;)</label><input type="number" class="sel" id="t-camin" value="0" min="0" step="500" style="width:90px" onchange="genTour()"></div>
-<div class="fg"><label>D&eacute;partement</label><select class="sel" id="t-dept" onchange="genTour()"><option value="">Tous MBO</option><option value="02">02 - Aisne</option><option value="08">08 - Ardennes</option><option value="14">14 - Calvados</option><option value="27">27 - Eure</option><option value="50">50 - Manche</option><option value="51">51 - Marne</option><option value="55">55 - Meuse</option><option value="59">59 - Nord</option><option value="60">60 - Oise</option><option value="62">62 - Pas-de-Calais</option><option value="76">76 - Seine-Maritime</option><option value="80">80 - Somme</option></select></div>
+<div class="fg"><label>Base de d&eacute;part</label><select class="sel" id="t-base" onchange=""><option value="villeneuve">Villeneuve-d'Ascq (59)</option><option value="herouville">H&eacute;rouville-Saint-Clair (14)</option></select></div>
+<div class="fg"><label>Semaine</label><select class="sel" id="t-week" onchange="updateWeekLabel()"></select></div>
+<div class="fg"><label>Rayon max (km)</label><select class="sel" id="t-radius" onchange=""><option value="80">80 km</option><option value="120">120 km</option><option value="180" selected>180 km</option><option value="250">250 km</option><option value="350">350 km</option><option value="500">500 km</option></select></div>
+<div class="fg"><label>Clients / jour</label><select class="sel" id="t-perday" onchange=""><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="10">10</option></select></div>
+<div class="fg"><label>Statut</label><select class="sel" id="t-stat" onchange=""><option value="all">Tous</option><option value="clients">Clients actifs</option><option value="priority" selected>Score &gt; 20</option><option value="prospects">Prospects seuls</option><option value="ca">Avec CA uniquement</option></select></div>
+<div class="fg"><label>CA min (&euro;)</label><input type="number" class="sel" id="t-camin" value="0" min="0" step="500" style="width:90px" onchange=""></div>
+<div class="fg"><label>D&eacute;partement</label><select class="sel" id="t-dept" onchange=""><option value="">Tous MBO</option><option value="02">02 - Aisne</option><option value="08">08 - Ardennes</option><option value="14">14 - Calvados</option><option value="27">27 - Eure</option><option value="50">50 - Manche</option><option value="51">51 - Marne</option><option value="55">55 - Meuse</option><option value="59">59 - Nord</option><option value="60">60 - Oise</option><option value="62">62 - Pas-de-Calais</option><option value="76">76 - Seine-Maritime</option><option value="80">80 - Somme</option></select></div>
 <button class="btn btn-blue" onclick="genTour()" style="height:36px">&#9654; G&eacute;n&eacute;rer la semaine</button>
 </div>
 
@@ -445,7 +445,7 @@ const PS=50;let F=[...D],cp=1,sc='score',sd=-1,ac=new Set();
 const CM={TOP:{l:'Top',c:'bdg-top',cc:'c-top'},ACTIF:{l:'Actif',c:'bdg-act',cc:'c-act'},CLIENT:{l:'Client',c:'bdg-act',cc:'c-act'},PROSPECT:{l:'Prospect',c:'bdg-pro',cc:'c-pro'},AGENT:{l:'Agent',c:'bdg-age',cc:'c-age'},INACTIF:{l:'Inactif',c:'bdg-ina',cc:'c-ina'}};
 const DCOL=['#0073ea','#00c875','#fdab3d','#a25ddc','#e2445c'];
 
-function switchTab(t){document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');const tabs=document.querySelectorAll('.nav-tab');const idx=t==='crm'?0:t==='tour'?1:2;tabs[idx].classList.add('active');if(t==='tour'){initWeekSelector();setTimeout(function(){genTour()},100)}if(t==='ca'){renderCA()}}
+function switchTab(t){document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');const tabs=document.querySelectorAll('.nav-tab');const idx=t==='crm'?0:t==='tour'?1:2;tabs[idx].classList.add('active');if(t==='tour'){initWeekSelector()}if(t==='ca'){renderCA()}}
 
 function init(){const cn={};D.forEach(c=>{const k=c.classif;cn[k]=(cn[k]||0)+1});const cc=document.getElementById('chs');
 Object.keys(CM).forEach(k=>{if(!cn[k])return;const ch=document.createElement('span');ch.className='chip '+(CM[k].cc||'');ch.dataset.c=k;ch.innerHTML=CM[k].l+' <span style="opacity:.6">'+(cn[k]||0)+'</span>';ch.onclick=()=>{if(ac.has(k)){ac.delete(k);ch.classList.remove('on')}else{ac.add(k);ch.classList.add('on')}af()};cc.appendChild(ch)});af()}
@@ -1445,8 +1445,8 @@ loadClientEdits();
 loadCA();
 
 init();
-// Auto-init tour week selector
-initWeekSelector();
+// Default filter: secteur MBO only
+document.getElementById('fa').value='MBO';af();
 
 </script>
 <div class="cal-toast" id="cal-toast"></div>
