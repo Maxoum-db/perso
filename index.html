@@ -349,7 +349,7 @@ input,select,textarea{font-size:16px!important}
 <!-- WEEKLY TOUR PLANNER -->
 <div class="tab-content" id="tab-tour">
 <div class="tour-config">
-<div class="fg"><label>Base de d&eacute;part</label><select class="sel" id="t-base" onchange=""><option value="villeneuve">Villeneuve-d'Ascq (59)</option><option value="herouville">H&eacute;rouville-Saint-Clair (14)</option></select></div>
+<div class="fg"><label>Base de d&eacute;part</label><div style="display:flex;gap:4px;align-items:center"><input type="text" class="sel" id="t-base-city" placeholder="Entrez une ville..." style="width:180px" list="t-base-list"><datalist id="t-base-list"></datalist><button class="btn btn-ghost btn-sm" onclick="geocodeBase()" title="Valider la ville">&#10003;</button></div><div id="t-base-info" style="font-size:11px;color:var(--gray-40);margin-top:2px"></div></div>
 <div class="fg"><label>Semaine</label><select class="sel" id="t-week" onchange="updateWeekLabel()"></select></div>
 <div class="fg"><label>Rayon max (km)</label><select class="sel" id="t-radius" onchange=""><option value="80">80 km</option><option value="120">120 km</option><option value="180" selected>180 km</option><option value="250">250 km</option><option value="350">350 km</option><option value="500">500 km</option></select></div>
 <div class="fg"><label>Clients / jour</label><select class="sel" id="t-perday" onchange=""><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="10">10</option></select></div>
@@ -434,7 +434,7 @@ input,select,textarea{font-size:16px!important}
 </div>
 </div>
 </div>
-
+</div><!-- /tab-ca -->  
 <!-- Quick Edit Modal -->
 <div class="qe-overlay" id="qe-ov" onclick="closeQE(event)">
 <div class="qe-modal" onclick="event.stopPropagation()">
@@ -480,13 +480,14 @@ let D=[]
 let currentAgent='',currentRole='',currentAgentCodes=[],currentDisplayName='';
 function canSeeAll(){return currentRole==='admin'||currentRole==='manager'}
 function isAdminRole(){return currentRole==='admin'}
-const BASES={"villeneuve":{"name":"Villeneuve-d'Ascq","lat":50.6333,"lon":3.1333,"dept":"59"},"herouville":{"name":"Hérouville-Saint-Clair","lat":49.205,"lon":-0.35,"dept":"14"}};
+const BASES_ADMIN={"villeneuve":{"name":"Villeneuve-d'Ascq (59)","lat":50.6333,"lon":3.1333,"dept":"59"},"herouville":{"name":"Hérouville-Saint-Clair (14)","lat":49.205,"lon":-0.35,"dept":"14"}};
+let customBase=null;
 const DC={"01":[46.2,5.3],"02":[49.4,3.6],"03":[46.3,3.2],"04":[44.1,6.2],"05":[44.7,6.3],"06":[43.7,7.2],"07":[44.7,4.6],"08":[49.6,4.6],"09":[42.9,1.6],"10":[48.3,4.1],"11":[43.2,2.4],"12":[44.3,2.6],"13":[43.5,5.1],"14":[49.2,-0.4],"15":[45.0,2.7],"16":[45.7,0.2],"17":[45.8,-0.8],"18":[47.1,2.4],"19":[45.3,1.8],"21":[47.3,4.8],"22":[48.5,-3.0],"23":[46.1,2.1],"24":[45.2,0.7],"25":[47.2,6.4],"26":[44.7,5.2],"27":[49.1,1.2],"28":[48.2,1.5],"29":[48.4,-4.3],"30":[44.0,4.1],"31":[43.6,1.4],"32":[43.6,0.6],"33":[44.8,-0.6],"34":[43.6,3.9],"35":[48.1,-1.7],"36":[46.8,1.6],"37":[47.4,0.7],"38":[45.2,5.7],"39":[46.7,5.6],"40":[43.9,-0.5],"41":[47.6,1.3],"42":[45.7,4.2],"43":[45.1,3.7],"44":[47.2,-1.6],"45":[47.9,2.2],"46":[44.5,1.4],"47":[44.3,0.5],"48":[44.5,3.5],"49":[47.4,-0.6],"50":[48.9,-1.3],"51":[49.0,3.9],"52":[48.1,5.3],"53":[48.1,-0.8],"54":[48.7,6.2],"55":[49.0,5.4],"56":[47.7,-2.8],"57":[49.1,6.5],"58":[47.1,3.5],"59":[50.4,3.1],"60":[49.4,2.4],"61":[48.6,0.1],"62":[50.5,2.3],"63":[45.8,3.1],"64":[43.3,-0.8],"65":[43.1,0.1],"66":[42.6,2.5],"67":[48.6,7.5],"68":[47.9,7.2],"69":[45.8,4.8],"70":[47.6,6.2],"71":[46.6,4.4],"72":[47.9,0.2],"73":[45.5,6.5],"74":[46.1,6.4],"75":[48.9,2.3],"76":[49.6,1.1],"77":[48.6,2.9],"78":[48.8,1.9],"79":[46.5,-0.3],"80":[49.9,2.3],"81":[43.7,2.2],"82":[44.0,1.3],"83":[43.5,6.3],"84":[44.0,5.1],"85":[46.7,-1.3],"86":[46.6,0.3],"87":[45.9,1.2],"88":[48.2,6.5],"89":[47.8,3.6],"90":[47.6,6.9],"91":[48.5,2.2],"92":[48.8,2.2],"93":[48.9,2.5],"94":[48.8,2.5],"95":[49.1,2.2]};
 const PS=50;let F=[],cp=1,sc='score',sd=-1,ac=new Set();
 const CM={TOP:{l:'Top',c:'bdg-top',cc:'c-top'},ACTIF:{l:'Actif',c:'bdg-act',cc:'c-act'},CLIENT:{l:'Client',c:'bdg-act',cc:'c-act'},PROSPECT:{l:'Prospect',c:'bdg-pro',cc:'c-pro'},AGENT:{l:'Agent',c:'bdg-age',cc:'c-age'},INACTIF:{l:'Inactif',c:'bdg-ina',cc:'c-ina'}};
 const DCOL=['#b87333','#6b8f5e','#d4a054','#8b6b8a','#c45c5c'];
 
-function switchTab(t){document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');const tabs=document.querySelectorAll('.nav-tab');const idx=t==='crm'?0:t==='tour'?1:t==='ca'?2:3;tabs[idx].classList.add('active');if(t==='tour'){initWeekSelector()}if(t==='ca'){renderCA()}if(t==='admin'){loadProfiles()}}
+function switchTab(t){document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');const tabMap={crm:0,tour:1,ca:2,admin:3};const tabs=document.querySelectorAll('.nav-tab[onclick]');if(tabMap[t]!==undefined&&tabs[tabMap[t]])tabs[tabMap[t]].classList.add('active');if(t==='tour'){initWeekSelector();initBaseSelector()}if(t==='ca'){renderCA()}if(t==='admin'){loadProfiles()}}
 
 function init(){const cn={};D.forEach(c=>{const k=c.classif;cn[k]=(cn[k]||0)+1});const cc=document.getElementById('chs');
 Object.keys(CM).forEach(k=>{if(!cn[k])return;const ch=document.createElement('span');ch.className='chip '+(CM[k].cc||'');ch.dataset.c=k;ch.innerHTML=CM[k].l+' <span style="opacity:.6">'+(cn[k]||0)+'</span>';ch.onclick=()=>{if(ac.has(k)){ac.delete(k);ch.classList.remove('on')}else{ac.add(k);ch.classList.add('on')}af()};cc.appendChild(ch)});
@@ -579,8 +580,8 @@ h+=panelInput('Source','pf-src',c.src,'text','');
 h+=panelInput('Numero client','pf-nclt',c.n_clt,'text','');
 h+=panelInput('CA','pf-ca',c.ca||0,'number','');
 h+=panelInput('Factures','pf-factures',c.nb_factures||0,'number','');
-h+=panelInput('Distance Villeneuve','pf-distvda',c.distVDA,'number','');
-h+=panelInput('Distance Herouville','pf-disthsc',c.distHSC,'number','');
+if(canSeeAll()){h+=panelInput('Distance Villeneuve','pf-distvda',c.distVDA,'number','');
+h+=panelInput('Distance Herouville','pf-disthsc',c.distHSC,'number','');}
 h+=panelInput('Latitude','pf-lat',c.lat,'number','');
 h+=panelInput('Longitude','pf-lon',c.lon,'number','');
 h+=panelInput('Notes','pf-comment',c.comment,'textarea','full');
@@ -588,7 +589,7 @@ h+='</div></div>';
 h+='<div class="pan-actions-sticky"><button class="btn btn-ghost" onclick="closeP()">Fermer</button><button class="btn btn-ghost" onclick="'+(panelIsNew?'closeP()':'setPanelEditMode(false)')+'">Annuler</button><button class="btn btn-blue" onclick="savePanelEdit()">'+(panelIsNew?'Ajouter':'Enregistrer')+'</button></div>';
 }else{
 h+='<div class="sec"><h3>Contact</h3>'+rw('Gerant',c.contact)+rw('Tel',c.tel)+rw('Portable',c.port)+rw('Email',c.email?'<a href="mailto:'+c.email+'">'+c.email+'</a>':'')+'</div>';
-h+='<div class="sec"><h3>Localisation</h3>'+rw('Adresse',c.adresse)+rw('CP',c.cp)+rw('Ville',c.ville)+rw('Dept',c.dept)+rw('Region',c.region)+rw('Dist. Villeneuve',c.distVDA<9000?c.distVDA+' km':'-')+rw('Dist. Herouville',c.distHSC<9000?c.distHSC+' km':'-')+'</div>';
+h+='<div class="sec"><h3>Localisation</h3>'+rw('Adresse',c.adresse)+rw('CP',c.cp)+rw('Ville',c.ville)+rw('Dept',c.dept)+rw('Region',c.region)+(canSeeAll()?rw('Dist. Villeneuve',c.distVDA<9000?c.distVDA+' km':'-')+rw('Dist. Herouville',c.distHSC<9000?c.distHSC+' km':'-'):'')+'</div>';
 h+='<div class="sec"><h3>Commercial</h3>'+(canSeeAll()?rw('CA',c.ca>0?c.ca.toLocaleString('fr-FR')+' \u20ac':'-'):'')+rw('Type',c.type)+rw('Priorite',c.prio)+rw('Agent',c.agent)+rw('Commande',c.cmd)+rw('Relance',c.relance)+rw('Source',c.src)+'</div>';
 if(c.comment)h+='<div class="sec"><h3>Notes</h3><div class="note-box">'+esc(c.comment)+'</div></div>';
 h+='<div class="pan-actions-sticky"><button class="btn btn-ghost" onclick="closeP()">Fermer</button><button class="btn btn-blue" onclick="setPanelEditMode(true)">Modifier</button></div>';
@@ -631,8 +632,8 @@ c.src=document.getElementById('pf-src').value.trim();
 c.n_clt=document.getElementById('pf-nclt').value.trim();
 c.ca=parseFloat(document.getElementById('pf-ca').value)||0;
 c.nb_factures=parseInt(document.getElementById('pf-factures').value)||0;
-c.distVDA=parseFloat(document.getElementById('pf-distvda').value);
-c.distHSC=parseFloat(document.getElementById('pf-disthsc').value);
+if(document.getElementById('pf-distvda')){c.distVDA=parseFloat(document.getElementById('pf-distvda').value)}
+if(document.getElementById('pf-disthsc')){c.distHSC=parseFloat(document.getElementById('pf-disthsc').value)}
 c.lat=parseFloat(document.getElementById('pf-lat').value);
 c.lon=parseFloat(document.getElementById('pf-lon').value);
 c.comment=document.getElementById('pf-comment').value.trim();
@@ -664,6 +665,53 @@ let panelClientId=null;
 let panelEditMode=false;
 let panelIsNew=false;
 let panelDraftClient=null;
+
+// ---- Base selector ----
+function initBaseSelector(){
+var dl=document.getElementById('t-base-list');
+dl.innerHTML='';
+if(isAdminRole()){
+Object.keys(BASES_ADMIN).forEach(function(k){var o=document.createElement('option');o.value=BASES_ADMIN[k].name;dl.appendChild(o)});
+}
+var saved=localStorage.getItem('crm_tour_base');
+if(saved){
+try{var s=JSON.parse(saved);customBase=s;document.getElementById('t-base-city').value=s.name;document.getElementById('t-base-info').textContent='Base: '+s.name+' ('+s.lat.toFixed(4)+', '+s.lon.toFixed(4)+')';}catch(e){}
+}else if(isAdminRole()){
+document.getElementById('t-base-city').value=BASES_ADMIN.villeneuve.name;
+customBase=BASES_ADMIN.villeneuve;
+}
+}
+
+async function geocodeBase(){
+var city=document.getElementById('t-base-city').value.trim();
+var info=document.getElementById('t-base-info');
+if(!city){info.textContent='Entrez un nom de ville.';info.style.color='var(--red)';return}
+if(isAdminRole()){
+for(var k in BASES_ADMIN){
+if(BASES_ADMIN[k].name.toLowerCase().includes(city.toLowerCase())){
+customBase=BASES_ADMIN[k];
+document.getElementById('t-base-city').value=BASES_ADMIN[k].name;
+info.textContent='Base: '+BASES_ADMIN[k].name;info.style.color='var(--green)';
+localStorage.setItem('crm_tour_base',JSON.stringify(customBase));
+return;
+}
+}
+}
+info.textContent='Recherche...';info.style.color='var(--gray-40)';
+try{
+var res=await fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(city+', France')+'&format=json&limit=1&countrycodes=fr');
+var data=await res.json();
+if(!data.length){info.textContent='Ville introuvable.';info.style.color='var(--red)';return}
+var r=data[0];
+customBase={name:city,lat:parseFloat(r.lat),lon:parseFloat(r.lon)};
+info.textContent='Base: '+r.display_name.split(',').slice(0,2).join(',');info.style.color='var(--green)';
+localStorage.setItem('crm_tour_base',JSON.stringify(customBase));
+}catch(e){info.textContent='Erreur: '+e.message;info.style.color='var(--red)'}
+}
+
+function getTourBase(){
+return customBase||BASES_ADMIN.villeneuve;
+}
 
 // ---- Week utilities ----
 function getISOWeek(d){const t=new Date(d.valueOf());t.setDate(t.getDate()+3-(t.getDay()+6)%7);const y=new Date(t.getFullYear(),0,4);return 1+Math.round(((t-y)/864e5-(3-(y.getDay()+6)%7))/7)}
@@ -838,15 +886,14 @@ return clusters;
 function genTour(){
 // Auto-init week selector if empty
 if(!document.getElementById('t-week').value){initWeekSelector()}
-const baseKey=document.getElementById('t-base').value;
+const base=getTourBase();
+if(!base||!base.lat){alert('Veuillez d\'abord sélectionner une ville de base et cliquer \u2713');return}
 const radius=parseInt(document.getElementById('t-radius').value);
 const nDays=5; // Always 5 days (Lundi-Vendredi)
 const perDay=parseInt(document.getElementById('t-perday').value);
 const statFilter=document.getElementById('t-stat').value;
 const caMin=parseFloat(document.getElementById('t-camin').value)||0;
 const deptFilter=document.getElementById('t-dept').value;
-const base=BASES[baseKey];
-const distKey=baseKey==='villeneuve'?'distVDA':'distHSC';
 
 // Get week info
 const weekVal=document.getElementById('t-week').value;
@@ -859,8 +906,8 @@ if(weekVal){
 const mboDepts=new Set(D.filter(c=>currentAgentCodes.includes(c.agent)).map(c=>c.dept));
 let pool=D.filter(c=>{
 if(!c.lat||!c.lon||c.lat===0)return false;
-const dist=c[distKey];
-if(dist>=radius||dist>=9000)return false;
+const dist=haversine(c.lat,c.lon,base.lat,base.lon);
+if(dist>=radius)return false;
 if(c.classif==='INACTIF'||c.classif==='AGENT')return false;
 if(statFilter==='clients'&&(c.classif==='PROSPECT'))return false;
 if(statFilter==='priority'&&c.score<20)return false;
@@ -1034,7 +1081,7 @@ daysHtml+='<div class="pool-row" style="display:flex;align-items:center;padding:
 daysHtml+='<span style="font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:6px" onclick="openPById('+c.id+');setPanelEditMode(true)">'+esc(c.nom)+'</span>';
 daysHtml+='<span style="font-size:10px;color:var(--gray-40);margin-right:6px">'+esc(c.ville||'')+' ('+c.dept+')</span>';
 daysHtml+='<span style="background:var(--blue);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:700;margin-right:4px">'+c.score+'</span>';
-daysHtml+='<span style="font-size:10px;color:var(--gray-40);min-width:40px;text-align:right;margin-right:4px">'+Math.round(c[distKey])+' km</span>';
+daysHtml+='<span style="font-size:10px;color:var(--gray-40);min-width:40px;text-align:right;margin-right:4px">'+(function(){var _b=getTourBase();return _b?Math.round(haversine(c.lat,c.lon,_b.lat,_b.lon)):'-'})()+' km</span>';
 daysHtml+='<div class="pool-add-btns">';
 for(let dd=0;dd<5;dd++){
 daysHtml+='<button class="pool-add-btn" style="border-color:'+DCOL[dd]+';color:'+DCOL[dd]+'" onmouseover="this.style.background=\''+DCOL[dd]+'\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'#fff\';this.style.color=\''+DCOL[dd]+'\'" onclick="event.stopPropagation();addToDay('+c.id+','+dd+')" title="Ajouter au '+JOURS_FR[dd]+'">'+(dd+1)+'</button>';
@@ -1194,13 +1241,12 @@ resultsEl.classList.add('open');
 
 function refreshTourDisplay(){
 // Recalculate stats and re-render cards + map without re-clustering
-const baseKey=document.getElementById('t-base').value;
-const base=BASES[baseKey];
+const base=getTourBase();
+if(!base)return;
 const nDays=5;
 const weekVal=document.getElementById('t-week').value;
 let weekNum=0,weekYear=0;
 if(weekVal){[weekYear,weekNum]=weekVal.split('-').map(Number)}
-const distKey=baseKey==='villeneuve'?'distVDA':'distHSC';
 
 let totalKm=0,totalCA=0,totalClients=0;
 const dayStats=[];
@@ -1294,7 +1340,7 @@ daysHtml+='<div class="pool-row" style="display:flex;align-items:center;padding:
 daysHtml+='<span style="font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:6px" onclick="openPById('+c.id+');setPanelEditMode(true)">'+esc(c.nom)+'</span>';
 daysHtml+='<span style="font-size:10px;color:var(--gray-40);margin-right:6px">'+esc(c.ville||'')+' ('+c.dept+')</span>';
 daysHtml+='<span style="background:var(--blue);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:700;margin-right:4px">'+c.score+'</span>';
-daysHtml+='<span style="font-size:10px;color:var(--gray-40);min-width:40px;text-align:right;margin-right:4px">'+Math.round(c[distKey])+' km</span>';
+daysHtml+='<span style="font-size:10px;color:var(--gray-40);min-width:40px;text-align:right;margin-right:4px">'+(function(){var _b=getTourBase();return _b?Math.round(haversine(c.lat,c.lon,_b.lat,_b.lon)):'-'})()+' km</span>';
 daysHtml+='<div class="pool-add-btns">';
 for(let dd=0;dd<5;dd++){
 daysHtml+='<button class="pool-add-btn" style="border-color:'+DCOL[dd]+';color:'+DCOL[dd]+'" onmouseover="this.style.background=\''+DCOL[dd]+'\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'#fff\';this.style.color=\''+DCOL[dd]+'\'" onclick="event.stopPropagation();addToDay('+c.id+','+dd+')" title="Ajouter au '+JOURS_FR[dd]+'">'+(dd+1)+'</button>';
@@ -1419,6 +1465,7 @@ if(caCommissionRate===5)caCommissionRate=4;
 caCommissionRate=4;
 }
 }
+function getCommissionAmount(hdht){return Math.round(((hdht||0)*caCommissionRate))/100}
 function fmtPct(v){return (Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:2})+' %'}
 
 function parseCADate(s){const p=s.split('/');return new Date(+p[2],+p[1]-1,+p[0])}
@@ -1763,7 +1810,7 @@ currentAgent='NOUVEAU';currentRole='agent';currentAgentCodes=['NOUVEAU'];
 }
 }catch(pe){console.error('Profile error',pe);currentAgent='';currentRole='agent';currentAgentCodes=[]}
 // Store session
-sessionStorage.setItem('sb_token',data.access_token);
+localStorage.setItem('sb_token',data.access_token);
 sessionStorage.setItem('sb_refresh',data.refresh_token);
 // Show loading, hide login
 document.getElementById('login-screen').style.display='none';
@@ -1785,14 +1832,24 @@ btn.disabled=false;btn.textContent='Connexion';
 
 // ========= ADMIN PANEL =========
 async function loadProfiles(){
-if(!isAdminRole())return;
+if(!isAdminRole()){console.log('loadProfiles: not admin, skip');return}
+const tb=document.getElementById('admin-tbody');
 try{
+console.log('loadProfiles: fetching profiles...');
 const res=await fetch(SUPABASE_URL+'/rest/v1/profiles?select=*&order=agent_code',{
 headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+supabaseToken}
 });
-if(!res.ok)return;
+if(!res.ok){
+console.error('loadProfiles HTTP error: '+res.status);
+tb.innerHTML='<tr><td colspan="5" style="color:var(--red);padding:20px">Erreur chargement profils (HTTP '+res.status+'). Vérifiez les RLS Supabase.</td></tr>';
+return;
+}
 const profiles=await res.json();
-const tb=document.getElementById('admin-tbody');
+console.log('loadProfiles: '+profiles.length+' profils');
+if(!profiles.length){
+tb.innerHTML='<tr><td colspan="5" style="color:var(--gray-40);padding:20px">Aucun profil trouvé. Vérifiez la table profiles dans Supabase.</td></tr>';
+return;
+}
 tb.innerHTML=profiles.map(p=>{
 return '<tr><td><strong>'+esc(p.agent_code)+'</strong></td>'+
 '<td><input type="text" value="'+(p.display_name||'')+'" onchange="updateProfileField(\''+p.id+'\',\'display_name\',this.value)" style="width:160px"></td>'+
@@ -1804,7 +1861,7 @@ return '<tr><td><strong>'+esc(p.agent_code)+'</strong></td>'+
 '<td style="font-size:11px;color:var(--gray-40)">'+(p.agent_codes&&p.agent_codes.length>0?p.agent_codes.join(', '):'-')+'</td>'+
 '<td></td></tr>';
 }).join('');
-}catch(e){console.error('Load profiles error',e)}
+}catch(e){console.error('Load profiles error',e);tb.innerHTML='<tr><td colspan="5" style="color:var(--red);padding:20px">Erreur: '+esc(e.message)+'</td></tr>'}
 }
 
 async function updateProfileField(id,field,value){
@@ -1819,14 +1876,14 @@ showSaved('Profil mis à jour');
 
 // Check existing session on page load
 async function checkSession(){
-const token=sessionStorage.getItem('sb_token');
+const token=localStorage.getItem('sb_token');
 if(!token)return;
 // Verify token is still valid
 try{
 const res=await fetch(SUPABASE_URL+'/auth/v1/user',{
 headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token}
 });
-if(!res.ok){sessionStorage.removeItem('sb_token');return}
+if(!res.ok){localStorage.removeItem('sb_token');return}
 supabaseToken=token;
 // Load profile
 const payload=JSON.parse(atob(token.split('.')[1]));
@@ -1861,13 +1918,13 @@ document.getElementById('loading-screen').style.display='none';
 document.getElementById('login-screen').style.display='flex';
 }
 }catch(e){
-sessionStorage.removeItem('sb_token');
+localStorage.removeItem('sb_token');
 }
 }
 
 // Logout
 function logout(){
-sessionStorage.removeItem('sb_token');
+localStorage.removeItem('sb_token');
 sessionStorage.removeItem('sb_refresh');
 supabaseToken=null;
 document.getElementById('app-content').style.display='none';
@@ -1886,4 +1943,4 @@ checkSession();
 
 
 </body>
-</html>
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
