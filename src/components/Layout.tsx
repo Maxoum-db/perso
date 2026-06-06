@@ -17,6 +17,8 @@ const moreTabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
+  { to: '/humeur', label: 'Humeur', icon: IconSmile },
+  { to: '/habitudes', label: 'Habitudes', icon: IconRepeat },
   { to: '/taches', label: 'Tâches', icon: IconCheck },
   { to: '/mails', label: 'Mails', icon: IconMail },
   { to: '/drive', label: 'Synthèses', icon: IconFolder },
@@ -173,6 +175,24 @@ function IconGear({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    </svg>
+  )
+}
+function IconSmile({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <path d="M9 9h.01M15 9h.01" />
+    </svg>
+  )
+}
+function IconRepeat({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
     </svg>
   )
 }
