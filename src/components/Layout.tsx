@@ -15,6 +15,7 @@ const primaryTabs: Tab[] = [
 // Le menu « Plus » liste TOUTES les sections (lanceur complet).
 const moreTabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
+  { to: '/journee', label: 'Ma journée', icon: IconSun },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/humeur', label: 'Humeur', icon: IconSmile },
@@ -58,10 +59,16 @@ export function Layout({ children }: { children: ReactNode }) {
       {moreOpen ? <div className="fixed inset-0 z-20" onClick={() => setMoreOpen(false)} /> : null}
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur">
-        {/* Menu Plus */}
         {moreOpen ? (
-          <div className="mx-auto max-w-3xl border-b border-line px-2 py-2">
-            <div className="grid grid-cols-3 gap-2">
+          /* Menu déployé : on n'affiche QUE le menu complet */
+          <div className="mx-auto max-w-3xl px-2 py-2 pb-[env(safe-area-inset-bottom)]">
+            <div className="mb-1 flex items-center justify-between px-2">
+              <span className="text-xs font-bold text-muted">Toutes les sections</span>
+              <button onClick={() => setMoreOpen(false)} className="text-xs font-semibold text-copper">
+                Fermer ▾
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
               {moreTabs.map((t) => (
                 <NavLink
                   key={t.to}
@@ -69,7 +76,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   end={t.to === '/'}
                   onClick={() => setMoreOpen(false)}
                   className={({ isActive }) =>
-                    `flex flex-col items-center gap-1 rounded-xl2 py-2 text-[11px] font-semibold transition ${
+                    `flex flex-col items-center gap-1 rounded-xl2 px-1 py-2 text-center text-[10px] font-semibold leading-tight transition ${
                       isActive ? 'bg-copper/15 text-copper' : 'text-muted hover:text-ink'
                     }`
                   }
@@ -84,39 +91,39 @@ export function Layout({ children }: { children: ReactNode }) {
               ))}
             </div>
           </div>
-        ) : null}
-
-        <div className="mx-auto flex max-w-3xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
-          {primaryTabs.map((t) => (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.to === '/'}
-              onClick={() => setMoreOpen(false)}
-              className={({ isActive }) =>
-                `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition ${
-                  isActive ? 'text-copper' : 'text-muted hover:text-ink'
-                }`
-              }
+        ) : (
+          /* Barre repliée : 4 onglets principaux + Plus */
+          <div className="mx-auto flex max-w-3xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
+            {primaryTabs.map((t) => (
+              <NavLink
+                key={t.to}
+                to={t.to}
+                end={t.to === '/'}
+                className={({ isActive }) =>
+                  `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition ${
+                    isActive ? 'text-copper' : 'text-muted hover:text-ink'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <t.icon active={isActive} />
+                    {t.label}
+                  </>
+                )}
+              </NavLink>
+            ))}
+            <button
+              onClick={() => setMoreOpen(true)}
+              className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition ${
+                moreActive ? 'text-copper' : 'text-muted hover:text-ink'
+              }`}
             >
-              {({ isActive }) => (
-                <>
-                  <t.icon active={isActive} />
-                  {t.label}
-                </>
-              )}
-            </NavLink>
-          ))}
-          <button
-            onClick={() => setMoreOpen((o) => !o)}
-            className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition ${
-              moreActive || moreOpen ? 'text-copper' : 'text-muted hover:text-ink'
-            }`}
-          >
-            <IconMore active={moreActive || moreOpen} />
-            Plus
-          </button>
-        </div>
+              <IconMore active={moreActive} />
+              Plus
+            </button>
+          </div>
+        )}
       </nav>
     </div>
   )
@@ -175,6 +182,14 @@ function IconGear({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    </svg>
+  )
+}
+function IconSun({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </svg>
   )
 }
