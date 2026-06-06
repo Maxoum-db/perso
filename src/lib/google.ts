@@ -275,6 +275,50 @@ export function deleteTask(listId: string, taskId: string) {
   )
 }
 
+// ---------- Gmail ----------
+
+export interface GMessage {
+  id: string
+  from: string
+  subject: string
+  date?: string
+  snippet: string
+  unread: boolean
+}
+
+function headerVal(headers: any[], name: string): string {
+  return headers?.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || ''
+}
+
+function parseFrom(raw: string): string {
+  const m = raw.match(/^\s*"?([^"<]+?)"?\s*<.*>$/)
+  return (m ? m[1] : raw).trim() || raw
+}
+
+export async function listRecentEmails(q = 'in:inbox', max = 15): Promise<GMessage[]> {
+  const list = await googleFetch('https://gmail.googleapis.com/gmail/v1/users/me/messages', { q, maxResults: max })
+  const ids: string[] = (list.messages || []).map((m: any) => m.id)
+  const msgs = await Promise.all(
+    ids.map((id) =>
+      googleFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, { format: 'metadata' }).catch(() => null),
+    ),
+  )
+  const out: GMessage[] = []
+  for (const m of msgs) {
+    if (!m) continue
+    const headers = m.payload?.headers || []
+    out.push({
+      id: m.id,
+      from: parseFrom(headerVal(headers, 'From')),
+      subject: headerVal(headers, 'Subject') || '(sans objet)',
+      date: headerVal(headers, 'Date'),
+      snippet: (m.snippet || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"'),
+      unread: (m.labelIds || []).includes('UNREAD'),
+    })
+  }
+  return out
+}
+
 // ---------- Contacts / anniversaires (People API) ----------
 
 export interface Birthday {
