@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { fetchKv, saveKv, readKvCache } from '../lib/kv'
 import { ArmorBodyDiagram } from '../components/ArmorBodyDiagram'
@@ -62,6 +63,9 @@ export function Behourd() {
       <div>
         <h1 className="text-2xl font-extrabold text-ink">🛡️ Béhourd</h1>
         <p className="text-sm text-muted">Armure · Entraînement TANK · Calendriers dédiés</p>
+        <Link to="/carnet" className="btn-ghost mt-2 inline-flex text-xs">
+          📓 Carnet d'entraînement
+        </Link>
       </div>
 
       {/* ───────── Armure ───────── */}
