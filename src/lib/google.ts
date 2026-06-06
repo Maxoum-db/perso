@@ -122,7 +122,8 @@ async function googleWrite(path: string, method: 'POST' | 'PATCH' | 'DELETE', bo
   const token = getGoogleToken()
   if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
 
-  const res = await fetch(`https://www.googleapis.com${path}`, {
+  const url = path.startsWith('http') ? path : `https://www.googleapis.com${path}`
+  const res = await fetch(url, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -216,6 +217,92 @@ export function eventStartMs(e: GEvent): number {
 
 export function isAllDay(e: GEvent): boolean {
   return !e.start.dateTime && !!e.start.date
+}
+
+// ---------- Google Tasks ----------
+
+export interface GTaskList {
+  id: string
+  title: string
+}
+
+export interface GTask {
+  id: string
+  title: string
+  notes?: string
+  status: 'needsAction' | 'completed'
+  due?: string
+}
+
+export async function listTaskLists(): Promise<GTaskList[]> {
+  const data = await googleFetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', { maxResults: 100 })
+  return (data.items || []).map((l: any) => ({ id: l.id, title: l.title }))
+}
+
+export async function listTasks(listId: string, showCompleted = false): Promise<GTask[]> {
+  const data = await googleFetch(`https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`, {
+    showCompleted,
+    showHidden: showCompleted,
+    maxResults: 100,
+  })
+  return (data.items || []).map((t: any) => ({
+    id: t.id,
+    title: t.title || '',
+    notes: t.notes,
+    status: t.status,
+    due: t.due,
+  }))
+}
+
+export function createTask(listId: string, title: string, due?: string) {
+  const body: Record<string, unknown> = { title }
+  if (due) body.due = due
+  return googleWrite(`https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`, 'POST', body)
+}
+
+export function setTaskStatus(listId: string, taskId: string, status: 'needsAction' | 'completed') {
+  return googleWrite(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
+    'PATCH',
+    { status, completed: status === 'completed' ? new Date().toISOString() : null },
+  )
+}
+
+export function deleteTask(listId: string, taskId: string) {
+  return googleWrite(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
+    'DELETE',
+  )
+}
+
+// ---------- Contacts / anniversaires (People API) ----------
+
+export interface Birthday {
+  name: string
+  month: number
+  day: number
+  inDays: number // jours avant le prochain anniversaire
+}
+
+export async function listUpcomingBirthdays(withinDays = 60): Promise<Birthday[]> {
+  const data = await googleFetch('https://people.googleapis.com/v1/people/me/connections', {
+    personFields: 'names,birthdays',
+    pageSize: 1000,
+    sortOrder: 'FIRST_NAME_ASCENDING',
+  })
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const out: Birthday[] = []
+  for (const p of data.connections || []) {
+    const name = p.names?.[0]?.displayName
+    const bd = p.birthdays?.find((b: any) => b.date)?.date
+    if (!name || !bd || !bd.month || !bd.day) continue
+    let next = new Date(today.getFullYear(), bd.month - 1, bd.day)
+    if (next < today) next = new Date(today.getFullYear() + 1, bd.month - 1, bd.day)
+    const inDays = Math.round((next.getTime() - today.getTime()) / 86400000)
+    if (inDays <= withinDays) out.push({ name, month: bd.month, day: bd.day, inDays })
+  }
+  return out.sort((a, b) => a.inDays - b.inDays)
 }
 
 // ---------- Drive ----------
