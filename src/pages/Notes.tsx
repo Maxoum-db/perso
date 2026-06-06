@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth'
 import { useSpeech } from '../lib/useSpeech'
 import {
   NOTE_CATEGORIES,
+  backupNotesToDrive,
   categoryMeta,
   createNote,
   deleteNote,
@@ -21,6 +22,18 @@ export function Notes() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<string>('all')
   const [editor, setEditor] = useState<EditorState>(null)
+  const [backup, setBackup] = useState<{ state: 'idle' | 'saving' | 'ok' | 'err'; msg?: string }>({ state: 'idle' })
+
+  async function doBackup() {
+    if (!user) return
+    setBackup({ state: 'saving' })
+    try {
+      await backupNotesToDrive(user.id, notes)
+      setBackup({ state: 'ok', msg: 'Notes sauvegardées dans ton Drive ✓ (fichier « Aide — Sauvegarde Notes.md »)' })
+    } catch (e) {
+      setBackup({ state: 'err', msg: (e as Error).message })
+    }
+  }
 
   async function reload() {
     if (!user) return
@@ -51,10 +64,23 @@ export function Notes() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-extrabold text-ink">📝 Notes</h1>
-        <button onClick={() => setEditor({ note: null })} className="btn-primary px-4 py-2">
-          + Note
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={doBackup}
+            disabled={backup.state === 'saving' || notes.length === 0}
+            title="Sauvegarder toutes les notes dans Google Drive"
+            className="btn-ghost px-3 py-2 text-xs"
+          >
+            {backup.state === 'saving' ? '…' : '💾 Drive'}
+          </button>
+          <button onClick={() => setEditor({ note: null })} className="btn-primary px-4 py-2">
+            + Note
+          </button>
+        </div>
       </div>
+
+      {backup.state === 'ok' ? <p className="text-xs text-sage-dark">{backup.msg}</p> : null}
+      {backup.state === 'err' ? <p className="text-xs text-clay">{backup.msg}</p> : null}
 
       <input
         className="field"
