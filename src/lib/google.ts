@@ -55,9 +55,17 @@ async function googleFetch(path: string, params?: Record<string, string | number
     headers: { Authorization: `Bearer ${token}` },
   })
 
-  if (res.status === 401 || res.status === 403) {
+  // 401 = session réellement expirée -> on efface le jeton et on redemande la connexion.
+  if (res.status === 401) {
     clearGoogleToken()
-    throw new GoogleAuthError(`Accès Google refusé (${res.status})`)
+    throw new GoogleAuthError('Session Google expirée')
+  }
+  // 403 = autorisation/API manquante pour CETTE fonctionnalité. On NE touche PAS au
+  // jeton (sinon on casse les autres modules et on boucle sur la reconnexion).
+  if (res.status === 403) {
+    throw new Error(
+      "Accès refusé (403) : l'API Google correspondante n'est pas activée, ou l'autorisation n'a pas été accordée.",
+    )
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -404,9 +412,12 @@ export async function getFileText(file: DriveFile): Promise<string> {
     url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`
   }
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
     clearGoogleToken()
-    throw new GoogleAuthError(`Accès Google refusé (${res.status})`)
+    throw new GoogleAuthError('Session Google expirée')
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé (403) : autorisation Google manquante pour ce fichier.")
   }
   if (!res.ok) throw new Error(`Erreur lecture fichier ${res.status}`)
   return res.text()
@@ -469,9 +480,12 @@ export async function getFileBlobUrl(file: DriveFile): Promise<string> {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
     clearGoogleToken()
-    throw new GoogleAuthError(`Accès Google refusé (${res.status})`)
+    throw new GoogleAuthError('Session Google expirée')
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé (403) : autorisation Google manquante pour ce fichier.")
   }
   if (!res.ok) throw new Error(`Erreur média ${res.status}`)
   return URL.createObjectURL(await res.blob())
