@@ -53,7 +53,7 @@ export function Behourd() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-extrabold text-navy">🛡️ Béhourd</h1>
+        <h1 className="text-2xl font-extrabold text-ink">🛡️ Béhourd</h1>
         <p className="text-sm text-muted">Armure · Entraînement TANK · Musculation · Calendriers dédiés</p>
       </div>
 

@@ -17,7 +17,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="mx-auto flex min-h-full max-w-3xl flex-col">
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy/95 px-4 py-3 text-white backdrop-blur">
         <span className="text-lg font-extrabold tracking-tight">
-          Coua<span className="font-light text-sand">nac</span>
+          Aide
         </span>
         <div className="ml-auto flex items-center gap-3">
           {user?.user_metadata?.avatar_url ? (

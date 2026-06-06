@@ -15,10 +15,10 @@ export function Settings() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-extrabold text-navy">Réglages</h1>
+      <h1 className="text-xl font-extrabold text-ink">Réglages</h1>
 
       <section className="card p-4">
-        <h2 className="text-sm font-bold text-navy">Compte</h2>
+        <h2 className="text-sm font-bold text-ink">Compte</h2>
         <p className="mt-1 text-sm text-ink">{user?.email}</p>
         <button onClick={signOut} className="btn-ghost mt-3 text-xs">
           Se déconnecter
@@ -26,7 +26,7 @@ export function Settings() {
       </section>
 
       <section className="card p-4">
-        <h2 className="text-sm font-bold text-navy">Connexion Google</h2>
+        <h2 className="text-sm font-bold text-ink">Connexion Google</h2>
         <p className="mt-1 flex items-center gap-2 text-sm">
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
@@ -41,7 +41,7 @@ export function Settings() {
       </section>
 
       <section className="card p-4">
-        <h2 className="text-sm font-bold text-navy">Dossier de synthèses</h2>
+        <h2 className="text-sm font-bold text-ink">Dossier de synthèses</h2>
         <p className="mt-1 text-sm text-ink">
           {settings?.drive_synthese_folder_name ?? 'Aucun dossier choisi'}
         </p>
@@ -51,7 +51,7 @@ export function Settings() {
       </section>
 
       <section className="card p-4">
-        <h2 className="text-sm font-bold text-navy">Agendas affichés</h2>
+        <h2 className="text-sm font-bold text-ink">Agendas affichés</h2>
         <p className="mt-1 text-sm text-muted">
           {settings && settings.visible_calendar_ids.length > 0
             ? `${settings.visible_calendar_ids.length} agenda(s) sélectionné(s)`
@@ -62,7 +62,7 @@ export function Settings() {
         </Link>
       </section>
 
-      <p className="px-1 text-center text-xs text-muted/70">Couanac · v0.1</p>
+      <p className="px-1 text-center text-xs text-muted/70">Aide · v0.1</p>
     </div>
   )
 }

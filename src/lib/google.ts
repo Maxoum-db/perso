@@ -73,6 +73,20 @@ export interface GCalendar {
   summary: string
   primary?: boolean
   backgroundColor?: string
+  accessRole?: string
+}
+
+/** Vrai si l'utilisateur peut créer/modifier des événements dans cet agenda. */
+export function canWriteCalendar(c: GCalendar): boolean {
+  return c.accessRole === 'owner' || c.accessRole === 'writer'
+}
+
+export interface EventInput {
+  summary: string
+  location?: string
+  description?: string
+  start: { dateTime?: string; date?: string; timeZone?: string }
+  end: { dateTime?: string; date?: string; timeZone?: string }
 }
 
 export interface GEvent {
@@ -98,7 +112,56 @@ export async function listCalendars(): Promise<GCalendar[]> {
     summary: c.summaryOverride || c.summary,
     primary: c.primary,
     backgroundColor: c.backgroundColor,
+    accessRole: c.accessRole,
   }))
+}
+
+// ---------- Écriture d'événements ----------
+
+async function googleWrite(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) {
+  const token = getGoogleToken()
+  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+
+  const res = await fetch(`https://www.googleapis.com${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+
+  if (res.status === 401) {
+    clearGoogleToken()
+    throw new GoogleAuthError('Session Google expirée')
+  }
+  if (res.status === 403) {
+    throw new Error("Tu n'as pas le droit d'écrire dans cet agenda (lecture seule).")
+  }
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`Erreur Google ${res.status}: ${txt.slice(0, 200)}`)
+  }
+  return res.status === 204 ? null : res.json()
+}
+
+export function createEvent(calendarId: string, input: EventInput) {
+  return googleWrite(`/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, 'POST', input)
+}
+
+export function updateEvent(calendarId: string, eventId: string, input: EventInput) {
+  return googleWrite(
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    'PATCH',
+    input,
+  )
+}
+
+export function deleteEvent(calendarId: string, eventId: string) {
+  return googleWrite(
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    'DELETE',
+  )
 }
 
 export async function listEvents(
