@@ -27,7 +27,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col">
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy/95 px-4 py-3 text-white backdrop-blur">
-        <span className="text-lg font-extrabold tracking-tight">Aide</span>
+        <img src="/icon-192.png" alt="Aide" className="h-9 w-9 rounded-lg object-cover" />
         <div className="ml-auto flex items-center gap-3">
           {user?.user_metadata?.avatar_url ? (
             <img src={user.user_metadata.avatar_url} alt="" className="h-7 w-7 rounded-full border border-white/30" />
