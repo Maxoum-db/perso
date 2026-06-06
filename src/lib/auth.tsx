@@ -9,10 +9,16 @@ import { storeGoogleToken, clearGoogleToken } from './google'
 //                     second écran de consentement plus tard)
 //  - drive.readonly : lecture des dossiers/fichiers (synthèses NotebookLM, Plaud)
 //  - drive.file     : création/màj des fichiers créés par l'app (backup des notes)
+//  - tasks          : Google Tasks (lecture + écriture)
+//  - contacts.readonly : anniversaires & contacts
+//  - gmail.readonly : repérer les mails importants
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/contacts.readonly',
+  'https://www.googleapis.com/auth/gmail.readonly',
 ].join(' ')
 
 interface AuthState {

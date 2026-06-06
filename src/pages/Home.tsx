@@ -6,6 +6,8 @@ import {
   hasFreshGoogleToken,
   listCalendars,
   listEventsMulti,
+  listUpcomingBirthdays,
+  type Birthday,
   type GEvent,
   isAllDay,
 } from '../lib/google'
@@ -14,6 +16,7 @@ import { ReconnectGoogle } from '../components/ReconnectGoogle'
 export function Home() {
   const { user } = useAuth()
   const [events, setEvents] = useState<GEvent[] | null>(null)
+  const [birthdays, setBirthdays] = useState<Birthday[]>([])
   const [needAuth, setNeedAuth] = useState(!hasFreshGoogleToken())
   const [error, setError] = useState<string | null>(null)
 
@@ -34,6 +37,11 @@ export function Home() {
         if (e instanceof GoogleAuthError) setNeedAuth(true)
         else setError(e.message)
       })
+
+    // Anniversaires (échoue silencieusement si le scope contacts n'est pas encore accordé)
+    listUpcomingBirthdays(45)
+      .then((b) => setBirthdays(b.slice(0, 5)))
+      .catch(() => {})
   }, [])
 
   const firstName = (user?.user_metadata?.full_name || user?.email || '')
@@ -82,8 +90,25 @@ export function Home() {
         <div className="card border-clay/40 bg-clay/5 p-4 text-sm text-clay">{error}</div>
       ) : null}
 
+      {birthdays.length > 0 ? (
+        <div className="card p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">🎂 Anniversaires à venir</div>
+          <ul className="mt-2 space-y-1">
+            {birthdays.map((b, i) => (
+              <li key={i} className="flex items-baseline gap-2 text-sm">
+                <span className="w-20 shrink-0 text-xs font-semibold text-copper">
+                  {b.inDays === 0 ? "aujourd'hui" : b.inDays === 1 ? 'demain' : `dans ${b.inDays} j`}
+                </span>
+                <span className="truncate text-ink">{b.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/agenda" title="Agenda" subtitle="Tes agendas unifiés" emoji="📅" />
+        <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement" emoji="🛡️" />
         <QuickCard to="/musculation" title="Musculation" subtitle="Basic Fit · PPL" emoji="💪" />
         <QuickCard to="/drive" title="Synthèses" subtitle="NotebookLM · Plaud" emoji="📁" />
