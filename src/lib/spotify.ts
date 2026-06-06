@@ -121,7 +121,18 @@ async function api(path: string, init?: RequestInit): Promise<any> {
     throw new Error('NOT_CONNECTED')
   }
   if (res.status === 404) throw new Error('Aucun appareil Spotify actif. Ouvre Spotify sur un appareil puis réessaie.')
-  if (!res.ok) throw new Error('Erreur Spotify ' + res.status)
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const j = await res.json()
+      detail = j?.error?.message ? ' : ' + j.error.message : ''
+    } catch {
+      /* pas de corps JSON */
+    }
+    if (res.status === 403)
+      throw new Error('Action Spotify refusée' + detail + ' (Premium requis pour le contrôle de lecture).')
+    throw new Error('Erreur Spotify ' + res.status + detail)
+  }
   return res.status === 200 ? res.json().catch(() => null) : null
 }
 

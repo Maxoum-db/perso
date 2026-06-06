@@ -36,7 +36,8 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Musique />} />
+        <Route path="/accueil" element={<Home />} />
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/behourd" element={<Behourd />} />
         <Route path="/musculation" element={<Musculation />} />

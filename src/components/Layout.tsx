@@ -6,15 +6,17 @@ type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
 
 // 4 destinations principales dans la barre + le reste dans le menu « Plus »
 // (éviter une barre surchargée sur téléphone).
+// La barre : 🏠 Accueil (dashboard) à gauche, puis le player et l'essentiel.
 const primaryTabs: Tab[] = [
-  { to: '/', label: 'Accueil', icon: IconHome },
+  { to: '/accueil', label: 'Accueil', icon: IconHome },
+  { to: '/', label: 'Musique', icon: IconMusic },
+  { to: '/journee', label: 'Journée', icon: IconSun },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
-  { to: '/notes', label: 'Notes', icon: IconNote },
-  { to: '/drive', label: 'Synthèses', icon: IconFolder },
 ]
 // Le menu « Plus » liste TOUTES les sections (lanceur complet).
 const moreTabs: Tab[] = [
-  { to: '/', label: 'Accueil', icon: IconHome },
+  { to: '/accueil', label: 'Accueil', icon: IconHome },
+  { to: '/', label: 'Musique', icon: IconMusic },
   { to: '/journee', label: 'Ma journée', icon: IconSun },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
@@ -26,7 +28,6 @@ const moreTabs: Tab[] = [
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
   { to: '/musculation', label: 'Musculation', icon: IconDumbbell },
   { to: '/carnet', label: 'Carnet', icon: IconBook },
-  { to: '/musique', label: 'Musique', icon: IconMusic },
   { to: '/reglages', label: 'Réglages', icon: IconGear },
 ]
 
