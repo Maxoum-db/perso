@@ -117,6 +117,7 @@ export function Home() {
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement" emoji="🛡️" />
         <QuickCard to="/musculation" title="Musculation" subtitle="Basic Fit · PPL" emoji="💪" />
         <QuickCard to="/carnet" title="Carnet" subtitle="Poids · séances" emoji="📓" />
+        <QuickCard to="/musique" title="Musique" subtitle="Spotify 🎵" emoji="🎵" />
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
       </div>
     </div>
