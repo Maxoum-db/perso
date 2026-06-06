@@ -7,11 +7,9 @@ export function Login() {
     <div className="flex min-h-full flex-col items-center justify-center px-6">
       <div className="card w-full max-w-sm p-7 text-center">
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-navy text-2xl font-extrabold text-sand">
-          C
+          A
         </div>
-        <h1 className="text-xl font-extrabold text-navy">
-          Coua<span className="font-light">nac</span>
-        </h1>
+        <h1 className="text-xl font-extrabold text-ink">Aide</h1>
         <p className="mt-2 text-sm text-muted">
           Ton espace personnel : agenda unifié, synthèses, notes. Connecté à ton compte
           Google.

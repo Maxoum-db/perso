@@ -66,7 +66,7 @@ export function Drive() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <h1 className="text-xl font-extrabold text-navy">Synthèses</h1>
+        <h1 className="text-xl font-extrabold text-ink">Synthèses</h1>
         {folderId ? (
           <button onClick={() => setPicking(true)} className="ml-auto text-xs text-copper hover:underline">
             Changer de dossier
@@ -206,7 +206,7 @@ function FileReader({ file, onBack }: { file: DriveFile; onBack: () => void }) {
       <button onClick={onBack} className="text-sm text-copper hover:underline">
         ‹ Retour
       </button>
-      <h1 className="text-lg font-extrabold text-navy">{file.name}</h1>
+      <h1 className="text-lg font-extrabold text-ink">{file.name}</h1>
       {error ? (
         <div className="card border-clay/40 bg-clay/5 p-4 text-sm text-clay">{error}</div>
       ) : text === null ? (

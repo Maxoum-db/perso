@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Thème sombre par défaut — valeurs RGB (sans rgb()) pour les variables Tailwind */
+:root {
+  --bg: 23 19 16;
+  --navy: 15 12 10;
+  --card: 38 32 27;
+  --line: 60 51 44;
+  --ink: 240 233 224;
+  --muted: 167 154 140;
+  --copper: 198 124 58;
+  --copper-dark: 168 102 44;
+  --sage: 122 156 108;
+  --sage-dark: 143 181 131;
+  --sand: 212 160 84;
+  --clay: 200 100 100;
+  --plum: 168 134 167;
+}
+
 html,
 body,
 #root {
@@ -10,8 +27,8 @@ body,
 
 body {
   margin: 0;
-  background: theme('colors.bg');
-  color: theme('colors.ink');
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
   font-family: theme('fontFamily.sans');
   -webkit-font-smoothing: antialiased;
   /* Respecte les encoches iPhone */
@@ -33,9 +50,13 @@ body {
     @apply btn bg-copper text-white hover:bg-copper-dark;
   }
   .btn-ghost {
-    @apply btn border border-line text-muted hover:border-copper hover:text-copper bg-white;
+    @apply btn border border-line text-muted hover:border-copper hover:text-copper bg-card;
   }
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+  /* Champs de formulaire lisibles en thème sombre */
+  .field {
+    @apply w-full rounded-xl2 border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted/60 focus:border-copper focus:outline-none;
   }
 }

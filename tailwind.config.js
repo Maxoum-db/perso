@@ -1,28 +1,32 @@
 /** @type {import('tailwindcss').Config} */
+// Couleurs définies via variables CSS (voir :root dans src/index.css) pour
+// permettre un thème sombre par défaut tout en gardant les modificateurs
+// d'opacité Tailwind (ex: bg-clay/5, border-line/60).
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Palette chaleureuse reprise de l'ancien thème, adoucie
-        bg: '#faf5ef',
-        navy: '#2c2420',
-        copper: { DEFAULT: '#b87333', dark: '#9a5f2a' },
-        sage: { DEFAULT: '#6b8f5e', dark: '#4a7040' },
-        sand: '#d4a054',
-        clay: '#c45c5c',
-        plum: '#8b6b8a',
-        card: '#ffffff',
-        line: '#e0d6cc',
-        muted: '#7a6e63',
-        ink: '#3d3430',
+        bg: v('--bg'),
+        navy: v('--navy'),
+        copper: { DEFAULT: v('--copper'), dark: v('--copper-dark') },
+        sage: { DEFAULT: v('--sage'), dark: v('--sage-dark') },
+        sand: v('--sand'),
+        clay: v('--clay'),
+        plum: v('--plum'),
+        card: v('--card'),
+        line: v('--line'),
+        muted: v('--muted'),
+        ink: v('--ink'),
       },
       borderRadius: {
         xl2: '14px',
       },
       boxShadow: {
-        soft: '0 2px 10px rgba(44,36,32,.08)',
-        lift: '0 6px 24px rgba(44,36,32,.14)',
+        soft: '0 2px 10px rgba(0,0,0,.35)',
+        lift: '0 6px 24px rgba(0,0,0,.5)',
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Noto Sans', 'Helvetica', 'Arial', 'sans-serif'],

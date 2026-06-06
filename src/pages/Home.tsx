@@ -43,7 +43,7 @@ export function Home() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-navy">
+        <h1 className="text-2xl font-extrabold text-ink">
           {greeting()}{firstName ? `, ${firstName}` : ''} 👋
         </h1>
         <p className="text-sm text-muted">{prettyDate(new Date())}</p>
@@ -89,7 +89,7 @@ export function Home() {
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
         <div className="card flex flex-col justify-center p-4 opacity-60">
           <span className="text-xl">📝</span>
-          <span className="mt-1 text-sm font-bold text-navy">Notes</span>
+          <span className="mt-1 text-sm font-bold text-ink">Notes</span>
           <span className="text-xs text-muted">Bientôt (phase 2)</span>
         </div>
       </div>
@@ -111,7 +111,7 @@ function QuickCard({
   return (
     <Link to={to} className="card flex flex-col p-4 transition hover:shadow-lift">
       <span className="text-xl">{emoji}</span>
-      <span className="mt-1 text-sm font-bold text-navy">{title}</span>
+      <span className="mt-1 text-sm font-bold text-ink">{title}</span>
       <span className="text-xs text-muted">{subtitle}</span>
     </Link>
   )
