@@ -41,13 +41,14 @@ L'appli a besoin de **sa propre** connexion Google. Voici les 3 étapes. Compte 
    - Type d'application : **Application Web**.
    - **URI de redirection autorisés** → ajoute exactement :
      ```
-     https://pizuebrltwzdhlrrqpaw.supabase.co/auth/v1/callback
+     https://ajukuwrznhfsfdeejdkl.supabase.co/auth/v1/callback
      ```
    - Crée → note le **Client ID** et le **Client secret**.
 
 ### 2) Supabase — activer le fournisseur Google
 
-Dans le dashboard du projet `pizuebrltwzdhlrrqpaw` :
+Dans le dashboard du projet **dédié Hub Perso** (`ajukuwrznhfsfdeejdkl`, ex-« CRM Global » —
+pense à le renommer « Hub Perso » dans *Settings → General*) :
 
 1. **Authentication → Providers → Google** : active-le, colle le **Client ID** et le
    **Client secret** de l'étape 1, puis enregistre.
@@ -70,8 +71,8 @@ Dans le dashboard du projet `pizuebrltwzdhlrrqpaw` :
 3. **Environment Variables** → ajoute :
    | Nom | Valeur |
    |---|---|
-   | `VITE_SUPABASE_URL` | `https://pizuebrltwzdhlrrqpaw.supabase.co` |
-   | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_S3h4S7fa2_QHVkSb7ZgI2g_SYTI0TM_` |
+   | `VITE_SUPABASE_URL` | `https://ajukuwrznhfsfdeejdkl.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_QnpL8FEUaXFBpwg14kYePA_kZnY_lAS` |
 4. **Deploy**. Récupère l'URL de prod et reporte-la dans Supabase (étape 2, Site URL +
    Redirect URLs).
 
@@ -116,9 +117,9 @@ src/
     Login.tsx | Home.tsx | Agenda.tsx | Drive.tsx | Settings.tsx
 ```
 
-**Données** : table `public.perso_settings` (Supabase), protégée par RLS — chaque
-utilisateur ne voit que sa propre ligne. Isolée des tables `hub_*` / `phase1_*`
-existantes du projet.
+**Données** : projet Supabase **dédié** (`ajukuwrznhfsfdeejdkl`), totalement séparé du
+projet du Hub Prométhée. Table `public.perso_settings`, protégée par RLS — chaque
+utilisateur ne voit que sa propre ligne.
 
 ### Note technique sur le jeton Google
 
