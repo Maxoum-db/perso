@@ -281,6 +281,21 @@ export async function getFileText(file: DriveFile): Promise<string> {
   return res.text()
 }
 
+/** Télécharge un fichier (avec auth) et renvoie une URL blob lisible (audio, etc.). */
+export async function getFileBlobUrl(file: DriveFile): Promise<string> {
+  const token = getGoogleToken()
+  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401 || res.status === 403) {
+    clearGoogleToken()
+    throw new GoogleAuthError(`Accès Google refusé (${res.status})`)
+  }
+  if (!res.ok) throw new Error(`Erreur média ${res.status}`)
+  return URL.createObjectURL(await res.blob())
+}
+
 function mapFile(f: any): DriveFile {
   return {
     id: f.id,
