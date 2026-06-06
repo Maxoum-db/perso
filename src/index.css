@@ -26,6 +26,13 @@ body,
   height: 100%;
 }
 
+/* Jamais de débordement horizontal : la page tient pile dans l'écran */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   background: rgb(var(--bg));
@@ -56,8 +63,9 @@ body {
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
   }
-  /* Champs de formulaire lisibles en thème sombre */
+  /* Champs de formulaire lisibles en thème sombre.
+     min-w-0 = peut rétrécir dans un flex (évite le débordement à côté d'un bouton). */
   .field {
-    @apply w-full rounded-xl2 border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted/60 focus:border-copper focus:outline-none;
+    @apply w-full min-w-0 rounded-xl2 border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted/60 focus:border-copper focus:outline-none;
   }
 }
