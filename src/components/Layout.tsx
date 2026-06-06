@@ -1,32 +1,36 @@
-import type { ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useState, type ReactNode } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
-const tabs = [
+type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
+
+// 4 destinations principales dans la barre + le reste dans le menu « Plus »
+// (éviter une barre surchargée sur téléphone).
+const primaryTabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
-  { to: '/behourd', label: 'Béhourd', icon: IconShield },
-  { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
+  { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/drive', label: 'Synthèses', icon: IconFolder },
+]
+const moreTabs: Tab[] = [
+  { to: '/behourd', label: 'Béhourd', icon: IconShield },
+  { to: '/musculation', label: 'Musculation', icon: IconDumbbell },
   { to: '/reglages', label: 'Réglages', icon: IconGear },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
+  const location = useLocation()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreActive = moreTabs.some((t) => location.pathname.startsWith(t.to))
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col">
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy/95 px-4 py-3 text-white backdrop-blur">
-        <span className="text-lg font-extrabold tracking-tight">
-          Aide
-        </span>
+        <span className="text-lg font-extrabold tracking-tight">Aide</span>
         <div className="ml-auto flex items-center gap-3">
           {user?.user_metadata?.avatar_url ? (
-            <img
-              src={user.user_metadata.avatar_url}
-              alt=""
-              className="h-7 w-7 rounded-full border border-white/30"
-            />
+            <img src={user.user_metadata.avatar_url} alt="" className="h-7 w-7 rounded-full border border-white/30" />
           ) : null}
           <button
             onClick={signOut}
@@ -39,13 +43,44 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-card/95 backdrop-blur">
+      {/* Voile pour fermer le menu Plus en touchant ailleurs */}
+      {moreOpen ? <div className="fixed inset-0 z-20" onClick={() => setMoreOpen(false)} /> : null}
+
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur">
+        {/* Menu Plus */}
+        {moreOpen ? (
+          <div className="mx-auto max-w-3xl border-b border-line px-2 py-2">
+            <div className="grid grid-cols-3 gap-2">
+              {moreTabs.map((t) => (
+                <NavLink
+                  key={t.to}
+                  to={t.to}
+                  onClick={() => setMoreOpen(false)}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-1 rounded-xl2 py-2 text-[11px] font-semibold transition ${
+                      isActive ? 'bg-copper/15 text-copper' : 'text-muted hover:text-ink'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <t.icon active={isActive} />
+                      {t.label}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mx-auto flex max-w-3xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
-          {tabs.map((t) => (
+          {primaryTabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}
               end={t.to === '/'}
+              onClick={() => setMoreOpen(false)}
               className={({ isActive }) =>
                 `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition ${
                   isActive ? 'text-copper' : 'text-muted hover:text-ink'
@@ -60,6 +95,15 @@ export function Layout({ children }: { children: ReactNode }) {
               )}
             </NavLink>
           ))}
+          <button
+            onClick={() => setMoreOpen((o) => !o)}
+            className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition ${
+              moreActive || moreOpen ? 'text-copper' : 'text-muted hover:text-ink'
+            }`}
+          >
+            <IconMore active={moreActive || moreOpen} />
+            Plus
+          </button>
         </div>
       </nav>
     </div>
@@ -68,14 +112,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
 type IconProps = { active?: boolean }
 const stroke = (active?: boolean) => (active ? '#c87c3a' : '#a89a8d')
-
-function IconDumbbell({ active }: IconProps) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" />
-    </svg>
-  )
-}
 
 function IconHome({ active }: IconProps) {
   return (
@@ -93,10 +129,25 @@ function IconCalendar({ active }: IconProps) {
     </svg>
   )
 }
+function IconNote({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 3h10l4 4v14H5z" />
+      <path d="M14 3v5h5M8 13h8M8 17h6" />
+    </svg>
+  )
+}
 function IconShield({ active }: IconProps) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
+    </svg>
+  )
+}
+function IconDumbbell({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" />
     </svg>
   )
 }
@@ -112,6 +163,15 @@ function IconGear({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    </svg>
+  )
+}
+function IconMore({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
     </svg>
   )
 }

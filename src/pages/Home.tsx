@@ -87,12 +87,8 @@ export function Home() {
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement" emoji="🛡️" />
         <QuickCard to="/musculation" title="Musculation" subtitle="Basic Fit · PPL" emoji="💪" />
         <QuickCard to="/drive" title="Synthèses" subtitle="NotebookLM · Plaud" emoji="📁" />
+        <QuickCard to="/notes" title="Notes" subtitle="Perso · psy · dictée 🎤" emoji="📝" />
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
-        <div className="card flex flex-col justify-center p-4 opacity-60">
-          <span className="text-xl">📝</span>
-          <span className="mt-1 text-sm font-bold text-ink">Notes</span>
-          <span className="text-xs text-muted">Bientôt (phase 2)</span>
-        </div>
       </div>
     </div>
   )
