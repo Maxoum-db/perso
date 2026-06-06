@@ -84,6 +84,7 @@ export function Home() {
 
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/agenda" title="Agenda" subtitle="Tes agendas unifiés" emoji="📅" />
+        <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement" emoji="🛡️" />
         <QuickCard to="/drive" title="Synthèses" subtitle="NotebookLM · Plaud" emoji="📁" />
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
         <div className="card flex flex-col justify-center p-4 opacity-60">

@@ -6,6 +6,7 @@ import { Agenda } from './pages/Agenda'
 import { Drive } from './pages/Drive'
 import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
+import { Behourd } from './pages/Behourd'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -27,6 +28,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/agenda" element={<Agenda />} />
+        <Route path="/behourd" element={<Behourd />} />
         <Route path="/drive" element={<Drive />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />

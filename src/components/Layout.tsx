@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 const tabs = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
+  { to: '/behourd', label: 'Béhourd', icon: IconShield },
   { to: '/drive', label: 'Synthèses', icon: IconFolder },
   { to: '/reglages', label: 'Réglages', icon: IconGear },
 ]
@@ -80,6 +81,13 @@ function IconCalendar({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
       <path d="M3 9h18M8 2.5v4M16 2.5v4" />
+    </svg>
+  )
+}
+function IconShield({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
     </svg>
   )
 }

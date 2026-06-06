@@ -14,6 +14,8 @@ Site web responsive (React + Vite + Tailwind), backend Supabase, connecté à Go
   - Connexion « Se connecter avec Google »
   - Agenda unifié (jour / semaine, filtres par agenda)
   - Synthèses : lecture d'un dossier Google Drive (NotebookLM + exports Plaud)
+  - 🛡️ **Béhourd** : suivi d'armure (synchronisé), programme TANK, musculation,
+    calendriers dédiés — porté depuis le Hub Prométhée
 - **Phase 2 — Notes & dictée** 🔜
   - Notes perso, notes psy (privées), journal — stockées dans Supabase
   - Dictée vocale dans le navigateur (micro Safari iPhone → texte)
@@ -113,13 +115,17 @@ src/
   components/
     Layout.tsx        # en-tête + navigation par onglets (mobile-first)
     ReconnectGoogle.tsx
+    kv.ts         # stockage clé/valeur générique (suivi armure béhourd…)
+  data/
+    behourd.ts    # données béhourd (armure, programmes, calendriers)
   pages/
-    Login.tsx | Home.tsx | Agenda.tsx | Drive.tsx | Settings.tsx
+    Login.tsx | Home.tsx | Agenda.tsx | Behourd.tsx | Drive.tsx | Settings.tsx
 ```
 
 **Données** : projet Supabase **dédié** (`ajukuwrznhfsfdeejdkl`), totalement séparé du
-projet du Hub Prométhée. Table `public.perso_settings`, protégée par RLS — chaque
-utilisateur ne voit que sa propre ligne.
+projet du Hub Prométhée. Tables `public.perso_settings` (préférences) et
+`public.perso_kv` (état des modules, ex. armure béhourd) — protégées par RLS, chaque
+utilisateur ne voit que ses propres lignes.
 
 ### Note technique sur le jeton Google
 
