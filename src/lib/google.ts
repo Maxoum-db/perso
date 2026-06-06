@@ -281,6 +281,56 @@ export async function getFileText(file: DriveFile): Promise<string> {
   return res.text()
 }
 
+/** Crée ou met à jour un fichier texte dans Drive (scope drive.file). Renvoie son id. */
+export async function uploadDriveTextFile(opts: {
+  name: string
+  content: string
+  mimeType?: string
+  folderId?: string
+  fileId?: string
+}): Promise<string> {
+  const token = getGoogleToken()
+  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const mime = opts.mimeType || 'text/markdown'
+
+  const handle = async (res: Response) => {
+    if (res.status === 401) {
+      clearGoogleToken()
+      throw new GoogleAuthError('Session Google expirée')
+    }
+    if (res.status === 403) {
+      throw new Error('Autorisation Drive manquante — reconnecte Google (Réglages) pour activer la sauvegarde.')
+    }
+    if (res.status === 404) throw new GoogleNotFound('Fichier introuvable')
+    if (!res.ok) throw new Error(`Erreur Drive ${res.status}`)
+    return (await res.json()).id as string
+  }
+
+  if (opts.fileId) {
+    const res = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${opts.fileId}?uploadType=media&fields=id`,
+      { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': mime }, body: opts.content },
+    )
+    return handle(res)
+  }
+
+  const boundary = 'aide_' + Math.random().toString(36).slice(2)
+  const metadata: Record<string, unknown> = { name: opts.name, mimeType: mime }
+  if (opts.folderId) metadata.parents = [opts.folderId]
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: ${mime}\r\n\r\n${opts.content}\r\n--${boundary}--`
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  })
+  return handle(res)
+}
+
+/** Erreur 404 (fichier supprimé côté Drive) — permet de recréer le backup. */
+export class GoogleNotFound extends Error {}
+
 /** Télécharge un fichier (avec auth) et renvoie une URL blob lisible (audio, etc.). */
 export async function getFileBlobUrl(file: DriveFile): Promise<string> {
   const token = getGoogleToken()

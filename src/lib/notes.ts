@@ -1,4 +1,6 @@
 import { supabase } from './supabase'
+import { GoogleNotFound, uploadDriveTextFile } from './google'
+import { fetchKv, saveKv } from './kv'
 
 export interface Note {
   id: string
@@ -63,4 +65,42 @@ export async function updateNote(id: string, patch: Partial<NoteInput>): Promise
 export async function deleteNote(id: string): Promise<void> {
   const { error } = await supabase.from('perso_notes').delete().eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+// ---------- Sauvegarde vers Google Drive ----------
+
+const BACKUP_FILE_KEY = 'notes_backup_file_id'
+const BACKUP_NAME = 'Aide — Sauvegarde Notes.md'
+
+function notesToMarkdown(notes: Note[]): string {
+  const now = new Date().toLocaleString('fr-FR')
+  const lines = [`# Sauvegarde des notes — Aide`, `_Exporté le ${now} · ${notes.length} note(s)_`, '']
+  for (const n of notes) {
+    const cat = categoryMeta(n.category)
+    const date = new Date(n.updated_at).toLocaleDateString('fr-FR')
+    lines.push(`## ${n.pinned ? '📌 ' : ''}${n.title || '(sans titre)'}`)
+    lines.push(`*${cat.emoji} ${cat.label} · ${date}*`)
+    lines.push('')
+    if (n.body) lines.push(n.body)
+    lines.push('', '---', '')
+  }
+  return lines.join('\n')
+}
+
+/** Exporte toutes les notes dans un fichier Markdown du Drive (mis à jour en place). */
+export async function backupNotesToDrive(userId: string, notes: Note[]): Promise<void> {
+  const content = notesToMarkdown(notes)
+  const existing = await fetchKv<string | null>(userId, BACKUP_FILE_KEY, null)
+  let id: string
+  try {
+    id = await uploadDriveTextFile({ name: BACKUP_NAME, content, fileId: existing || undefined })
+  } catch (e) {
+    if (e instanceof GoogleNotFound) {
+      // Le fichier a été supprimé côté Drive : on en recrée un.
+      id = await uploadDriveTextFile({ name: BACKUP_NAME, content })
+    } else {
+      throw e
+    }
+  }
+  await saveKv(userId, BACKUP_FILE_KEY, id)
 }
