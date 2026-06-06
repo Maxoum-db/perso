@@ -62,7 +62,7 @@ export function Settings() {
         </Link>
       </section>
 
-      <p className="px-1 text-center text-xs text-muted/70">Hub Perso · v0.1</p>
+      <p className="px-1 text-center text-xs text-muted/70">Couanac · v0.1</p>
     </div>
   )
 }
