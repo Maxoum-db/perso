@@ -6,6 +6,7 @@ const tabs = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
+  { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/drive', label: 'Synthèses', icon: IconFolder },
   { to: '/reglages', label: 'Réglages', icon: IconGear },
 ]
@@ -66,7 +67,15 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 type IconProps = { active?: boolean }
-const stroke = (active?: boolean) => (active ? '#b87333' : '#7a6e63')
+const stroke = (active?: boolean) => (active ? '#c87c3a' : '#a89a8d')
+
+function IconDumbbell({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" />
+    </svg>
+  )
+}
 
 function IconHome({ active }: IconProps) {
   return (

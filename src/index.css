@@ -4,6 +4,7 @@
 
 /* Thème sombre par défaut — valeurs RGB (sans rgb()) pour les variables Tailwind */
 :root {
+  color-scheme: dark; /* champs natifs (date, heure, select, cases) en sombre */
   --bg: 23 19 16;
   --navy: 15 12 10;
   --card: 38 32 27;

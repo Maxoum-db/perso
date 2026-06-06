@@ -39,7 +39,7 @@ export function Agenda() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [anchor, setAnchor] = useState(() => new Date())
-  const [view, setView] = useState<ViewMode>('jour')
+  const [view, setView] = useState<ViewMode>('semaine')
   const [editor, setEditor] = useState<EditorState>(null)
   const [reload, setReload] = useState(0)
 
@@ -203,7 +203,7 @@ export function Agenda() {
             ) : (
               <ul className="space-y-2">
                 {items.map((e) => (
-                  <EventRow key={e.calendarId + e.id} e={e} onClick={() => setEditor({ event: e })} />
+                  <EventRow key={e.calendarId + e.id} e={e} day={day} onClick={() => setEditor({ event: e })} />
                 ))}
               </ul>
             )}
@@ -232,7 +232,7 @@ export function Agenda() {
   )
 }
 
-function EventRow({ e, onClick }: { e: GEvent; onClick: () => void }) {
+function EventRow({ e, day, onClick }: { e: GEvent; day: Date; onClick: () => void }) {
   return (
     <li>
       <button
@@ -242,9 +242,7 @@ function EventRow({ e, onClick }: { e: GEvent; onClick: () => void }) {
         <span className="w-1.5 shrink-0" style={{ background: e.calendarColor || 'rgb(var(--copper))' }} />
         <div className="min-w-0 flex-1 py-2.5 pr-3">
           <div className="flex items-baseline gap-2">
-            <span className="shrink-0 text-xs font-semibold text-copper">
-              {isAllDay(e) ? 'Journée' : timeRange(e)}
-            </span>
+            <span className="shrink-0 text-xs font-semibold text-copper">{eventDayLabel(e, day)}</span>
             <span className="truncate font-semibold text-ink">{e.summary || '(sans titre)'}</span>
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
@@ -283,8 +281,13 @@ function EventEditor({
   const [calendarId, setCalendarId] = useState(
     event?.calendarId ?? calendars.find((c) => c.primary)?.id ?? calendars[0]?.id ?? '',
   )
+  const initEndDate = event
+    ? format(isAllDay(event) ? eventEndDay(event) : endD ?? startD, 'yyyy-MM-dd')
+    : format(startD, 'yyyy-MM-dd')
+
   const [allDay, setAllDay] = useState(initAllDay)
   const [date, setDate] = useState(format(startD, 'yyyy-MM-dd'))
+  const [endDate, setEndDate] = useState(initEndDate)
   const [startTime, setStartTime] = useState(initAllDay ? '09:00' : format(startD, 'HH:mm'))
   const [endTime, setEndTime] = useState(endD ? format(endD, 'HH:mm') : '10:00')
   const [location, setLocation] = useState(event?.location ?? '')
@@ -293,21 +296,19 @@ function EventEditor({
   const [err, setErr] = useState<string | null>(null)
 
   function buildInput(): EventInput {
-    if (allDay) {
-      return {
-        summary: summary.trim() || '(sans titre)',
-        location: location.trim() || undefined,
-        description: description.trim() || undefined,
-        start: { date },
-        end: { date: addDayStr(date) },
-      }
-    }
-    return {
+    const lastDay = endDate < date ? date : endDate // jamais avant le début
+    const base = {
       summary: summary.trim() || '(sans titre)',
       location: location.trim() || undefined,
       description: description.trim() || undefined,
+    }
+    if (allDay) {
+      return { ...base, start: { date }, end: { date: addDayStr(lastDay) } } // fin exclusive
+    }
+    return {
+      ...base,
       start: { dateTime: new Date(`${date}T${startTime}:00`).toISOString(), timeZone: TZ },
-      end: { dateTime: new Date(`${date}T${endTime}:00`).toISOString(), timeZone: TZ },
+      end: { dateTime: new Date(`${lastDay}T${endTime}:00`).toISOString(), timeZone: TZ },
     }
   }
 
@@ -381,7 +382,16 @@ function EventEditor({
             Toute la journée
           </label>
 
-          <input className="field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-muted">
+              Début
+              <input className="field mt-0.5" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+            <label className="text-xs text-muted">
+              Fin
+              <input className="field mt-0.5" type="date" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} />
+            </label>
+          </div>
 
           {!allDay ? (
             <div className="flex items-center gap-2">
@@ -428,18 +438,39 @@ function addDayStr(dateStr: string): string {
   return format(d, 'yyyy-MM-dd')
 }
 
+/** Dernier jour réellement couvert par un événement (gère la fin exclusive des all-day). */
+function eventEndDay(e: GEvent): Date {
+  if (e.end?.dateTime) return startOfDay(new Date(e.end.dateTime))
+  if (e.end?.date) return startOfDay(new Date(new Date(e.end.date).getTime() - 1)) // fin exclusive
+  return startOfDay(new Date(e.start.dateTime || e.start.date || ''))
+}
+
+function eventStartDay(e: GEvent): Date {
+  return startOfDay(new Date(e.start.dateTime || e.start.date || ''))
+}
+
+/** Un événement multi-jours apparaît sur chaque jour qu'il couvre. */
 function groupByDay(events: GEvent[], start: Date, end: Date) {
   const days: { day: Date; items: GEvent[] }[] = []
   for (let d = startOfDay(start); d <= end; d = addDays(d, 1)) {
-    days.push({ day: new Date(d), items: [] })
-  }
-  for (const e of events) {
-    const s = new Date(e.start.dateTime || e.start.date || '')
-    const slot = days.find((x) => isSameDay(x.day, s))
-    if (slot) slot.items.push(e)
-    else if (days[0]) days[0].items.push(e) // événements multi-jours qui débordent
+    const day = new Date(d)
+    const items = events.filter((e) => {
+      const s = eventStartDay(e)
+      const en = eventEndDay(e)
+      return day >= s && day <= en
+    })
+    days.push({ day, items })
   }
   return days
+}
+
+/** Étiquette horaire selon le jour : heure le jour de début, flèche les jours suivants. */
+function eventDayLabel(e: GEvent, day: Date): string {
+  if (isAllDay(e)) {
+    return isSameDay(eventStartDay(e), eventEndDay(e)) ? 'Journée' : '◆ jour'
+  }
+  if (isSameDay(eventStartDay(e), day)) return timeRange(e)
+  return '↔'
 }
 
 function rangeLabel(start: Date, end: Date, view: ViewMode): string {
