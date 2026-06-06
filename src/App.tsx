@@ -11,6 +11,7 @@ import { Musculation } from './pages/Musculation'
 import { Notes } from './pages/Notes'
 import { Tasks } from './pages/Tasks'
 import { Mails } from './pages/Mails'
+import { Carnet } from './pages/Carnet'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/notes" element={<Notes />} />
         <Route path="/taches" element={<Tasks />} />
         <Route path="/mails" element={<Mails />} />
+        <Route path="/carnet" element={<Carnet />} />
         <Route path="/drive" element={<Drive />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
