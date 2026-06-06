@@ -143,13 +143,9 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
   }
 }
 
-export async function getRecentlyPlayed(): Promise<{ title: string; artist: string; cover?: string }[]> {
+export async function getRecentlyPlayed(): Promise<Track[]> {
   const d = await api('/me/player/recently-played?limit=20')
-  return (d?.items || []).map((i: any) => ({
-    title: i.track.name,
-    artist: (i.track.artists || []).map((a: any) => a.name).join(', '),
-    cover: i.track.album?.images?.slice(-1)[0]?.url,
-  }))
+  return (d?.items || []).map((i: any) => i.track).filter(Boolean).map(mapTrack)
 }
 
 export async function getPlaylists(): Promise<{ id: string; name: string; cover?: string; url: string }[]> {
@@ -189,6 +185,53 @@ export async function ensureActiveDevice(): Promise<string | null> {
     return devices[0].id
   }
   return null
+}
+
+export interface Track {
+  uri: string
+  name: string
+  artist: string
+  cover?: string
+}
+
+export async function searchTracks(q: string): Promise<Track[]> {
+  if (!q.trim()) return []
+  const d = await api(`/search?type=track&limit=25&q=${encodeURIComponent(q)}`)
+  return (d?.tracks?.items || []).map(mapTrack)
+}
+
+export async function getPlaylistTracks(playlistId: string): Promise<Track[]> {
+  const d = await api(
+    `/playlists/${playlistId}/tracks?limit=100&fields=${encodeURIComponent('items(track(uri,name,artists(name),album(images)))')}`,
+  )
+  return (d?.items || []).map((i: any) => i.track).filter(Boolean).map(mapTrack)
+}
+
+function mapTrack(t: any): Track {
+  return {
+    uri: t.uri,
+    name: t.name,
+    artist: (t.artists || []).map((a: any) => a.name).join(', '),
+    cover: t.album?.images?.slice(-1)[0]?.url,
+  }
+}
+
+/** Joue un ou des morceaux précis (sur l'appareil actif). */
+export async function playUris(uris: string[], deviceId?: string) {
+  const q = deviceId ? `?device_id=${deviceId}` : ''
+  return api(`/me/player/play${q}`, { method: 'PUT', body: JSON.stringify({ uris }) })
+}
+
+/** Joue un contexte (playlist/album) en démarrant éventuellement sur un titre. */
+export async function playContext(contextUri: string, offsetUri?: string, deviceId?: string) {
+  const q = deviceId ? `?device_id=${deviceId}` : ''
+  const body: Record<string, unknown> = { context_uri: contextUri }
+  if (offsetUri) body.offset = { uri: offsetUri }
+  return api(`/me/player/play${q}`, { method: 'PUT', body: JSON.stringify(body) })
+}
+
+export function setShuffle(state: boolean) {
+  return api(`/me/player/shuffle?state=${state}`, { method: 'PUT' })
 }
 
 export const spotifyPlay = () => api('/me/player/play', { method: 'PUT' })
