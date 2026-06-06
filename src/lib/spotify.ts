@@ -162,6 +162,35 @@ export async function getPlaylists(): Promise<{ id: string; name: string; cover?
   }))
 }
 
+export interface SpotifyDevice {
+  id: string
+  name: string
+  type: string
+  is_active: boolean
+}
+
+export async function getDevices(): Promise<SpotifyDevice[]> {
+  const d = await api('/me/player/devices')
+  return (d?.devices || []).map((x: any) => ({ id: x.id, name: x.name, type: x.type, is_active: x.is_active }))
+}
+
+/** Transfère (et active) la lecture sur un appareil. */
+export function transferPlayback(deviceId: string, play = true) {
+  return api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [deviceId], play }) })
+}
+
+/** Garantit un appareil actif : renvoie l'id actif, sinon transfère vers le 1er dispo. */
+export async function ensureActiveDevice(): Promise<string | null> {
+  const devices = await getDevices()
+  const active = devices.find((d) => d.is_active)
+  if (active) return active.id
+  if (devices[0]) {
+    await transferPlayback(devices[0].id, false)
+    return devices[0].id
+  }
+  return null
+}
+
 export const spotifyPlay = () => api('/me/player/play', { method: 'PUT' })
 export const spotifyPause = () => api('/me/player/pause', { method: 'PUT' })
 export const spotifyNext = () => api('/me/player/next', { method: 'POST' })

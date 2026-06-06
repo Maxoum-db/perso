@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
+  ensureActiveDevice,
+  getDevices,
   getNowPlaying,
   getPlaylists,
   getRecentlyPlayed,
@@ -11,7 +13,9 @@ import {
   spotifyPause,
   spotifyPlay,
   spotifyPrev,
+  transferPlayback,
   type NowPlaying,
+  type SpotifyDevice,
 } from '../lib/spotify'
 
 export function Musique() {
@@ -20,6 +24,7 @@ export function Musique() {
   const [now, setNow] = useState<NowPlaying | null>(null)
   const [recent, setRecent] = useState<{ title: string; artist: string; cover?: string }[]>([])
   const [playlists, setPlaylists] = useState<{ id: string; name: string; cover?: string; url: string }[]>([])
+  const [devices, setDevices] = useState<SpotifyDevice[]>([])
   const [error, setError] = useState<string | null>(null)
 
   async function refresh() {
@@ -34,6 +39,11 @@ export function Musique() {
       setError((e as Error).message)
     }
     try {
+      setDevices(await getDevices())
+    } catch {
+      /* ignore */
+    }
+    try {
       setRecent(await getRecentlyPlayed())
     } catch {
       /* ignore */
@@ -45,6 +55,35 @@ export function Musique() {
     }
   }
 
+  async function activate(deviceId: string) {
+    setError(null)
+    try {
+      await transferPlayback(deviceId, false)
+      setTimeout(refresh, 600)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function togglePlay() {
+    setError(null)
+    try {
+      if (now?.isPlaying) {
+        await spotifyPause()
+      } else {
+        const id = await ensureActiveDevice()
+        if (!id) {
+          setError('Ouvre Spotify sur un appareil (tél/PC) puis choisis-le ci-dessous.')
+          return
+        }
+        await spotifyPlay()
+      }
+      setTimeout(refresh, 500)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   useEffect(() => {
     if (connected) refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,6 +92,7 @@ export function Musique() {
   async function control(fn: () => Promise<unknown>) {
     setError(null)
     try {
+      await ensureActiveDevice()
       await fn()
       setTimeout(refresh, 400)
     } catch (e) {
@@ -117,12 +157,40 @@ export function Musique() {
         )}
         <div className="mt-3 flex items-center justify-center gap-4">
           <button onClick={() => control(spotifyPrev)} className="text-2xl">⏮️</button>
-          <button onClick={() => control(now?.isPlaying ? spotifyPause : spotifyPlay)} className="text-3xl">
+          <button onClick={togglePlay} className="text-3xl">
             {now?.isPlaying ? '⏸️' : '▶️'}
           </button>
           <button onClick={() => control(spotifyNext)} className="text-2xl">⏭️</button>
           <button onClick={refresh} className="ml-2 text-sm text-copper">↻</button>
         </div>
+      </section>
+
+      {/* Appareils */}
+      <section className="card p-4">
+        <h2 className="mb-2 text-sm font-extrabold text-ink">📱 Appareils</h2>
+        {devices.length === 0 ? (
+          <p className="text-xs text-muted">
+            Aucun appareil détecté. Ouvre Spotify sur ton tél/PC et <b>lance une musique</b> (ou touche ↻), puis
+            choisis-le ici.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {devices.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => activate(d.id)}
+                className="chip border transition"
+                style={{
+                  borderColor: d.is_active ? 'rgb(var(--sage))' : 'rgb(var(--line))',
+                  background: d.is_active ? 'rgb(var(--sage) / .25)' : 'transparent',
+                  color: 'rgb(var(--ink))',
+                }}
+              >
+                {d.is_active ? '🔊' : '📱'} {d.name}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Playlists */}
