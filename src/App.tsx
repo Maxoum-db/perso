@@ -12,6 +12,8 @@ import { Notes } from './pages/Notes'
 import { Tasks } from './pages/Tasks'
 import { Mails } from './pages/Mails'
 import { Carnet } from './pages/Carnet'
+import { Humeur } from './pages/Humeur'
+import { Habitudes } from './pages/Habitudes'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/taches" element={<Tasks />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/carnet" element={<Carnet />} />
+        <Route path="/humeur" element={<Humeur />} />
+        <Route path="/habitudes" element={<Habitudes />} />
         <Route path="/drive" element={<Drive />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
