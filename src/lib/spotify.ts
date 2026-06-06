@@ -1,7 +1,9 @@
 // Connexion Spotify via OAuth PKCE (client public, sans secret).
 // Le Client ID vient de VITE_SPOTIFY_CLIENT_ID (app créée sur le dashboard Spotify).
 
-const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
+// Client ID public (PKCE) — exposé côté navigateur de toute façon. Surchargeable par env.
+const CLIENT_ID =
+  (import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined) || '3f1cd585e62d4562bb71015ee367852d'
 const SCOPES = [
   'user-read-currently-playing',
   'user-read-playback-state',
