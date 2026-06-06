@@ -12,9 +12,14 @@ const primaryTabs: Tab[] = [
   { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/drive', label: 'Synthèses', icon: IconFolder },
 ]
+// Le menu « Plus » liste TOUTES les sections (lanceur complet).
 const moreTabs: Tab[] = [
+  { to: '/', label: 'Accueil', icon: IconHome },
+  { to: '/agenda', label: 'Agenda', icon: IconCalendar },
+  { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/taches', label: 'Tâches', icon: IconCheck },
   { to: '/mails', label: 'Mails', icon: IconMail },
+  { to: '/drive', label: 'Synthèses', icon: IconFolder },
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
   { to: '/musculation', label: 'Musculation', icon: IconDumbbell },
   { to: '/carnet', label: 'Carnet', icon: IconBook },
@@ -25,7 +30,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
-  const moreActive = moreTabs.some((t) => location.pathname.startsWith(t.to))
+  const primaryPaths = primaryTabs.map((t) => t.to)
+  const moreActive = !primaryPaths.includes(location.pathname)
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col">
@@ -58,6 +64,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <NavLink
                   key={t.to}
                   to={t.to}
+                  end={t.to === '/'}
                   onClick={() => setMoreOpen(false)}
                   className={({ isActive }) =>
                     `flex flex-col items-center gap-1 rounded-xl2 py-2 text-[11px] font-semibold transition ${
