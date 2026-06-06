@@ -10,6 +10,7 @@ import { Behourd } from './pages/Behourd'
 import { Musculation } from './pages/Musculation'
 import { Notes } from './pages/Notes'
 import { Tasks } from './pages/Tasks'
+import { Mails } from './pages/Mails'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/musculation" element={<Musculation />} />
         <Route path="/notes" element={<Notes />} />
         <Route path="/taches" element={<Tasks />} />
+        <Route path="/mails" element={<Mails />} />
         <Route path="/drive" element={<Drive />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
