@@ -207,13 +207,13 @@ export interface Track {
 
 export async function searchTracks(q: string): Promise<Track[]> {
   if (!q.trim()) return []
-  const d = await api(`/search?type=track&limit=25&q=${encodeURIComponent(q)}`)
+  const d = await api(`/search?type=track&limit=20&q=${encodeURIComponent(q)}`)
   return (d?.tracks?.items || []).map(mapTrack)
 }
 
 export async function getPlaylistTracks(playlistId: string): Promise<Track[]> {
   const d = await api(
-    `/playlists/${playlistId}/tracks?limit=100&fields=${encodeURIComponent('items(track(uri,name,artists(name),album(images)))')}`,
+    `/playlists/${playlistId}/tracks?limit=50&fields=${encodeURIComponent('items(track(uri,name,artists(name),album(images)))')}`,
   )
   return (d?.items || []).map((i: any) => i.track).filter(Boolean).map(mapTrack)
 }
