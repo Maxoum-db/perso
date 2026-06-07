@@ -5,19 +5,25 @@ import {
   GoogleAuthError,
   hasFreshGoogleToken,
   listCalendars,
+  listDueTasks,
   listEventsMulti,
   listUpcomingBirthdays,
+  setTaskStatus,
   type Birthday,
+  type DueTask,
   type GEvent,
   isAllDay,
 } from '../lib/google'
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 import { BREW_STATUSES, listBrews, type Brew } from '../lib/brews'
+import { getMySpace, listSharedEvents, type SharedEvent } from '../lib/space'
 
 export function Home() {
   const { user } = useAuth()
   const [events, setEvents] = useState<GEvent[] | null>(null)
   const [birthdays, setBirthdays] = useState<Birthday[]>([])
+  const [tasks, setTasks] = useState<DueTask[]>([])
+  const [coupleEvents, setCoupleEvents] = useState<SharedEvent[]>([])
   const [needAuth, setNeedAuth] = useState(!hasFreshGoogleToken())
   const [error, setError] = useState<string | null>(null)
   const [brews, setBrews] = useState<Brew[]>([])
@@ -26,6 +32,14 @@ export function Home() {
     if (!user) return
     listBrews(user.id)
       .then(setBrews)
+      .catch(() => {})
+    // Prochains événements du couple (espace partagé).
+    getMySpace()
+      .then((s) => (s ? listSharedEvents(s.spaceId) : []))
+      .then((evs) => {
+        const todayStr = new Date().toLocaleDateString('en-CA')
+        setCoupleEvents(evs.filter((e) => e.date >= todayStr).slice(0, 3))
+      })
       .catch(() => {})
   }, [user])
 
@@ -51,7 +65,22 @@ export function Home() {
     listUpcomingBirthdays(45)
       .then((b) => setBirthdays(b.slice(0, 5)))
       .catch(() => {})
+
+    // Tâches échues (en retard + aujourd'hui)
+    listDueTasks()
+      .then(setTasks)
+      .catch(() => {})
   }, [])
+
+  async function completeTask(t: DueTask) {
+    setTasks((prev) => prev.filter((x) => !(x.id === t.id && x.listId === t.listId)))
+    try {
+      await setTaskStatus(t.listId, t.id, 'completed')
+    } catch {
+      // en cas d'échec, on recharge pour refléter l'état réel
+      listDueTasks().then(setTasks).catch(() => {})
+    }
+  }
 
   const firstName = (user?.user_metadata?.full_name || user?.email || '')
     .toString()
@@ -95,6 +124,34 @@ export function Home() {
         </Link>
       )}
 
+      {tasks.length > 0 ? (
+        <div className="card p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">✅ À faire</div>
+            <Link to="/taches" className="text-xs font-semibold text-copper">
+              Tout voir
+            </Link>
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {tasks.slice(0, 5).map((t) => {
+              const overdue = t.due!.slice(0, 10) < new Date().toLocaleDateString('en-CA')
+              return (
+                <li key={t.listId + t.id} className="flex items-center gap-2 text-sm">
+                  <button onClick={() => completeTask(t)} className="shrink-0 text-lg leading-none" title="Marquer comme fait">
+                    ⬜
+                  </button>
+                  <span className="truncate text-ink">{t.title}</span>
+                  <span className={`ml-auto shrink-0 text-xs ${overdue ? 'font-semibold text-clay' : 'text-copper'}`}>
+                    {overdue ? 'en retard' : "aujourd'hui"}
+                  </span>
+                </li>
+              )
+            })}
+            {tasks.length > 5 ? <li className="text-xs text-muted">+ {tasks.length - 5} autre(s)…</li> : null}
+          </ul>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="card border-clay/40 bg-clay/5 p-4 text-sm text-clay">{error}</div>
       ) : null}
@@ -115,12 +172,30 @@ export function Home() {
         </div>
       ) : null}
 
+      {coupleEvents.length > 0 ? (
+        <Link to="/partage" className="card block p-4 transition hover:shadow-lift">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">💕 À deux — à venir</div>
+          <ul className="mt-2 space-y-1.5">
+            {coupleEvents.map((e) => (
+              <li key={e.id} className="flex items-baseline gap-3 text-sm">
+                <span className="w-20 shrink-0 text-xs font-semibold text-copper">
+                  {new Date(e.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {e.time ? ` ${e.time}` : ''}
+                </span>
+                <span className="truncate text-ink">{e.title}</span>
+              </li>
+            ))}
+          </ul>
+        </Link>
+      ) : null}
+
       <BrassageCard brews={brews} />
 
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/notes" title="Notes" subtitle="Notes · humeur · synthèses" emoji="📝" />
         <QuickCard to="/listes" title="Listes" subtitle="Courses · à cocher ✅" emoji="🛒" />
         <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />
+        <QuickCard to="/partage" title="À deux" subtitle="Listes · mots · agenda 💕" emoji="💕" />
         <QuickCard to="/mails" title="Mails" subtitle="Gmail" emoji="📧" />
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · muscu · carnet" emoji="🛡️" />
         <QuickCard to="/brassage" title="Brassage" subtitle="Brassins · recettes 🍺" emoji="🍺" />
