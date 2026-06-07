@@ -9,11 +9,14 @@ import {
   getFileText,
   hasFreshGoogleToken,
   listFilesInFolder,
+  searchDriveText,
   searchFolders,
+  uploadDriveTextFile,
   type DriveFile,
 } from '../lib/google'
 import { fetchSettings, saveSettings, readCachedSettings } from '../lib/settings'
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
+import { useSpeech } from '../lib/useSpeech'
 
 type Crumb = { id: string; name: string }
 
@@ -32,6 +35,10 @@ export function Drive() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [openFile, setOpenFile] = useState<DriveFile | null>(null)
+  const [textQuery, setTextQuery] = useState('')
+  const [textResults, setTextResults] = useState<DriveFile[] | null>(null)
+  const [textBusy, setTextBusy] = useState(false)
+  const [voiceOpen, setVoiceOpen] = useState(false)
 
   const current = path[path.length - 1] ?? null
 
@@ -62,6 +69,22 @@ export function Drive() {
         else setError((e as Error).message)
       })
   }, [current?.id, needAuth])
+
+  useEffect(() => {
+    const q = textQuery.trim()
+    if (q.length < 2) {
+      setTextResults(null)
+      return
+    }
+    setTextBusy(true)
+    const t = setTimeout(() => {
+      searchDriveText(q)
+        .then(setTextResults)
+        .catch(() => setTextResults([]))
+        .finally(() => setTextBusy(false))
+    }, 350)
+    return () => clearTimeout(t)
+  }, [textQuery])
 
   async function chooseRoot(f: DriveFile) {
     setRootId(f.id)
@@ -117,7 +140,69 @@ export function Drive() {
             sous-dossiers, tu peux naviguer dedans).
           </p>
 
-          <input className="field" placeholder="Rechercher dans ce dossier…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          {/* Recherche plein-texte (contenu, tout le Drive) + capture vocale */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                className="field"
+                placeholder="🔎 Rechercher dans le contenu (tout le Drive)…"
+                value={textQuery}
+                onChange={(e) => setTextQuery(e.target.value)}
+              />
+              <button
+                onClick={() => setVoiceOpen((v) => !v)}
+                className="btn-ghost shrink-0 px-3"
+                title="Note vocale enregistrée dans Drive"
+              >
+                🎙️
+              </button>
+            </div>
+
+            {voiceOpen ? (
+              <VoiceCapture
+                folderId={rootId}
+                onClose={() => setVoiceOpen(false)}
+                onSaved={() => {
+                  setVoiceOpen(false)
+                  if (current) listFilesInFolder(current.id).then(setItems).catch(() => {})
+                }}
+              />
+            ) : null}
+
+            {textQuery.trim().length >= 2 ? (
+              <div className="card p-3">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                  🔎 Résultats sur le contenu
+                </div>
+                {textBusy ? (
+                  <div className="animate-pulse text-sm text-muted">Recherche…</div>
+                ) : !textResults || textResults.length === 0 ? (
+                  <div className="text-sm text-muted">Aucun fichier ne contient « {textQuery.trim()} ».</div>
+                ) : (
+                  <div className="space-y-2">
+                    {textResults.map((f) => (
+                      <div key={f.id} className="flex items-center gap-3">
+                        <span className="text-lg">{fileEmoji(f.mimeType)}</span>
+                        <div className="min-w-0 flex-1 truncate text-sm text-ink">{f.name}</div>
+                        {isReadable(f.mimeType) ? (
+                          <button onClick={() => setOpenFile(f)} className="btn-ghost px-3 py-1.5 text-xs">
+                            Lire
+                          </button>
+                        ) : null}
+                        {f.webViewLink ? (
+                          <a href={f.webViewLink} target="_blank" rel="noreferrer" className="btn-ghost px-3 py-1.5 text-xs">
+                            Ouvrir
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <input className="field" placeholder="Filtrer ce dossier par nom…" value={query} onChange={(e) => setQuery(e.target.value)} />
 
           {error ? <div className="card border-clay/40 bg-clay/5 p-4 text-sm text-clay">{error}</div> : null}
 
@@ -166,6 +251,75 @@ export function Drive() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function VoiceCapture({
+  folderId,
+  onSaved,
+  onClose,
+}: {
+  folderId: string | null
+  onSaved: () => void
+  onClose: () => void
+}) {
+  const [text, setText] = useState('')
+  const [title, setTitle] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { supported, listening, start, stop } = useSpeech((t) => setText((prev) => (prev ? prev + ' ' : '') + t))
+
+  async function save() {
+    if (!text.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      const now = new Date()
+      const stamp = now.toISOString().slice(0, 16).replace('T', ' ')
+      const name = `${(title.trim() || 'Note vocale')} — ${stamp}.md`
+      const body = `# ${title.trim() || 'Note vocale'}\n\n_${now.toLocaleString('fr-FR')}_\n\n${text.trim()}\n`
+      await uploadDriveTextFile({ name, content: body, folderId: folderId ?? undefined })
+      onSaved()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="card space-y-2 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-ink">🎙️ Note vocale → Drive</span>
+        <button onClick={onClose} className="text-xs text-muted hover:underline">
+          Fermer
+        </button>
+      </div>
+      <input className="field" placeholder="Titre (optionnel)" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <textarea
+        className="field"
+        rows={4}
+        placeholder="Dicte ou écris ta note…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      {error ? <div className="text-xs text-clay">{error}</div> : null}
+      <div className="flex items-center gap-2">
+        {supported ? (
+          <button
+            onClick={listening ? stop : start}
+            className={`btn-ghost px-3 py-2 text-sm ${listening ? 'text-clay' : 'text-copper'}`}
+          >
+            {listening ? '■ Stop' : '🎤 Dicter'}
+          </button>
+        ) : (
+          <span className="text-[11px] text-muted">Sur iPhone, utilise le 🎤 du clavier.</span>
+        )}
+        <button onClick={save} disabled={saving || !text.trim()} className="btn-primary ml-auto px-4 py-2 text-sm">
+          {saving ? 'Enregistrement…' : 'Enregistrer dans Drive'}
+        </button>
+      </div>
     </div>
   )
 }
