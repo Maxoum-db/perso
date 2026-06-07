@@ -482,6 +482,19 @@ export async function searchFolders(query: string): Promise<DriveFile[]> {
   return (data.files || []).map(mapFile)
 }
 
+/** Recherche plein-texte dans le contenu des fichiers Drive (côté Google, gratuit). */
+export async function searchDriveText(query: string): Promise<DriveFile[]> {
+  const safe = query.replace(/'/g, "\\'")
+  const data = await googleFetch('/drive/v3/files', {
+    q: `fullText contains '${safe}' and trashed = false`,
+    fields: 'files(id,name,mimeType,modifiedTime,webViewLink,iconLink,size)',
+    pageSize: 50,
+    orderBy: 'modifiedTime desc',
+    spaces: 'drive',
+  })
+  return (data.files || []).map(mapFile)
+}
+
 export async function listFilesInFolder(folderId: string): Promise<DriveFile[]> {
   const data = await googleFetch('/drive/v3/files', {
     q: `'${folderId}' in parents and trashed = false`,
