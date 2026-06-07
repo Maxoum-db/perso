@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { useSpeech } from '../lib/useSpeech'
+import { SubTabs } from '../components/SubTabs'
+import { Humeur } from './Humeur'
+import { Drive } from './Drive'
 import {
   NOTE_CATEGORIES,
   backupNotesToDrive,
@@ -14,7 +17,26 @@ import {
 
 type EditorState = { note: Note | null } | null
 
+// Hub Notes : notes écrites + journal d'humeur (Psy) + synthèses Drive.
 export function Notes() {
+  const [tab, setTab] = useState<'notes' | 'humeur' | 'syntheses'>('notes')
+  return (
+    <div className="space-y-4">
+      <SubTabs
+        tabs={[
+          { id: 'notes', label: '📝 Notes' },
+          { id: 'humeur', label: '😊 Humeur' },
+          { id: 'syntheses', label: '📁 Synthèses' },
+        ]}
+        active={tab}
+        onChange={(id) => setTab(id as typeof tab)}
+      />
+      {tab === 'notes' ? <NotesBoard /> : tab === 'humeur' ? <Humeur /> : <Drive />}
+    </div>
+  )
+}
+
+function NotesBoard() {
   const { user } = useAuth()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)

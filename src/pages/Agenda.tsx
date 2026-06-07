@@ -26,11 +26,31 @@ import {
 } from '../lib/google'
 import { fetchSettings, saveSettings } from '../lib/settings'
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
+import { SubTabs } from '../components/SubTabs'
+import { Journee } from './Journee'
 
 type ViewMode = 'jour' | 'semaine'
 type EditorState = { event: GEvent | null } | null
 
+// Hub Agenda : « Ma journée » (résumé + tâches du jour) et le calendrier complet.
 export function Agenda() {
+  const [tab, setTab] = useState<'journee' | 'calendrier'>('journee')
+  return (
+    <div className="space-y-4">
+      <SubTabs
+        tabs={[
+          { id: 'journee', label: '🗓️ Ma journée' },
+          { id: 'calendrier', label: '📅 Calendrier' },
+        ]}
+        active={tab}
+        onChange={(id) => setTab(id as typeof tab)}
+      />
+      {tab === 'journee' ? <Journee /> : <AgendaCalendar />}
+    </div>
+  )
+}
+
+function AgendaCalendar() {
   const { user } = useAuth()
   const [needAuth, setNeedAuth] = useState(!hasFreshGoogleToken())
   const [calendars, setCalendars] = useState<GCalendar[]>([])

@@ -15,7 +15,6 @@ import {
   type GEvent,
   type GTask,
 } from '../lib/google'
-import { listHabitsWithState, toggleHabitToday, type HabitWithState } from '../lib/habits'
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 
 export function Journee() {
@@ -24,7 +23,6 @@ export function Journee() {
   const [events, setEvents] = useState<GEvent[] | null>(null)
   const [tasks, setTasks] = useState<GTask[]>([])
   const [taskListId, setTaskListId] = useState('')
-  const [habits, setHabits] = useState<HabitWithState[]>([])
   const [newTask, setNewTask] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -57,14 +55,6 @@ export function Journee() {
     } catch {
       /* Tasks API peut-être pas activée — on n'empêche pas le reste */
     }
-
-    if (user) {
-      try {
-        setHabits(await listHabitsWithState(user.id))
-      } catch {
-        /* ignore */
-      }
-    }
   }
 
   useEffect(() => {
@@ -86,16 +76,6 @@ export function Journee() {
       await setTaskStatus(taskListId, task.id, 'completed')
     } catch {
       setTasks(await listTasks(taskListId, false))
-    }
-  }
-
-  async function toggleHabit(h: HabitWithState) {
-    if (!user) return
-    setHabits((prev) => prev.map((x) => (x.id === h.id ? { ...x, doneToday: !x.doneToday } : x)))
-    try {
-      await toggleHabitToday(user.id, h.id, !h.doneToday)
-    } catch {
-      setHabits(await listHabitsWithState(user.id))
     }
   }
 
@@ -160,28 +140,6 @@ export function Journee() {
         )}
       </section>
 
-      {/* Habitudes */}
-      {habits.length > 0 ? (
-        <section className="card p-4">
-          <h2 className="mb-2 text-sm font-extrabold text-ink">🔁 Habitudes</h2>
-          <div className="flex flex-wrap gap-2">
-            {habits.map((h) => (
-              <button
-                key={h.id}
-                onClick={() => toggleHabit(h)}
-                className="chip border transition"
-                style={{
-                  borderColor: h.doneToday ? 'rgb(var(--sage))' : 'rgb(var(--line))',
-                  background: h.doneToday ? 'rgb(var(--sage) / .25)' : 'transparent',
-                  color: 'rgb(var(--ink))',
-                }}
-              >
-                {h.doneToday ? '✓' : h.emoji} {h.name}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   )
 }

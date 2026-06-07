@@ -107,17 +107,12 @@ export function Home() {
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">
-        <QuickCard to="/journee" title="Ma journée" subtitle="Agenda + tâches + habitudes" emoji="🗓️" />
-        <QuickCard to="/notes" title="Notes" subtitle="Perso · psy · dictée 🎤" emoji="📝" />
+        <QuickCard to="/agenda" title="Agenda" subtitle="Ma journée · calendrier 🗓️" emoji="📅" />
+        <QuickCard to="/notes" title="Notes" subtitle="Notes · humeur · synthèses" emoji="📝" />
         <QuickCard to="/listes" title="Listes" subtitle="Courses · à cocher ✅" emoji="🛒" />
-        <QuickCard to="/humeur" title="Humeur" subtitle="Journal du jour" emoji="😊" />
-        <QuickCard to="/habitudes" title="Habitudes" subtitle="Séries 🔥" emoji="🔁" />
         <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />
         <QuickCard to="/mails" title="Mails" subtitle="Gmail" emoji="📧" />
-        <QuickCard to="/drive" title="Synthèses" subtitle="NotebookLM · Plaud" emoji="📁" />
-        <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement" emoji="🛡️" />
-        <QuickCard to="/musculation" title="Musculation" subtitle="Basic Fit · PPL" emoji="💪" />
-        <QuickCard to="/carnet" title="Carnet" subtitle="Poids · séances" emoji="📓" />
+        <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · muscu · carnet" emoji="🛡️" />
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
       </div>
     </div>

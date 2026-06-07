@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { fetchKv, saveKv, readKvCache } from '../lib/kv'
 import { ArmorBodyDiagram } from '../components/ArmorBodyDiagram'
+import { SubTabs } from '../components/SubTabs'
+import { Musculation } from './Musculation'
+import { Carnet } from './Carnet'
 import {
   Section,
   Stat,
@@ -27,7 +29,26 @@ function freshArmor(): ArmorPiece[] {
   return ARMOR_PIECES_TEMPLATE.map((p) => ({ ...p, owned: false, weight_actual_kg: p.typical_weight_kg, notes_user: '' }))
 }
 
+// Hub Béhourd : guide armure/entraînement + module Musculation + Carnet d'entraînement.
 export function Behourd() {
+  const [tab, setTab] = useState<'behourd' | 'muscu' | 'carnet'>('behourd')
+  return (
+    <div className="space-y-4">
+      <SubTabs
+        tabs={[
+          { id: 'behourd', label: '🛡️ Béhourd' },
+          { id: 'muscu', label: '💪 Musculation' },
+          { id: 'carnet', label: '📓 Carnet' },
+        ]}
+        active={tab}
+        onChange={(id) => setTab(id as typeof tab)}
+      />
+      {tab === 'behourd' ? <BehourdGuide /> : tab === 'muscu' ? <Musculation /> : <Carnet />}
+    </div>
+  )
+}
+
+function BehourdGuide() {
   const { user } = useAuth()
   const [armor, setArmor] = useState<ArmorPiece[]>(() => readKvCache<ArmorPiece[]>(ARMOR_KEY, freshArmor()))
   const [loaded, setLoaded] = useState(false)
@@ -63,9 +84,6 @@ export function Behourd() {
       <div>
         <h1 className="text-2xl font-extrabold text-ink">🛡️ Béhourd</h1>
         <p className="text-sm text-muted">Armure · Entraînement TANK · Calendriers dédiés</p>
-        <Link to="/carnet" className="btn-ghost mt-2 inline-flex text-xs">
-          📓 Carnet d'entraînement
-        </Link>
       </div>
 
       {/* ───────── Armure ───────── */}

@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { Section, ExerciseTable, InfoBox } from '../components/training-ui'
 import { MUSCU_PROGRAM } from '../data/behourd'
 
@@ -12,10 +11,6 @@ export function Musculation() {
         <h1 className="text-2xl font-extrabold text-ink">💪 Musculation</h1>
         <p className="text-sm text-muted">Basic Fit · Push / Pull / Legs / Core</p>
       </div>
-
-      <Link to="/carnet" className="btn-ghost inline-flex text-xs">
-        📓 Carnet d'entraînement
-      </Link>
 
       <p className="text-xs italic text-muted">
         Split classique 3-4 jours/semaine optimisé pour Basic Fit (équipement standard). Adapté préparation
