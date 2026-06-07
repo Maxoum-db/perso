@@ -37,9 +37,11 @@ export function Listes() {
   }, [user])
 
   async function addList() {
-    const t = newListTitle.trim()
-    if (!t || !user) return
+    if (!user) return
+    // Le + crée toujours une liste, même sans nom (renommable ensuite).
+    const t = newListTitle.trim() || 'Ma liste'
     setNewListTitle('')
+    setError(null)
     try {
       const l = await createListe(user.id, t)
       await reloadLists()
