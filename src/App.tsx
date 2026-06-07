@@ -9,6 +9,7 @@ import { Home } from './pages/Home'
 import { Behourd } from './pages/Behourd'
 import { Musculation } from './pages/Musculation'
 import { Notes } from './pages/Notes'
+import { Listes } from './pages/Listes'
 import { Tasks } from './pages/Tasks'
 import { Mails } from './pages/Mails'
 import { Carnet } from './pages/Carnet'
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/behourd" element={<Behourd />} />
         <Route path="/musculation" element={<Musculation />} />
         <Route path="/notes" element={<Notes />} />
+        <Route path="/listes" element={<Listes />} />
         <Route path="/taches" element={<Tasks />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/carnet" element={<Carnet />} />

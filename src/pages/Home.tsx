@@ -109,6 +109,7 @@ export function Home() {
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/journee" title="Ma journée" subtitle="Agenda + tâches + habitudes" emoji="🗓️" />
         <QuickCard to="/notes" title="Notes" subtitle="Perso · psy · dictée 🎤" emoji="📝" />
+        <QuickCard to="/listes" title="Listes" subtitle="Courses · à cocher ✅" emoji="🛒" />
         <QuickCard to="/humeur" title="Humeur" subtitle="Journal du jour" emoji="😊" />
         <QuickCard to="/habitudes" title="Habitudes" subtitle="Séries 🔥" emoji="🔁" />
         <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />

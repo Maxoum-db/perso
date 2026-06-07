@@ -19,6 +19,7 @@ const moreTabs: Tab[] = [
   { to: '/journee', label: 'Ma journée', icon: IconSun },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
+  { to: '/listes', label: 'Listes', icon: IconList },
   { to: '/humeur', label: 'Humeur', icon: IconSmile },
   { to: '/habitudes', label: 'Habitudes', icon: IconRepeat },
   { to: '/taches', label: 'Tâches', icon: IconCheck },
@@ -232,6 +233,14 @@ function IconCheck({ active }: IconProps) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 12.5 9 17.5 20 6.5" />
+    </svg>
+  )
+}
+function IconList({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 6h13M8 12h13M8 18h13" />
+      <path d="M3 6h.01M3 12h.01M3 18h.01" />
     </svg>
   )
 }
