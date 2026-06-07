@@ -69,3 +69,15 @@ body {
     @apply w-full min-w-0 rounded-xl2 border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted/60 focus:border-copper focus:outline-none;
   }
 }
+
+/* iOS Safari zoome automatiquement sur un champ dont la police fait < 16px,
+   et ne dézoome pas ensuite (page tronquée). On force donc 16px sur les
+   contrôles de formulaire sur petit écran. Hors @layer pour primer sur les
+   utilitaires Tailwind (text-sm/text-xs) sans !important. */
+@media (max-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
