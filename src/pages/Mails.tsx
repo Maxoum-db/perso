@@ -92,7 +92,11 @@ export function Mails() {
         ))}
       </div>
 
-      {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
+      {error ? (
+        <div className="card whitespace-pre-line break-words border-clay/40 bg-clay/5 p-3 text-sm text-clay">
+          {error}
+        </div>
+      ) : null}
       {mails === null && !error ? <div className="animate-pulse text-sm text-muted">Chargement…</div> : null}
       {mails && mails.length === 0 ? <div className="card p-6 text-center text-sm text-muted">Aucun mail. 📭</div> : null}
 
