@@ -20,6 +20,7 @@ const moreTabs: Tab[] = [
   { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/listes', label: 'Listes', icon: IconList },
   { to: '/taches', label: 'Tâches', icon: IconCheck },
+  { to: '/partage', label: 'À deux', icon: IconHeart },
   { to: '/mails', label: 'Mails', icon: IconMail },
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
@@ -197,6 +198,13 @@ function IconBeer({ active }: IconProps) {
       <path d="M6 8h9v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8Z" />
       <path d="M15 10h2.5a2.5 2.5 0 0 1 0 5H15" />
       <path d="M8 8c0-1.5-1-2-1-3.2C7 3.4 8 3 9 3M11.5 8c0-1.5-1-2-1-3.2 0-1.4 1-1.8 2-1.8" />
+    </svg>
+  )
+}
+function IconHeart({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20s-7-4.5-9.5-9C1 8 2.5 4.5 6 4.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.5 6.5C19 15.5 12 20 12 20Z" />
     </svg>
   )
 }
