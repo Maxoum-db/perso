@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import {
   GoogleAuthError,
+  createEvent,
   hasFreshGoogleToken,
   listCalendars,
   listDueTasks,
@@ -71,6 +72,33 @@ export function Home() {
       .then(setTasks)
       .catch(() => {})
   }, [])
+
+  const [bdayDone, setBdayDone] = useState<Set<string>>(new Set())
+  const [bdayMsg, setBdayMsg] = useState<string | null>(null)
+
+  async function addBirthdayToAgenda(b: Birthday) {
+    const key = `${b.month}-${b.day}-${b.name}`
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const now = new Date()
+    let y = now.getFullYear()
+    if (new Date(y, b.month - 1, b.day) < new Date(y, now.getMonth(), now.getDate())) y += 1
+    const dateStr = `${y}-${pad(b.month)}-${pad(b.day)}`
+    const next = new Date(`${dateStr}T00:00:00`)
+    next.setDate(next.getDate() + 1)
+    try {
+      await createEvent('primary', {
+        summary: `🎂 Anniversaire ${b.name}`,
+        start: { date: dateStr },
+        end: { date: next.toISOString().slice(0, 10) },
+        recurrence: ['RRULE:FREQ=YEARLY'],
+      })
+      setBdayDone((prev) => new Set(prev).add(key))
+      setBdayMsg('Ajouté à ton agenda ✓')
+    } catch {
+      setBdayMsg('Reconnecte Google (Réglages) pour ajouter à l’agenda')
+    }
+    setTimeout(() => setBdayMsg(null), 2500)
+  }
 
   async function completeTask(t: DueTask) {
     setTasks((prev) => prev.filter((x) => !(x.id === t.id && x.listId === t.listId)))
@@ -160,15 +188,30 @@ export function Home() {
         <div className="card p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted">🎂 Anniversaires à venir</div>
           <ul className="mt-2 space-y-1">
-            {birthdays.map((b, i) => (
-              <li key={i} className="flex items-baseline gap-2 text-sm">
-                <span className="w-20 shrink-0 text-xs font-semibold text-copper">
-                  {b.inDays === 0 ? "aujourd'hui" : b.inDays === 1 ? 'demain' : `dans ${b.inDays} j`}
-                </span>
-                <span className="truncate text-ink">{b.name}</span>
-              </li>
-            ))}
+            {birthdays.map((b, i) => {
+              const key = `${b.month}-${b.day}-${b.name}`
+              return (
+                <li key={i} className="flex items-center gap-2 text-sm">
+                  <span className="w-20 shrink-0 text-xs font-semibold text-copper">
+                    {b.inDays === 0 ? "aujourd'hui" : b.inDays === 1 ? 'demain' : `dans ${b.inDays} j`}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-ink">{b.name}</span>
+                  {bdayDone.has(key) ? (
+                    <span className="shrink-0 text-xs text-muted">✓ agenda</span>
+                  ) : (
+                    <button
+                      onClick={() => addBirthdayToAgenda(b)}
+                      className="btn-ghost shrink-0 px-2 py-1 text-xs"
+                      title="Ajouter à l'agenda (chaque année)"
+                    >
+                      ＋ Agenda
+                    </button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
+          {bdayMsg ? <div className="mt-2 text-xs text-copper">{bdayMsg}</div> : null}
         </div>
       ) : null}
 

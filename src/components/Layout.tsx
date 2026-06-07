@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { QuickCapture } from './QuickCapture'
 
 type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
 
@@ -52,6 +53,8 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
 
       <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
+
+      {!moreOpen ? <QuickCapture /> : null}
 
       {/* Voile pour fermer le menu Plus en touchant ailleurs */}
       {moreOpen ? <div className="fixed inset-0 z-20" onClick={() => setMoreOpen(false)} /> : null}
