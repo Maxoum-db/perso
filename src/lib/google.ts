@@ -63,16 +63,23 @@ async function googleFetch(path: string, params?: Record<string, string | number
   // 403 = autorisation/API manquante pour CETTE fonctionnalité. On NE touche PAS au
   // jeton (sinon on casse les autres modules et on boucle sur la reconnexion).
   if (res.status === 403) {
-    const body = (await res.text().catch(() => '')).toLowerCase()
+    const raw = await res.text().catch(() => '')
+    const low = raw.toLowerCase()
     const apiDisabled =
-      body.includes('accessnotconfigured') || body.includes('has not been used') || body.includes('it is disabled')
-    const scopeMissing = body.includes('insufficient') || body.includes('scope')
+      low.includes('accessnotconfigured') || low.includes('has not been used') || low.includes('it is disabled')
+    const scopeMissing = low.includes('insufficient') || low.includes('scope')
     const why = apiDisabled
-      ? "l'API n'est pas activée dans Google Cloud — active-la puis réessaie."
+      ? "l'API n'est pas activée dans le bon projet Google Cloud."
       : scopeMissing
         ? 'autorisation manquante — reconnecte Google (Réglages) et accepte la permission.'
-        : "accès refusé. Vérifie l'activation de l'API et l'autorisation."
-    throw new Error(`403 : ${why}`)
+        : 'accès refusé.'
+    let gmsg = ''
+    try {
+      gmsg = JSON.parse(raw)?.error?.message || ''
+    } catch {
+      /* pas de JSON */
+    }
+    throw new Error(`403 : ${why}${gmsg ? '\n\n' + gmsg.slice(0, 400) : ''}`)
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '')
