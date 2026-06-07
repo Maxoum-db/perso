@@ -539,6 +539,12 @@ function RecipesTab({ onBrew }: { onBrew: (r: HubRecipe) => void }) {
                 <span className="truncate font-bold text-ink">{r.name}</span>
                 {r.favorite ? <span title="Favori">⭐</span> : null}
                 {r.tried ? <span title="Déjà brassée">✓</span> : null}
+                {r.kind === 'nouvelle' ? (
+                  <span className="chip shrink-0 bg-sage/20 px-2 py-0.5 text-[10px] text-sage-dark">🆕 Nouvelle</span>
+                ) : null}
+                {r.kind === 'optimisation' ? (
+                  <span className="chip shrink-0 bg-plum/20 px-2 py-0.5 text-[10px] text-plum">⚗️ Optim.</span>
+                ) : null}
               </div>
               <div className="truncate text-xs text-muted">
                 {[r.style, r.abv ? `${r.abv}%` : null, r.ibu ? `${r.ibu} IBU` : null]

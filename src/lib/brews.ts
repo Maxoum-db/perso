@@ -156,6 +156,10 @@ export interface HubRecipe {
   tried: boolean | null
   rating: number | null
   yeast_strain: string | null
+  /** 'catalogue' = recette du hub ; 'nouvelle' / 'optimisation' = brouillon. */
+  kind: 'catalogue' | 'nouvelle' | 'optimisation'
+  /** recette d'origine quand kind = 'optimisation'. */
+  base_recipe_id: string | null
 }
 
 export interface HubRecipeFull extends HubRecipe {
