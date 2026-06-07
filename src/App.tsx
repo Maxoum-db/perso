@@ -6,6 +6,7 @@ import { Agenda } from './pages/Agenda'
 import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
 import { Behourd } from './pages/Behourd'
+import { Brassage } from './pages/Brassage'
 import { Notes } from './pages/Notes'
 import { Listes } from './pages/Listes'
 import { Tasks } from './pages/Tasks'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/taches" element={<Tasks />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/behourd" element={<Behourd />} />
+        <Route path="/brassage" element={<Brassage />} />
         <Route path="/reglages" element={<Settings />} />
         {/* Anciennes routes désormais regroupées dans des hubs */}
         <Route path="/journee" element={<Navigate to="/agenda" replace />} />
