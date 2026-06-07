@@ -332,6 +332,29 @@ export async function listTasks(listId: string, showCompleted = false): Promise<
   }))
 }
 
+export interface DueTask extends GTask {
+  listId: string
+  listTitle: string
+}
+
+/** Tâches ouvertes échues (en retard ou aujourd'hui), toutes listes confondues. */
+export async function listDueTasks(): Promise<DueTask[]> {
+  const lists = await listTaskLists()
+  const perList = await Promise.all(
+    lists.map(async (l) => {
+      const tasks = await listTasks(l.id)
+      return tasks
+        .filter((t) => t.status === 'needsAction' && t.due)
+        .map((t) => ({ ...t, listId: l.id, listTitle: l.title }))
+    }),
+  )
+  const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+  return perList
+    .flat()
+    .filter((t) => (t.due as string).slice(0, 10) <= todayStr)
+    .sort((a, b) => ((a.due as string) < (b.due as string) ? -1 : 1))
+}
+
 export function createTask(listId: string, title: string, due?: string) {
   const body: Record<string, unknown> = { title }
   if (due) body.due = due
