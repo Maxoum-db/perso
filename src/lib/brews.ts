@@ -156,10 +156,7 @@ export interface HubRecipe {
   tried: boolean | null
   rating: number | null
   yeast_strain: string | null
-  /** 'catalogue' = recette du hub ; 'nouvelle' / 'optimisation' = brouillon. */
-  kind: 'catalogue' | 'nouvelle' | 'optimisation'
-  /** recette d'origine quand kind = 'optimisation'. */
-  base_recipe_id: string | null
+  notes: string | null
 }
 
 export interface HubRecipeFull extends HubRecipe {
@@ -208,50 +205,74 @@ export async function fetchHubRecipe(id: string): Promise<HubRecipeFull | null> 
   return (data?.recipe ?? null) as HubRecipeFull | null
 }
 
-// ── Remontée des brassins vers le hub (Edge Function "hub-brews") ──────────
+// ── Écriture de notes vers le hub (Edge Function "hub-notes") ──────────────
 
-function brewPayload(brew: Brew, events: BrewEvent[]) {
-  return {
-    id: brew.id,
-    recipe_id: brew.recipe_id,
-    recipe_name: brew.recipe_name,
-    recipe_type: brew.recipe_type,
-    style: brew.style,
-    batch_size_l: brew.batch_size_l,
-    brew_date: brew.brew_date,
-    status: brew.status,
-    og: brew.og,
-    fg: brew.fg,
-    abv: brew.abv,
-    rating: brew.rating,
-    tasting_notes: brew.tasting_notes,
-    notes: brew.notes,
-    events: events.map((e) => ({
-      date: e.date,
-      kind: e.kind,
-      gravity: e.gravity,
-      temp_c: e.temp_c,
-      note: e.note,
-    })),
+/** Brassin en cours (WIP) côté hub. */
+export interface HubWip {
+  id: string
+  recipeName: string
+  recipeId: string | null
+  brewDate: string | null
+  notes: string
+  eventCount: number
+}
+
+export interface HubWipResult {
+  status: HubStatus
+  wip: HubWip[]
+}
+
+export async function listHubWip(): Promise<HubWipResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke('hub-notes', { body: { action: 'list_wip' } })
+    if (error) {
+      const ctx = (error as { context?: Response }).context
+      if (ctx?.status === 503) return { status: 'not_configured', wip: [] }
+      return { status: 'error', wip: [] }
+    }
+    if (data?.error === 'hub_not_configured') return { status: 'not_configured', wip: [] }
+    if (data?.error) return { status: 'error', wip: [] }
+    return { status: 'ok', wip: (data?.wip ?? []) as HubWip[] }
+  } catch {
+    return { status: 'error', wip: [] }
   }
 }
 
-/** Pousse (best-effort) un brassin vers le hub. N'écrase jamais hub_notes. */
-export async function pushBrewToHub(brew: Brew, events: BrewEvent[]): Promise<void> {
-  try {
-    await supabase.functions.invoke('hub-brews', { body: { brew: brewPayload(brew, events) } })
-  } catch {
-    // Synchro best-effort : un échec ne doit pas bloquer la sauvegarde locale.
+/** Ajoute un événement daté à la timeline d'un brassin WIP (format hub). */
+export async function addHubWipEvent(
+  wipId: string,
+  ev: { date: string; label: string; action?: string; note?: string; temp_C?: number | null; done?: boolean },
+): Promise<boolean> {
+  const event = {
+    id: `evt-aide-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    date: ev.date,
+    type: 'custom',
+    label: ev.label,
+    action: ev.action ?? '',
+    note: ev.note ?? '',
+    status: ev.done ? 'done' : 'pending',
+    temp_C: ev.temp_C ?? null,
+    userModified: true,
+    _source: 'aide',
   }
+  const { data, error } = await supabase.functions.invoke('hub-notes', {
+    body: { action: 'add_wip_event', wip_id: wipId, event },
+  })
+  return !error && !data?.error
 }
 
-/** Retire un brassin du hub (best-effort). */
-export async function removeBrewFromHub(id: string): Promise<void> {
-  try {
-    await supabase.functions.invoke('hub-brews', { body: { delete: id } })
-  } catch {
-    // best-effort
-  }
+export async function setHubWipNotes(wipId: string, notes: string): Promise<boolean> {
+  const { data, error } = await supabase.functions.invoke('hub-notes', {
+    body: { action: 'set_wip_notes', wip_id: wipId, notes },
+  })
+  return !error && !data?.error
+}
+
+export async function setHubRecipeNotes(recipeId: string, notes: string): Promise<boolean> {
+  const { data, error } = await supabase.functions.invoke('hub-notes', {
+    body: { action: 'set_recipe_notes', recipe_id: recipeId, notes },
+  })
+  return !error && !data?.error
 }
 
 // ── Aides ──────────────────────────────────────────────────────────────────

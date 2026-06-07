@@ -10,7 +10,10 @@ import {
   type BrewStatus,
   type HubRecipe,
   type HubRecipesResult,
+  type HubWip,
+  type HubWipResult,
   addBrewEvent,
+  addHubWipEvent,
   computeAbv,
   createBrew,
   deleteBrew,
@@ -18,8 +21,9 @@ import {
   fetchHubRecipes,
   listBrewEvents,
   listBrews,
-  pushBrewToHub,
-  removeBrewFromHub,
+  listHubWip,
+  setHubRecipeNotes,
+  setHubWipNotes,
   updateBrew,
 } from '../lib/brews'
 
@@ -33,11 +37,10 @@ function statusMeta(s: BrewStatus) {
   return BREW_STATUSES.find((x) => x.id === s) ?? BREW_STATUSES[0]
 }
 
-// Hub Brassage : carnet de brassins (journal de fermentation + dégustations)
-// relié en lecture seule au catalogue de recettes du hub.
+// Hub Brassage : carnet local + brassins en cours du hub (WIP) + recettes.
 export function Brassage() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'brassins' | 'recettes'>('brassins')
+  const [tab, setTab] = useState<'brassins' | 'hub' | 'recettes'>('brassins')
   const [brews, setBrews] = useState<Brew[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -56,7 +59,7 @@ export function Brassage() {
 
   async function brewFromRecipe(r: HubRecipe) {
     if (!user) return
-    const created = await createBrew(user.id, {
+    await createBrew(user.id, {
       recipe_id: r.id,
       recipe_name: r.name,
       recipe_type: r.type || 'beer',
@@ -65,7 +68,6 @@ export function Brassage() {
       brew_date: today(),
       status: 'planifie',
     })
-    pushBrewToHub(created, [])
     await reload()
     setTab('brassins')
   }
@@ -74,12 +76,13 @@ export function Brassage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">🍺 Carnet de brassage</h1>
-        <p className="text-sm text-muted">Tes brassins, fermentation et dégustations — reliés à tes recettes du hub.</p>
+        <p className="text-sm text-muted">Ton carnet, tes brassins en cours du hub et tes recettes.</p>
       </div>
 
       <SubTabs
         tabs={[
-          { id: 'brassins', label: '🍻 Mes brassins' },
+          { id: 'brassins', label: '🍻 Carnet' },
+          { id: 'hub', label: '🫧 En cours' },
           { id: 'recettes', label: '📖 Recettes' },
         ]}
         active={tab}
@@ -90,6 +93,8 @@ export function Brassage() {
 
       {tab === 'brassins' ? (
         <BrewsTab userId={user?.id ?? ''} brews={brews} onChange={reload} />
+      ) : tab === 'hub' ? (
+        <HubWipTab />
       ) : (
         <RecipesTab onBrew={brewFromRecipe} />
       )}
@@ -97,7 +102,7 @@ export function Brassage() {
   )
 }
 
-// ── Onglet Brassins ─────────────────────────────────────────────────────────
+// ── Onglet Carnet local (perso_brews) ───────────────────────────────────────
 
 function BrewsTab({ userId, brews, onChange }: { userId: string; brews: Brew[]; onChange: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null)
@@ -184,27 +189,8 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
   const num = (s: string) => (s.trim() === '' ? null : parseFloat(s.replace(',', '.')))
   const abv = useMemo(() => computeAbv(num(og), num(fg)), [og, fg])
 
-  // Synchro best-effort vers le hub avec l'état courant du brassin + journal.
-  function syncHub(evs: BrewEvent[]) {
-    pushBrewToHub(
-      {
-        ...brew,
-        status,
-        og: num(og),
-        fg: num(fg),
-        abv,
-        rating: rating || null,
-        tasting_notes: tasting.trim(),
-        notes: notes.trim(),
-      },
-      evs,
-    )
-  }
-
   async function reloadEvents() {
-    const evs = await listBrewEvents(brew.id)
-    setEvents(evs)
-    return evs
+    setEvents(await listBrewEvents(brew.id))
   }
   useEffect(() => {
     reloadEvents()
@@ -223,7 +209,6 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
         tasting_notes: tasting.trim(),
         notes: notes.trim(),
       })
-      syncHub(events)
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
       onChange()
@@ -235,13 +220,11 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
   async function remove() {
     if (!confirm('Supprimer ce brassin et son journal ?')) return
     await deleteBrew(brew.id)
-    removeBrewFromHub(brew.id)
     onChange()
   }
 
   return (
     <div className="space-y-4 border-t border-line/60 bg-bg/40 p-3">
-      {/* Statut */}
       <div className="flex flex-wrap gap-1.5">
         {BREW_STATUSES.map((s) => (
           <button
@@ -254,7 +237,6 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
         ))}
       </div>
 
-      {/* Densités + ABV calculé */}
       <div className="flex items-end gap-2">
         <label className="flex-1">
           <span className="text-xs text-muted">DI (OG)</span>
@@ -270,7 +252,6 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
         </div>
       </div>
 
-      {/* Note dégustation (étoiles) */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted">Note</span>
         {[1, 2, 3, 4, 5].map((n) => (
@@ -304,13 +285,7 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
         </button>
       </div>
 
-      {/* Journal de fermentation */}
-      <FermentationLog
-        userId={userId}
-        brewId={brew.id}
-        events={events}
-        onChange={() => reloadEvents().then((evs) => syncHub(evs))}
-      />
+      <FermentationLog userId={userId} brewId={brew.id} events={events} onChange={reloadEvents} />
     </div>
   )
 }
@@ -436,7 +411,7 @@ function NewBrewForm({ userId, onDone, onCancel }: { userId: string; onDone: () 
     if (!name.trim()) return
     setBusy(true)
     try {
-      const created = await createBrew(userId, {
+      await createBrew(userId, {
         recipe_name: name.trim(),
         recipe_type: type,
         style: style.trim(),
@@ -444,7 +419,6 @@ function NewBrewForm({ userId, onDone, onCancel }: { userId: string; onDone: () 
         brew_date: date,
         status: 'planifie',
       })
-      pushBrewToHub(created, [])
       onDone()
     } finally {
       setBusy(false)
@@ -484,12 +458,171 @@ function NewBrewForm({ userId, onDone, onCancel }: { userId: string; onDone: () 
   )
 }
 
-// ── Onglet Recettes (hub, lecture seule) ────────────────────────────────────
+// ── Onglet « En cours » : brassins WIP du hub ───────────────────────────────
+
+function HubNotConfigured() {
+  return (
+    <div className="card space-y-2 border-sand/40 bg-sand/5 p-4 text-sm">
+      <p className="font-bold text-ink">🔌 Connexion au hub à finaliser</p>
+      <p className="text-muted">
+        Ajoute les secrets <code className="rounded bg-bg px-1 text-copper">HUB_URL</code> et
+        <code className="mx-1 rounded bg-bg px-1 text-copper">HUB_SERVICE_KEY</code> à la fonction <b>hub-notes</b>.
+      </p>
+    </div>
+  )
+}
+
+function HubWipTab() {
+  const [res, setRes] = useState<HubWipResult | null>(null)
+
+  async function reload() {
+    setRes(await listHubWip())
+  }
+  useEffect(() => {
+    reload()
+  }, [])
+
+  if (!res) return <p className="text-center text-sm text-muted">Chargement des brassins en cours…</p>
+  if (res.status === 'not_configured') return <HubNotConfigured />
+  if (res.status === 'error')
+    return <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">Impossible de charger les brassins du hub.</div>
+  if (res.wip.length === 0)
+    return <p className="text-center text-sm text-muted">Aucun brassin en cours dans le hub. 🫧</p>
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted">Brassins en cours dans ton hub — ajoute une note ou un événement daté.</p>
+      <ul className="space-y-2">
+        {res.wip.map((w) => (
+          <li key={w.id}>
+            <HubWipCard wip={w} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function HubWipCard({ wip }: { wip: HubWip }) {
+  const [open, setOpen] = useState(false)
+  const [notes, setNotes] = useState(wip.notes)
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
+
+  // Ajout d'un événement daté.
+  const [date, setDate] = useState(today())
+  const [label, setLabel] = useState('')
+  const [temp, setTemp] = useState('')
+  const [done, setDone] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [added, setAdded] = useState(false)
+
+  async function saveNote() {
+    setSavingNote(true)
+    try {
+      const ok = await setHubWipNotes(wip.id, notes)
+      if (ok) {
+        setNoteSaved(true)
+        setTimeout(() => setNoteSaved(false), 1500)
+      }
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  async function addEvent() {
+    if (!label.trim()) return
+    setBusy(true)
+    try {
+      const ok = await addHubWipEvent(wip.id, {
+        date,
+        label: label.trim(),
+        temp_C: temp.trim() ? parseFloat(temp.replace(',', '.')) : null,
+        done,
+      })
+      if (ok) {
+        setLabel('')
+        setTemp('')
+        setAdded(true)
+        setTimeout(() => setAdded(false), 1500)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 p-3 text-left">
+        <span className="text-xl">🫧</span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-bold text-ink">{wip.recipeName || 'Brassin'}</div>
+          <div className="truncate text-xs text-muted">
+            {wip.brewDate ? `Brassé le ${frDate(wip.brewDate)}` : ''} · {wip.eventCount} évé.
+          </div>
+        </div>
+        <span className="shrink-0 text-muted">{open ? '▾' : '▸'}</span>
+      </button>
+
+      {open ? (
+        <div className="space-y-4 border-t border-line/60 bg-bg/40 p-3">
+          {/* Note du brassin */}
+          <div>
+            <div className="mb-1 text-xs font-bold text-muted">📝 Note du brassin</div>
+            <textarea
+              className="field"
+              rows={3}
+              placeholder="Note libre sur ce brassin…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+            <button onClick={saveNote} disabled={savingNote} className="btn-primary mt-2 w-full py-2">
+              {noteSaved ? 'Note enregistrée ✓' : 'Enregistrer la note'}
+            </button>
+          </div>
+
+          {/* Ajout d'un événement daté à la timeline */}
+          <div className="rounded-xl2 border border-line/60 p-3">
+            <div className="mb-2 text-xs font-bold text-muted">➕ Ajouter une note datée (timeline)</div>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input className="field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <input
+                  className="field w-20 shrink-0"
+                  inputMode="decimal"
+                  placeholder="°C"
+                  value={temp}
+                  onChange={(e) => setTemp(e.target.value)}
+                />
+              </div>
+              <input
+                className="field"
+                placeholder="Ex: Densité 1016, Dry hop 15g Galaxy…"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} />
+                Marquer comme fait
+              </label>
+              <button onClick={addEvent} disabled={busy || !label.trim()} className="btn-primary w-full py-2">
+                {added ? 'Ajouté à la timeline ✓' : 'Ajouter'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// ── Onglet Recettes (hub) — lecture + édition de la note ────────────────────
 
 function RecipesTab({ onBrew }: { onBrew: (r: HubRecipe) => void }) {
   const [res, setRes] = useState<HubRecipesResult | null>(null)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'beer' | 'spirit'>('all')
+  const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchHubRecipes().then(setRes)
@@ -510,34 +643,14 @@ function RecipesTab({ onBrew }: { onBrew: (r: HubRecipe) => void }) {
     })
   }, [res, q, filter])
 
-  if (!res) {
-    return <p className="text-center text-sm text-muted">Chargement des recettes…</p>
-  }
-
-  if (res.status === 'not_configured') {
-    return (
-      <div className="card space-y-2 border-sand/40 bg-sand/5 p-4 text-sm">
-        <p className="font-bold text-ink">🔌 Connexion au hub à finaliser</p>
-        <p className="text-muted">
-          Le proxy sécurisé est en place, mais il manque deux secrets côté serveur pour lire tes recettes :
-          <code className="mx-1 rounded bg-bg px-1 text-copper">HUB_URL</code> et
-          <code className="mx-1 rounded bg-bg px-1 text-copper">HUB_SERVICE_KEY</code>.
-        </p>
-        <p className="text-muted">
-          Ajoute-les dans les secrets de la fonction <b>hub-recipes</b> (projet Aide), comme pour Google. En attendant, tu
-          peux créer tes brassins à la main dans l'onglet 🍻.
-        </p>
-      </div>
-    )
-  }
-
-  if (res.status === 'error') {
+  if (!res) return <p className="text-center text-sm text-muted">Chargement des recettes…</p>
+  if (res.status === 'not_configured') return <HubNotConfigured />
+  if (res.status === 'error')
     return (
       <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">
         Impossible de charger les recettes du hub.{res.message ? ` (${res.message})` : ''}
       </div>
     )
-  }
 
   return (
     <div className="space-y-3">
@@ -562,32 +675,68 @@ function RecipesTab({ onBrew }: { onBrew: (r: HubRecipe) => void }) {
 
       <ul className="space-y-2">
         {recipes.map((r) => (
-          <li key={r.id} className="card flex items-center gap-3 p-3">
-            <span className="text-xl">{r.type === 'spirit' ? '🥃' : '🍺'}</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate font-bold text-ink">{r.name}</span>
-                {r.favorite ? <span title="Favori">⭐</span> : null}
-                {r.tried ? <span title="Déjà brassée">✓</span> : null}
-                {r.kind === 'nouvelle' ? (
-                  <span className="chip shrink-0 bg-sage/20 px-2 py-0.5 text-[10px] text-sage-dark">🆕 Nouvelle</span>
-                ) : null}
-                {r.kind === 'optimisation' ? (
-                  <span className="chip shrink-0 bg-plum/20 px-2 py-0.5 text-[10px] text-plum">⚗️ Optim.</span>
-                ) : null}
+          <li key={r.id} className="card overflow-hidden">
+            <div className="flex items-center gap-3 p-3">
+              <span className="text-xl">{r.type === 'spirit' ? '🥃' : '🍺'}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-bold text-ink">{r.name}</span>
+                  {r.favorite ? <span title="Favori">⭐</span> : null}
+                  {r.tried ? <span title="Déjà brassée">✓</span> : null}
+                </div>
+                <div className="truncate text-xs text-muted">
+                  {[r.style, r.abv ? `${r.abv}%` : null, r.ibu ? `${r.ibu} IBU` : null].filter(Boolean).join(' · ')}
+                </div>
               </div>
-              <div className="truncate text-xs text-muted">
-                {[r.style, r.abv ? `${r.abv}%` : null, r.ibu ? `${r.ibu} IBU` : null]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
+              <button
+                onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                className="btn-ghost shrink-0 px-2.5 py-1.5 text-xs"
+              >
+                📝
+              </button>
+              <button onClick={() => onBrew(r)} className="btn-ghost shrink-0 px-3 py-1.5 text-xs">
+                Brasser
+              </button>
             </div>
-            <button onClick={() => onBrew(r)} className="btn-ghost shrink-0 px-3 py-1.5 text-xs">
-              Brasser
-            </button>
+            {openId === r.id ? <RecipeNoteEditor recipe={r} /> : null}
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+function RecipeNoteEditor({ recipe }: { recipe: HubRecipe }) {
+  const [notes, setNotes] = useState(recipe.notes ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try {
+      const ok = await setHubRecipeNotes(recipe.id, notes)
+      if (ok) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1500)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-t border-line/60 bg-bg/40 p-3">
+      <div className="text-xs font-bold text-muted">📝 Note de la recette (enregistrée dans le hub)</div>
+      <textarea
+        className="field"
+        rows={3}
+        placeholder="Note sur cette recette…"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+      />
+      <button onClick={save} disabled={saving} className="btn-primary w-full py-2">
+        {saved ? 'Note enregistrée ✓' : 'Enregistrer dans le hub'}
+      </button>
     </div>
   )
 }
