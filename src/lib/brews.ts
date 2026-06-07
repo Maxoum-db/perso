@@ -208,6 +208,52 @@ export async function fetchHubRecipe(id: string): Promise<HubRecipeFull | null> 
   return (data?.recipe ?? null) as HubRecipeFull | null
 }
 
+// ── Remontée des brassins vers le hub (Edge Function "hub-brews") ──────────
+
+function brewPayload(brew: Brew, events: BrewEvent[]) {
+  return {
+    id: brew.id,
+    recipe_id: brew.recipe_id,
+    recipe_name: brew.recipe_name,
+    recipe_type: brew.recipe_type,
+    style: brew.style,
+    batch_size_l: brew.batch_size_l,
+    brew_date: brew.brew_date,
+    status: brew.status,
+    og: brew.og,
+    fg: brew.fg,
+    abv: brew.abv,
+    rating: brew.rating,
+    tasting_notes: brew.tasting_notes,
+    notes: brew.notes,
+    events: events.map((e) => ({
+      date: e.date,
+      kind: e.kind,
+      gravity: e.gravity,
+      temp_c: e.temp_c,
+      note: e.note,
+    })),
+  }
+}
+
+/** Pousse (best-effort) un brassin vers le hub. N'écrase jamais hub_notes. */
+export async function pushBrewToHub(brew: Brew, events: BrewEvent[]): Promise<void> {
+  try {
+    await supabase.functions.invoke('hub-brews', { body: { brew: brewPayload(brew, events) } })
+  } catch {
+    // Synchro best-effort : un échec ne doit pas bloquer la sauvegarde locale.
+  }
+}
+
+/** Retire un brassin du hub (best-effort). */
+export async function removeBrewFromHub(id: string): Promise<void> {
+  try {
+    await supabase.functions.invoke('hub-brews', { body: { delete: id } })
+  } catch {
+    // best-effort
+  }
+}
+
 // ── Aides ──────────────────────────────────────────────────────────────────
 
 /** ABV approximatif à partir de la densité initiale/finale (formule standard). */

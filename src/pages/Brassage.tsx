@@ -18,6 +18,8 @@ import {
   fetchHubRecipes,
   listBrewEvents,
   listBrews,
+  pushBrewToHub,
+  removeBrewFromHub,
   updateBrew,
 } from '../lib/brews'
 
@@ -54,7 +56,7 @@ export function Brassage() {
 
   async function brewFromRecipe(r: HubRecipe) {
     if (!user) return
-    await createBrew(user.id, {
+    const created = await createBrew(user.id, {
       recipe_id: r.id,
       recipe_name: r.name,
       recipe_type: r.type || 'beer',
@@ -63,6 +65,7 @@ export function Brassage() {
       brew_date: today(),
       status: 'planifie',
     })
+    pushBrewToHub(created, [])
     await reload()
     setTab('brassins')
   }
@@ -181,8 +184,27 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
   const num = (s: string) => (s.trim() === '' ? null : parseFloat(s.replace(',', '.')))
   const abv = useMemo(() => computeAbv(num(og), num(fg)), [og, fg])
 
+  // Synchro best-effort vers le hub avec l'état courant du brassin + journal.
+  function syncHub(evs: BrewEvent[]) {
+    pushBrewToHub(
+      {
+        ...brew,
+        status,
+        og: num(og),
+        fg: num(fg),
+        abv,
+        rating: rating || null,
+        tasting_notes: tasting.trim(),
+        notes: notes.trim(),
+      },
+      evs,
+    )
+  }
+
   async function reloadEvents() {
-    setEvents(await listBrewEvents(brew.id))
+    const evs = await listBrewEvents(brew.id)
+    setEvents(evs)
+    return evs
   }
   useEffect(() => {
     reloadEvents()
@@ -201,6 +223,7 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
         tasting_notes: tasting.trim(),
         notes: notes.trim(),
       })
+      syncHub(events)
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
       onChange()
@@ -212,6 +235,7 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
   async function remove() {
     if (!confirm('Supprimer ce brassin et son journal ?')) return
     await deleteBrew(brew.id)
+    removeBrewFromHub(brew.id)
     onChange()
   }
 
@@ -281,7 +305,12 @@ function BrewDetail({ brew, userId, onChange }: { brew: Brew; userId: string; on
       </div>
 
       {/* Journal de fermentation */}
-      <FermentationLog userId={userId} brewId={brew.id} events={events} onChange={reloadEvents} />
+      <FermentationLog
+        userId={userId}
+        brewId={brew.id}
+        events={events}
+        onChange={() => reloadEvents().then((evs) => syncHub(evs))}
+      />
     </div>
   )
 }
@@ -407,7 +436,7 @@ function NewBrewForm({ userId, onDone, onCancel }: { userId: string; onDone: () 
     if (!name.trim()) return
     setBusy(true)
     try {
-      await createBrew(userId, {
+      const created = await createBrew(userId, {
         recipe_name: name.trim(),
         recipe_type: type,
         style: style.trim(),
@@ -415,6 +444,7 @@ function NewBrewForm({ userId, onDone, onCancel }: { userId: string; onDone: () 
         brew_date: date,
         status: 'planifie',
       })
+      pushBrewToHub(created, [])
       onDone()
     } finally {
       setBusy(false)
