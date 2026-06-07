@@ -162,6 +162,7 @@ export interface EventInput {
   description?: string
   start: { dateTime?: string; date?: string; timeZone?: string }
   end: { dateTime?: string; date?: string; timeZone?: string }
+  recurrence?: string[]
 }
 
 export interface GEvent {
