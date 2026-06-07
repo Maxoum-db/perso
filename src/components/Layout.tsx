@@ -8,15 +8,14 @@ type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
 // (éviter une barre surchargée sur téléphone).
 // La barre : 🏠 Accueil (dashboard) à gauche, puis le player et l'essentiel.
 const primaryTabs: Tab[] = [
-  { to: '/accueil', label: 'Accueil', icon: IconHome },
-  { to: '/', label: 'Musique', icon: IconMusic },
+  { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/journee', label: 'Journée', icon: IconSun },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
+  { to: '/notes', label: 'Notes', icon: IconNote },
 ]
 // Le menu « Plus » liste TOUTES les sections (lanceur complet).
 const moreTabs: Tab[] = [
-  { to: '/accueil', label: 'Accueil', icon: IconHome },
-  { to: '/', label: 'Musique', icon: IconMusic },
+  { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/journee', label: 'Ma journée', icon: IconSun },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
@@ -184,15 +183,6 @@ function IconGear({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
-    </svg>
-  )
-}
-function IconMusic({ active }: IconProps) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
     </svg>
   )
 }

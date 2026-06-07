@@ -15,8 +15,6 @@ import { Carnet } from './pages/Carnet'
 import { Humeur } from './pages/Humeur'
 import { Habitudes } from './pages/Habitudes'
 import { Journee } from './pages/Journee'
-import { Musique } from './pages/Musique'
-import { SpotifyCallback } from './pages/SpotifyCallback'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -36,8 +34,7 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Musique />} />
-        <Route path="/accueil" element={<Home />} />
+        <Route path="/" element={<Home />} />
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/behourd" element={<Behourd />} />
         <Route path="/musculation" element={<Musculation />} />
@@ -48,8 +45,6 @@ export default function App() {
         <Route path="/humeur" element={<Humeur />} />
         <Route path="/habitudes" element={<Habitudes />} />
         <Route path="/journee" element={<Journee />} />
-        <Route path="/musique" element={<Musique />} />
-        <Route path="/spotify-callback" element={<SpotifyCallback />} />
         <Route path="/drive" element={<Drive />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
