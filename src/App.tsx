@@ -9,6 +9,7 @@ import { Behourd } from './pages/Behourd'
 import { Brassage } from './pages/Brassage'
 import { Notes } from './pages/Notes'
 import { Listes } from './pages/Listes'
+import { Partage } from './pages/Partage'
 import { Tasks } from './pages/Tasks'
 import { Mails } from './pages/Mails'
 
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/notes" element={<Notes />} />
         <Route path="/listes" element={<Listes />} />
+        <Route path="/partage" element={<Partage />} />
         <Route path="/taches" element={<Tasks />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/behourd" element={<Behourd />} />
