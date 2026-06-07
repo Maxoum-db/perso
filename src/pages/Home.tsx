@@ -12,6 +12,7 @@ import {
   isAllDay,
 } from '../lib/google'
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
+import { BREW_STATUSES, listBrews, type Brew } from '../lib/brews'
 
 export function Home() {
   const { user } = useAuth()
@@ -19,6 +20,14 @@ export function Home() {
   const [birthdays, setBirthdays] = useState<Birthday[]>([])
   const [needAuth, setNeedAuth] = useState(!hasFreshGoogleToken())
   const [error, setError] = useState<string | null>(null)
+  const [brews, setBrews] = useState<Brew[]>([])
+
+  useEffect(() => {
+    if (!user) return
+    listBrews(user.id)
+      .then(setBrews)
+      .catch(() => {})
+  }, [user])
 
   useEffect(() => {
     if (!hasFreshGoogleToken()) {
@@ -106,15 +115,44 @@ export function Home() {
         </div>
       ) : null}
 
+      <BrassageCard brews={brews} />
+
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/notes" title="Notes" subtitle="Notes · humeur · synthèses" emoji="📝" />
         <QuickCard to="/listes" title="Listes" subtitle="Courses · à cocher ✅" emoji="🛒" />
         <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />
         <QuickCard to="/mails" title="Mails" subtitle="Gmail" emoji="📧" />
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · muscu · carnet" emoji="🛡️" />
+        <QuickCard to="/brassage" title="Brassage" subtitle="Brassins · recettes 🍺" emoji="🍺" />
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
       </div>
     </div>
+  )
+}
+
+// Dashboard brassage : brassins en cours (fermentation / maturation / embouteillé).
+function BrassageCard({ brews }: { brews: Brew[] }) {
+  const active = brews.filter((b) => ['fermentation', 'maturation', 'embouteille'].includes(b.status))
+  if (active.length === 0) return null
+  const meta = (s: string) => BREW_STATUSES.find((x) => x.id === s)
+  const daysSince = (d: string) => Math.max(0, Math.round((Date.now() - new Date(d + 'T00:00:00').getTime()) / 86400000))
+
+  return (
+    <Link to="/brassage" className="card block p-4 transition hover:shadow-lift">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">🍺 Brassins en cours</div>
+      <ul className="mt-2 space-y-1.5">
+        {active.slice(0, 4).map((b) => (
+          <li key={b.id} className="flex items-center gap-2 text-sm">
+            <span className="shrink-0">{meta(b.status)?.emoji}</span>
+            <span className="truncate text-ink">{b.recipe_name || 'Brassin'}</span>
+            <span className="ml-auto shrink-0 text-xs text-muted">
+              {meta(b.status)?.label} · J+{daysSince(b.brew_date)}
+            </span>
+          </li>
+        ))}
+        {active.length > 4 ? <li className="text-xs text-muted">+ {active.length - 4} autre(s)…</li> : null}
+      </ul>
+    </Link>
   )
 }
 
