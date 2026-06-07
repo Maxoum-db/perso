@@ -12,6 +12,8 @@ export interface SpaceMember {
 export interface MySpace {
   spaceId: string
   members: SpaceMember[]
+  googleCalendarId: string | null
+  googleCalendarName: string | null
 }
 
 export interface SharedList {
@@ -48,6 +50,7 @@ export interface SharedEvent {
   time: string | null
   note: string | null
   author_name: string | null
+  google_event_id: string | null
 }
 
 // ── Espace : appartenance & invitations ─────────────────────────────────────
@@ -68,7 +71,27 @@ export async function getMySpace(): Promise<MySpace | null> {
     .eq('space_id', mine.space_id)
     .order('joined_at', { ascending: true })
 
-  return { spaceId: mine.space_id, members: (members ?? []) as SpaceMember[] }
+  const { data: space } = await supabase
+    .from('perso_spaces')
+    .select('google_calendar_id,google_calendar_name')
+    .eq('id', mine.space_id)
+    .maybeSingle()
+
+  return {
+    spaceId: mine.space_id,
+    members: (members ?? []) as SpaceMember[],
+    googleCalendarId: space?.google_calendar_id ?? null,
+    googleCalendarName: space?.google_calendar_name ?? null,
+  }
+}
+
+/** Lie (ou délie si id vide) un agenda Google partagé à l'espace. */
+export async function setSpaceCalendar(calendarId: string, calendarName: string): Promise<void> {
+  const { error } = await supabase.rpc('set_space_calendar', {
+    p_calendar_id: calendarId,
+    p_calendar_name: calendarName,
+  })
+  if (error) throw new Error(error.message)
 }
 
 export async function createSpace(displayName: string, email: string): Promise<string> {
@@ -226,7 +249,7 @@ export async function deleteSharedNote(id: string): Promise<void> {
 export async function listSharedEvents(spaceId: string): Promise<SharedEvent[]> {
   const { data, error } = await supabase
     .from('shared_events')
-    .select('id,title,date,time,note,author_name')
+    .select('id,title,date,time,note,author_name,google_event_id')
     .eq('space_id', spaceId)
     .order('date', { ascending: true })
     .order('time', { ascending: true, nullsFirst: true })
@@ -238,17 +261,27 @@ export async function createSharedEvent(
   spaceId: string,
   ev: { title: string; date: string; time?: string | null; note?: string | null },
   author: { id: string; name: string },
-): Promise<void> {
-  const { error } = await supabase.from('shared_events').insert({
-    space_id: spaceId,
-    title: ev.title.trim(),
-    date: ev.date,
-    time: ev.time?.trim() || null,
-    note: ev.note?.trim() || null,
-    author_id: author.id,
-    author_name: author.name,
-  })
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('shared_events')
+    .insert({
+      space_id: spaceId,
+      title: ev.title.trim(),
+      date: ev.date,
+      time: ev.time?.trim() || null,
+      note: ev.note?.trim() || null,
+      author_id: author.id,
+      author_name: author.name,
+    })
+    .select('id')
+    .single()
   if (error) throw new Error(error.message)
+  return (data as { id: string }).id
+}
+
+/** Mémorise l'id de l'événement Google miroir. */
+export async function setSharedEventGoogleId(id: string, googleEventId: string): Promise<void> {
+  await supabase.from('shared_events').update({ google_event_id: googleEventId }).eq('id', id)
 }
 
 export async function deleteSharedEvent(id: string): Promise<void> {

@@ -24,9 +24,12 @@ import {
   listSharedItems,
   listSharedLists,
   listSharedNotes,
+  setSharedEventGoogleId,
+  setSpaceCalendar,
   toggleSharedItem,
   updateSharedNote,
 } from '../lib/space'
+import { canWriteCalendar, createEvent, deleteEvent, listCalendars, type EventInput, type GCalendar } from '../lib/google'
 
 const LIST_EMOJIS = ['📝', '🛒', '✅', '🎁', '🍽️', '🏖️', '🏠', '💡', '💕', '🧳']
 
@@ -80,7 +83,7 @@ export function Partage() {
       ) : tab === 'listes' ? (
         <ListsTab spaceId={space.spaceId} />
       ) : (
-        <EventsTab spaceId={space.spaceId} me={me} />
+        <EventsTab space={space} me={me} onSpaceReload={reload} />
       )}
     </div>
   )
@@ -462,27 +465,75 @@ function ListItems({
 
 // ── Onglet Agenda commun ────────────────────────────────────────────────────
 
-function EventsTab({ spaceId, me }: { spaceId: string; me: { id: string; name: string } }) {
+const TZ = 'Europe/Paris'
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** Convertit un événement partagé en événement Google (timé ou journée entière). */
+function toEventInput(ev: { title: string; date: string; time?: string; note?: string }): EventInput {
+  const description = ev.note?.trim() || undefined
+  if (ev.time) {
+    const [h, m] = ev.time.split(':').map(Number)
+    let eh = h + 1
+    let endDate = ev.date
+    if (eh >= 24) {
+      eh -= 24
+      const d = new Date(`${ev.date}T00:00:00`)
+      d.setDate(d.getDate() + 1)
+      endDate = d.toISOString().slice(0, 10)
+    }
+    return {
+      summary: ev.title,
+      description,
+      start: { dateTime: `${ev.date}T${pad(h)}:${pad(m)}:00`, timeZone: TZ },
+      end: { dateTime: `${endDate}T${pad(eh)}:${pad(m)}:00`, timeZone: TZ },
+    }
+  }
+  const next = new Date(`${ev.date}T00:00:00`)
+  next.setDate(next.getDate() + 1)
+  return { summary: ev.title, description, start: { date: ev.date }, end: { date: next.toISOString().slice(0, 10) } }
+}
+
+function EventsTab({
+  space,
+  me,
+  onSpaceReload,
+}: {
+  space: MySpace
+  me: { id: string; name: string }
+  onSpaceReload: () => void
+}) {
   const [events, setEvents] = useState<SharedEvent[]>([])
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(today())
   const [time, setTime] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [warn, setWarn] = useState<string | null>(null)
+
+  const calId = space.googleCalendarId
 
   async function reload() {
-    setEvents(await listSharedEvents(spaceId))
+    setEvents(await listSharedEvents(space.spaceId))
   }
   useEffect(() => {
     reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceId])
+  }, [space.spaceId])
 
   async function add() {
     if (!title.trim()) return
     setBusy(true)
+    setWarn(null)
     try {
-      await createSharedEvent(spaceId, { title, date, time, note }, me)
+      const id = await createSharedEvent(space.spaceId, { title, date, time, note }, me)
+      if (calId) {
+        try {
+          const res = await createEvent(calId, toEventInput({ title, date, time, note }))
+          if (res?.id) await setSharedEventGoogleId(id, res.id)
+        } catch (e) {
+          setWarn('Événement ajouté, mais pas copié dans Google Agenda : ' + (e as Error).message)
+        }
+      }
       setTitle('')
       setTime('')
       setNote('')
@@ -492,12 +543,29 @@ function EventsTab({ spaceId, me }: { spaceId: string; me: { id: string; name: s
     }
   }
 
+  async function handleDelete(ev: SharedEvent) {
+    if (!confirm('Supprimer cet événement ?')) return
+    if (calId && ev.google_event_id) {
+      try {
+        await deleteEvent(calId, ev.google_event_id)
+      } catch {
+        // suppression Google best-effort
+      }
+    }
+    await deleteSharedEvent(ev.id)
+    await reload()
+  }
+
   const todayStr = today()
   const upcoming = events.filter((e) => e.date >= todayStr)
   const past = events.filter((e) => e.date < todayStr).reverse()
 
   return (
     <div className="space-y-3">
+      <CalendarLink space={space} onChange={onSpaceReload} />
+
+      {warn ? <div className="card border-sand/40 bg-sand/5 p-2 text-xs text-clay">{warn}</div> : null}
+
       <div className="card space-y-2 p-3">
         <input className="field" placeholder="Événement (ex: Resto, Anniv…)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="flex gap-2">
@@ -506,12 +574,115 @@ function EventsTab({ spaceId, me }: { spaceId: string; me: { id: string; name: s
         </div>
         <input className="field" placeholder="Note (optionnel)" value={note} onChange={(e) => setNote(e.target.value)} />
         <button onClick={add} disabled={busy || !title.trim()} className="btn-primary w-full py-2">
-          Ajouter
+          {calId ? 'Ajouter (+ Google Agenda)' : 'Ajouter'}
         </button>
       </div>
 
-      <EventList title="À venir" events={upcoming} onChange={reload} empty="Rien de prévu. 📅" />
-      {past.length > 0 ? <EventList title="Passés" events={past} onChange={reload} muted /> : null}
+      <EventList title="À venir" events={upcoming} onDelete={handleDelete} empty="Rien de prévu. 📅" />
+      {past.length > 0 ? <EventList title="Passés" events={past} onDelete={handleDelete} muted /> : null}
+    </div>
+  )
+}
+
+function CalendarLink({ space, onChange }: { space: MySpace; onChange: () => void }) {
+  const [picking, setPicking] = useState(false)
+  const [cals, setCals] = useState<GCalendar[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function openPicker() {
+    setPicking(true)
+    setError(null)
+    if (cals) return
+    try {
+      const all = await listCalendars()
+      setCals(all.filter(canWriteCalendar))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function pick(c: GCalendar) {
+    setBusy(true)
+    try {
+      await setSpaceCalendar(c.id, c.summary)
+      setPicking(false)
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function unlink() {
+    setBusy(true)
+    try {
+      await setSpaceCalendar('', '')
+      setPicking(false)
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!picking) {
+    return (
+      <div className="card flex items-center gap-2 p-3 text-sm">
+        <span className="text-lg">📆</span>
+        <div className="min-w-0 flex-1">
+          {space.googleCalendarId ? (
+            <>
+              <div className="font-semibold text-ink">Agenda Google lié</div>
+              <div className="truncate text-xs text-muted">{space.googleCalendarName || space.googleCalendarId}</div>
+            </>
+          ) : (
+            <div className="text-muted">Aucun agenda Google lié — les événements restent dans l'app.</div>
+          )}
+        </div>
+        <button onClick={openPicker} className="btn-ghost shrink-0 px-3 py-1.5 text-xs">
+          {space.googleCalendarId ? 'Changer' : 'Lier un agenda'}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card space-y-2 p-3 text-sm">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-ink">Choisis l'agenda Google partagé</span>
+        <button onClick={() => setPicking(false)} className="text-xs text-copper">
+          Fermer
+        </button>
+      </div>
+      <p className="text-xs text-muted">
+        Crée d'abord un agenda « Nous deux » dans Google Agenda et partage-le avec l'autre (droit de modification). Il
+        apparaîtra ici.
+      </p>
+      {error ? <div className="text-xs text-clay">{error}</div> : null}
+      {!cals ? (
+        <p className="text-xs text-muted">Chargement des agendas…</p>
+      ) : (
+        <ul className="space-y-1">
+          {cals.map((c) => (
+            <li key={c.id}>
+              <button
+                onClick={() => pick(c)}
+                disabled={busy}
+                className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
+                  space.googleCalendarId === c.id ? 'bg-copper/20 text-copper' : 'bg-bg text-ink hover:bg-copper/10'
+                }`}
+              >
+                {c.summary}
+                {c.primary ? ' (principal)' : ''}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {space.googleCalendarId ? (
+        <button onClick={unlink} disabled={busy} className="btn-ghost w-full py-1.5 text-xs text-clay">
+          Délier l'agenda
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -519,13 +690,13 @@ function EventsTab({ spaceId, me }: { spaceId: string; me: { id: string; name: s
 function EventList({
   title,
   events,
-  onChange,
+  onDelete,
   empty,
   muted,
 }: {
   title: string
   events: SharedEvent[]
-  onChange: () => void
+  onDelete: (ev: SharedEvent) => void
   empty?: string
   muted?: boolean
 }) {
@@ -543,14 +714,14 @@ function EventList({
                 {e.time ? <div className="text-[11px] text-muted">{e.time}</div> : null}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-ink">{e.title}</div>
+                <div className="font-semibold text-ink">
+                  {e.title}
+                  {e.google_event_id ? <span title="Dans Google Agenda"> 📆</span> : null}
+                </div>
                 {e.note ? <div className="text-xs text-muted">{e.note}</div> : null}
                 {e.author_name ? <div className="text-[10px] text-muted">par {e.author_name}</div> : null}
               </div>
-              <button
-                onClick={() => confirm('Supprimer cet événement ?') && deleteSharedEvent(e.id).then(onChange)}
-                className="shrink-0 text-muted hover:text-clay"
-              >
+              <button onClick={() => onDelete(e)} className="shrink-0 text-muted hover:text-clay">
                 ✕
               </button>
             </li>
