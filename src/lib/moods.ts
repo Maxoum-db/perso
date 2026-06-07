@@ -1,6 +1,15 @@
 import { supabase } from './supabase'
 
 export interface Mood {
+  id: string
+  date: string
+  mood: number
+  tags: string[]
+  note: string
+  created_at: string
+}
+
+export interface MoodInput {
   date: string
   mood: number
   tags: string[]
@@ -39,17 +48,24 @@ export async function listMoods(userId: string, days = 120): Promise<Mood[]> {
   since.setDate(since.getDate() - days)
   const { data, error } = await supabase
     .from('perso_moods')
-    .select('date,mood,tags,note')
+    .select('id,date,mood,tags,note,created_at')
     .eq('user_id', userId)
     .gte('date', since.toISOString().slice(0, 10))
     .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as Mood[]
 }
 
-export async function upsertMood(userId: string, m: Mood): Promise<void> {
+/** Ajoute une nouvelle entrée d'humeur (plusieurs par jour autorisées). */
+export async function addMood(userId: string, m: MoodInput): Promise<void> {
   const { error } = await supabase
     .from('perso_moods')
-    .upsert({ user_id: userId, ...m, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
+    .insert({ user_id: userId, ...m, updated_at: new Date().toISOString() })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteMood(id: string): Promise<void> {
+  const { error } = await supabase.from('perso_moods').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }

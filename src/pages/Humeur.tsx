@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { MOOD_SCALE, MOOD_TAGS, listMoods, moodMeta, upsertMood, type Mood } from '../lib/moods'
+import { MOOD_SCALE, MOOD_TAGS, addMood, deleteMood, listMoods, moodMeta, type Mood } from '../lib/moods'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
@@ -10,7 +10,7 @@ export function Humeur() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
-  // Formulaire du jour
+  // Formulaire d'une nouvelle entrée (on peut en ajouter plusieurs par jour).
   const [mood, setMood] = useState<number>(0)
   const [tags, setTags] = useState<string[]>([])
   const [note, setNote] = useState('')
@@ -18,14 +18,7 @@ export function Humeur() {
   async function reload() {
     if (!user) return
     try {
-      const list = await listMoods(user.id)
-      setMoods(list)
-      const today = list.find((m) => m.date === todayIso())
-      if (today) {
-        setMood(today.mood)
-        setTags(today.tags)
-        setNote(today.note)
-      }
+      setMoods(await listMoods(user.id))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -35,15 +28,30 @@ export function Humeur() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  async function save() {
+  async function add() {
     if (!user || !mood) return
     try {
-      await upsertMood(user.id, { date: todayIso(), mood, tags, note })
+      await addMood(user.id, { date: todayIso(), mood, tags, note })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      // On vide le formulaire pour une éventuelle nouvelle entrée.
+      setMood(0)
+      setTags([])
+      setNote('')
       reload()
     } catch (e) {
       setError((e as Error).message)
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Supprimer cette entrée ?')) return
+    setMoods((prev) => prev.filter((m) => m.id !== id))
+    try {
+      await deleteMood(id)
+    } catch (e) {
+      setError((e as Error).message)
+      reload()
     }
   }
 
@@ -52,15 +60,21 @@ export function Humeur() {
     return last.length ? (last.reduce((s, m) => s + m.mood, 0) / last.length).toFixed(1) : '—'
   }, [moods])
 
-  // 5 dernières semaines en "pixels"
+  // 5 dernières semaines en "pixels" : moyenne des entrées du jour.
   const pixels = useMemo(() => {
-    const map = new Map(moods.map((m) => [m.date, m.mood]))
+    const byDate = new Map<string, number[]>()
+    for (const m of moods) {
+      const arr = byDate.get(m.date) ?? []
+      arr.push(m.mood)
+      byDate.set(m.date, arr)
+    }
     const cells: { date: string; mood: number | null }[] = []
     for (let i = 34; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
       const iso = d.toISOString().slice(0, 10)
-      cells.push({ date: iso, mood: map.get(iso) ?? null })
+      const arr = byDate.get(iso)
+      cells.push({ date: iso, mood: arr ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null })
     }
     return cells
   }, [moods])
@@ -69,12 +83,12 @@ export function Humeur() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">😊 Humeur & journal</h1>
-        <p className="text-sm text-muted">Comment tu te sens aujourd'hui ?</p>
+        <p className="text-sm text-muted">Comment tu te sens, là maintenant ? (tu peux en ajouter plusieurs par jour)</p>
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
 
-      {/* Saisie du jour */}
+      {/* Nouvelle entrée */}
       <section className="card p-4">
         <div className="flex justify-between gap-1">
           {MOOD_SCALE.map((m) => (
@@ -115,13 +129,13 @@ export function Humeur() {
 
         <textarea
           className="field mt-3 min-h-[70px]"
-          placeholder="Une note sur ta journée (optionnel)…"
+          placeholder="Une note sur ce moment (optionnel)…"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
 
-        <button onClick={save} disabled={!mood} className="btn-primary mt-3 w-full">
-          {saved ? 'Enregistré ✓' : "Enregistrer l'humeur du jour"}
+        <button onClick={add} disabled={!mood} className="btn-primary mt-3 w-full">
+          {saved ? 'Ajouté ✓' : 'Ajouter cette humeur'}
         </button>
       </section>
 
@@ -148,14 +162,24 @@ export function Humeur() {
         <section className="card p-4">
           <h2 className="mb-2 text-sm font-extrabold text-ink">Historique</h2>
           <ul className="space-y-2">
-            {moods.slice(0, 20).map((m) => (
-              <li key={m.date} className="flex items-start gap-2 border-b border-line/50 pb-2 text-sm last:border-0">
+            {moods.slice(0, 40).map((m) => (
+              <li key={m.id} className="flex items-start gap-2 border-b border-line/50 pb-2 text-sm last:border-0">
                 <span className="text-xl">{moodMeta(m.mood).emoji}</span>
                 <div className="min-w-0 flex-1">
-                  <span className="text-xs text-muted">{frDate(m.date)}</span>
+                  <span className="text-xs text-muted">
+                    {frDate(m.date)}
+                    {m.created_at ? ` · ${frTime(m.created_at)}` : ''}
+                  </span>
                   {m.tags.length ? <span className="text-xs text-muted"> · {m.tags.join(', ')}</span> : null}
                   {m.note ? <div className="text-ink">{m.note}</div> : null}
                 </div>
+                <button
+                  onClick={() => remove(m.id)}
+                  title="Supprimer cette entrée"
+                  className="shrink-0 text-muted hover:text-clay"
+                >
+                  ✕
+                </button>
               </li>
             ))}
           </ul>
@@ -167,4 +191,8 @@ export function Humeur() {
 
 function frDate(d: string): string {
   return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function frTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }

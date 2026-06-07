@@ -10,10 +10,16 @@ import {
   listItems,
   listListes,
   toggleItem,
+  updateItem,
   updateListe,
   type ListItem,
   type ListeWithCount,
 } from '../lib/lists'
+
+/** Ajoute https:// si l'utilisateur a tapé un lien sans préfixe. */
+function normalizeUrl(u: string): string {
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`
+}
 
 export function Listes() {
   const { user } = useAuth()
@@ -138,6 +144,7 @@ function ListDetail({
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(title)
   const [draftEmoji, setDraftEmoji] = useState(emoji)
+  const [editItem, setEditItem] = useState<ListItem | null>(null)
 
   async function reload() {
     try {
@@ -287,16 +294,31 @@ function ListDetail({
       ) : (
         <ul className="space-y-2">
           {items.map((it) => (
-            <li key={it.id} className="card flex items-center gap-3 p-3">
+            <li key={it.id} className="card flex items-center gap-2 p-3">
               <input
                 type="checkbox"
                 checked={it.done}
                 onChange={() => toggle(it)}
                 className="h-5 w-5 shrink-0"
               />
-              <span className={`min-w-0 flex-1 break-words ${it.done ? 'text-muted line-through' : 'text-ink'}`}>
-                {it.content}
-              </span>
+              <button
+                onClick={() => setEditItem(it)}
+                title="Modifier / ajouter un lien"
+                className={`min-w-0 flex-1 break-words text-left ${it.done ? 'text-muted line-through' : 'text-ink'}`}
+              >
+                {it.content || '(sans nom)'}
+              </button>
+              {it.url ? (
+                <a
+                  href={normalizeUrl(it.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Ouvrir le lien"
+                  className="shrink-0 text-lg"
+                >
+                  🔗
+                </a>
+              ) : null}
               <button onClick={() => remove(it)} title="Supprimer" className="shrink-0 text-muted hover:text-clay">
                 ✕
               </button>
@@ -317,6 +339,102 @@ function ListDetail({
           Effacer les {doneCount} élément(s) coché(s)
         </button>
       ) : null}
+
+      {editItem ? (
+        <ItemEditor
+          item={editItem}
+          onClose={() => setEditItem(null)}
+          onSaved={() => {
+            setEditItem(null)
+            reload()
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function ItemEditor({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: ListItem
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [content, setContent] = useState(item.content)
+  const [url, setUrl] = useState(item.url ?? '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function save() {
+    setBusy(true)
+    setErr(null)
+    try {
+      await updateItem(item.id, { content: content.trim() || '(sans nom)', url: url.trim() || null })
+      onSaved()
+    } catch (e) {
+      setErr((e as Error).message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card max-h-[92vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 sm:rounded-xl2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-extrabold text-ink">Élément</h2>
+          <button onClick={onClose} className="text-muted hover:text-ink">
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <input
+            className="field"
+            placeholder="Nom de l'élément"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+            autoFocus
+          />
+          <label className="block text-xs text-muted">
+            Lien (optionnel)
+            <input
+              className="field mt-1"
+              type="url"
+              inputMode="url"
+              placeholder="https://… (lien du produit)"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+            />
+          </label>
+          {url.trim() ? (
+            <a
+              href={normalizeUrl(url)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-copper hover:underline"
+            >
+              🔗 Tester le lien
+            </a>
+          ) : null}
+
+          {err ? <div className="rounded-xl2 bg-clay/10 p-2 text-xs text-clay">{err}</div> : null}
+
+          <button onClick={save} disabled={busy} className="btn-primary w-full">
+            {busy ? '…' : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

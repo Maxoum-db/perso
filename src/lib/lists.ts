@@ -6,6 +6,7 @@ export interface ListItem {
   content: string
   done: boolean
   position: number
+  url: string | null
 }
 
 export interface Liste {
@@ -21,7 +22,7 @@ export interface ListeWithCount extends Liste {
 }
 
 // Quelques emojis pratiques pour personnaliser une liste.
-export const LIST_EMOJIS = ['📝', '🛒', '✅', '🎒', '🎁', '🍽️', '🏖️', '🏠', '💡', '💕']
+export const LIST_EMOJIS = ['📝', '🛒', '✅', '🎒', '🎁', '🍽️', '🍺', '🍻', '🏖️', '🏠', '💡', '💕']
 
 export async function listListes(userId: string): Promise<ListeWithCount[]> {
   const { data: lists, error } = await supabase
@@ -79,7 +80,7 @@ export async function deleteListe(id: string): Promise<void> {
 export async function listItems(listId: string): Promise<ListItem[]> {
   const { data, error } = await supabase
     .from('perso_list_items')
-    .select('id,list_id,content,done,position')
+    .select('id,list_id,content,done,position,url')
     .eq('list_id', listId)
     .order('done', { ascending: true })
     .order('position', { ascending: true })
@@ -91,11 +92,19 @@ export async function listItems(listId: string): Promise<ListItem[]> {
 export async function addItem(userId: string, listId: string, content: string): Promise<ListItem> {
   const { data, error } = await supabase
     .from('perso_list_items')
-    .insert({ user_id: userId, list_id: listId, content: content.trim(), position: Date.now() })
-    .select('id,list_id,content,done,position')
+    .insert({ user_id: userId, list_id: listId, content: content.trim() })
+    .select('id,list_id,content,done,position,url')
     .single()
   if (error) throw new Error(error.message)
   return data as ListItem
+}
+
+export async function updateItem(
+  id: string,
+  patch: { content?: string; url?: string | null },
+): Promise<void> {
+  const { error } = await supabase.from('perso_list_items').update(patch).eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export async function toggleItem(id: string, done: boolean): Promise<void> {
