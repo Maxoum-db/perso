@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import { storeGoogleToken, clearGoogleToken } from './google'
+import {
+  storeGoogleToken,
+  clearGoogleToken,
+  hasFreshGoogleToken,
+  refreshGoogleToken,
+  saveGoogleRefreshToken,
+} from './google'
 
 // Scopes Google demandés :
 //  - calendar       : lecture + écriture des agendas (l'écriture servira à la
@@ -36,25 +42,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Juste après le retour OAuth, la session contient provider_token (access)
+    // et provider_refresh_token : on capte les deux. Le refresh_token est stocké
+    // côté serveur pour régénérer l'access token ensuite (connexion permanente).
+    const capture = (s: Session | null) => {
+      storeGoogleToken(s?.provider_token)
+      if (s?.user && s.provider_refresh_token) {
+        saveGoogleRefreshToken(s.user.id, s.provider_refresh_token).catch(() => {})
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
-      // provider_token n'est présent que juste après le retour OAuth.
-      storeGoogleToken(data.session?.provider_token)
+      capture(data.session)
+      // Au rechargement, provider_token est absent : on régénère via le serveur.
+      if (data.session?.user && !hasFreshGoogleToken()) refreshGoogleToken()
       setLoading(false)
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        storeGoogleToken(s?.provider_token)
-      }
-      if (event === 'SIGNED_OUT') {
-        clearGoogleToken()
-      }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') capture(s)
+      if (event === 'SIGNED_OUT') clearGoogleToken()
     })
 
     return () => sub.subscription.unsubscribe()
   }, [])
+
+  // Renouvellement proactif du jeton Google : périodique + au retour au premier plan.
+  useEffect(() => {
+    if (!session?.user) return
+    const interval = setInterval(() => refreshGoogleToken(), 45 * 60 * 1000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !hasFreshGoogleToken()) refreshGoogleToken()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [session?.user?.id])
 
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({

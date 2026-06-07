@@ -6,18 +6,21 @@
 // on le capture donc et on le met en cache localement. À expiration (~1h),
 // l'UI propose de reconnecter Google.
 
+import { supabase } from './supabase'
+
 const TOKEN_KEY = 'hubperso.google.token'
 const TOKEN_EXP_KEY = 'hubperso.google.token_exp'
 
-// Marge de sécurité : on considère le jeton expiré 5 min avant l'heure réelle.
-const SAFETY_MS = 5 * 60 * 1000
-// Durée de vie par défaut d'un access token Google (~1h).
+// Marge de sécurité : on considère le jeton expiré 2 min avant l'heure réelle.
+const SAFETY_MS = 2 * 60 * 1000
+// Durée de vie par défaut d'un access token Google (~1h) si Google ne la précise pas.
 const DEFAULT_TTL_MS = 60 * 60 * 1000
 
-export function storeGoogleToken(token: string | null | undefined) {
+export function storeGoogleToken(token: string | null | undefined, expiresInSec?: number) {
   if (!token) return
+  const ttl = expiresInSec && expiresInSec > 0 ? expiresInSec * 1000 : DEFAULT_TTL_MS
   localStorage.setItem(TOKEN_KEY, token)
-  localStorage.setItem(TOKEN_EXP_KEY, String(Date.now() + DEFAULT_TTL_MS))
+  localStorage.setItem(TOKEN_EXP_KEY, String(Date.now() + ttl))
 }
 
 export function clearGoogleToken() {
@@ -37,12 +40,56 @@ export function hasFreshGoogleToken(): boolean {
   return getGoogleToken() !== null
 }
 
+// ---------- Renouvellement automatique (refresh token côté serveur) ----------
+
+/** Sauvegarde le refresh_token Google de l'utilisateur (capté juste après le login). */
+export async function saveGoogleRefreshToken(userId: string, refreshToken: string): Promise<void> {
+  await supabase
+    .from('perso_google_tokens')
+    .upsert(
+      { user_id: userId, refresh_token: refreshToken, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' },
+    )
+}
+
+let refreshInFlight: Promise<string | null> | null = null
+
+/**
+ * Demande un nouvel access token Google à la fonction Edge `google-refresh`
+ * (qui utilise le refresh_token stocké côté serveur). Renvoie le token,
+ * ou null s'il faut reconnecter Google (refresh token absent/révoqué).
+ */
+export async function refreshGoogleToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = (async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('google-refresh')
+      if (error || !data?.access_token) return null
+      storeGoogleToken(data.access_token as string, data.expires_in as number | undefined)
+      return data.access_token as string
+    } catch {
+      return null
+    } finally {
+      refreshInFlight = null
+    }
+  })()
+  return refreshInFlight
+}
+
+/** Renvoie un access token valide (rafraîchit si nécessaire), sinon lève GoogleAuthError. */
+async function getValidToken(): Promise<string> {
+  const existing = getGoogleToken()
+  if (existing) return existing
+  const fresh = await refreshGoogleToken()
+  if (fresh) return fresh
+  throw new GoogleAuthError('Jeton Google absent ou expiré')
+}
+
 /** Erreur typée pour distinguer un problème d'auth Google d'une autre erreur. */
 export class GoogleAuthError extends Error {}
 
 async function googleFetch(path: string, params?: Record<string, string | number | boolean | undefined>) {
-  const token = getGoogleToken()
-  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const token = await getValidToken()
 
   const url = new URL(path.startsWith('http') ? path : `https://www.googleapis.com${path}`)
   if (params) {
@@ -51,14 +98,20 @@ async function googleFetch(path: string, params?: Record<string, string | number
     }
   }
 
-  const res = await fetch(url.toString(), {
+  let res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
   })
 
-  // 401 = session réellement expirée -> on efface le jeton et on redemande la connexion.
+  // 401 = access token expiré -> on tente un renouvellement silencieux puis on rejoue.
   if (res.status === 401) {
-    clearGoogleToken()
-    throw new GoogleAuthError('Session Google expirée')
+    const fresh = await refreshGoogleToken()
+    if (fresh) {
+      res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${fresh}` } })
+    }
+    if (res.status === 401) {
+      clearGoogleToken()
+      throw new GoogleAuthError('Session Google expirée')
+    }
   }
   // 403 = autorisation/API manquante pour CETTE fonctionnalité. On NE touche PAS au
   // jeton (sinon on casse les autres modules et on boucle sur la reconnexion).
@@ -141,22 +194,25 @@ export async function listCalendars(): Promise<GCalendar[]> {
 // ---------- Écriture d'événements ----------
 
 async function googleWrite(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) {
-  const token = getGoogleToken()
-  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const token = await getValidToken()
 
   const url = path.startsWith('http') ? path : `https://www.googleapis.com${path}`
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  const doFetch = (t: string) =>
+    fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+
+  let res = await doFetch(token)
 
   if (res.status === 401) {
-    clearGoogleToken()
-    throw new GoogleAuthError('Session Google expirée')
+    const fresh = await refreshGoogleToken()
+    if (fresh) res = await doFetch(fresh)
+    if (res.status === 401) {
+      clearGoogleToken()
+      throw new GoogleAuthError('Session Google expirée')
+    }
   }
   if (res.status === 403) {
     throw new Error("Tu n'as pas le droit d'écrire dans cet agenda (lecture seule).")
@@ -416,8 +472,7 @@ export async function listFilesInFolder(folderId: string): Promise<DriveFile[]> 
 
 /** Récupère le texte d'un fichier (Google Doc exporté en texte brut, ou fichier texte). */
 export async function getFileText(file: DriveFile): Promise<string> {
-  const token = getGoogleToken()
-  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const token = await getValidToken()
 
   let url: string
   if (file.mimeType === 'application/vnd.google-apps.document') {
@@ -445,8 +500,7 @@ export async function uploadDriveTextFile(opts: {
   folderId?: string
   fileId?: string
 }): Promise<string> {
-  const token = getGoogleToken()
-  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const token = await getValidToken()
   const mime = opts.mimeType || 'text/markdown'
 
   const handle = async (res: Response) => {
@@ -489,8 +543,7 @@ export class GoogleNotFound extends Error {}
 
 /** Télécharge un fichier (avec auth) et renvoie une URL blob lisible (audio, etc.). */
 export async function getFileBlobUrl(file: DriveFile): Promise<string> {
-  const token = getGoogleToken()
-  if (!token) throw new GoogleAuthError('Jeton Google absent ou expiré')
+  const token = await getValidToken()
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
     headers: { Authorization: `Bearer ${token}` },
   })
