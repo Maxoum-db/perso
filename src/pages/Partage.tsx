@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import {
@@ -403,6 +403,7 @@ function ListItems({
 }) {
   const [items, setItems] = useState<SharedListItem[]>([])
   const [content, setContent] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   async function reload() {
     setItems(await listSharedItems(listId))
@@ -414,10 +415,16 @@ function ListItems({
   }, [listId])
 
   async function add() {
-    if (!content.trim()) return
-    await addSharedItem(spaceId, listId, content)
+    const val = content.trim()
+    if (!val) return
     setContent('')
-    await reload()
+    inputRef.current?.focus() // garder le clavier/curseur sur la barre
+    try {
+      await addSharedItem(spaceId, listId, val)
+      await reload()
+    } finally {
+      inputRef.current?.focus()
+    }
   }
 
   const hasDone = items.some((i) => i.done)
@@ -426,11 +433,17 @@ function ListItems({
     <div className="space-y-2 border-t border-line/60 bg-bg/40 p-3">
       <div className="flex gap-2">
         <input
+          ref={inputRef}
           className="field"
           placeholder="Ajouter…"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+          }}
         />
         <button onClick={add} disabled={!content.trim()} className="btn-primary shrink-0 px-4 py-2">
           +
