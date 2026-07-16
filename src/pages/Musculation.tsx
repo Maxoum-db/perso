@@ -4,15 +4,19 @@ import { SubTabs } from '../components/SubTabs'
 import { InfoBox } from '../components/training-ui'
 import {
   MUSCLE_GROUPS_DEFAULT,
+  deleteCatalogExercise,
   deleteSession,
   deleteTemplate,
   ensureSeeded,
+  listCatalog,
   listSessions,
   listTemplates,
   loadMuscleGroups,
+  saveCatalogExercise,
   saveMuscleGroups,
   saveSession,
   saveTemplate,
+  type CatalogExercise,
   type ExoInput,
   type MuscuExo,
   type MuscuSession,
@@ -68,6 +72,17 @@ function draftToInput(d: ExoDraft): ExoInput {
   }
 }
 
+function catalogToDraft(c: CatalogExercise): ExoDraft {
+  return {
+    name: c.name,
+    muscle_group: c.muscle_group,
+    sets: String(c.default_sets),
+    reps: c.default_reps,
+    weight: c.default_weight_kg === null ? '' : String(c.default_weight_kg),
+    notes: '',
+  }
+}
+
 /** Dernière trace d'un exercice dans le journal (sessions triées par date desc). */
 function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
   const n = name.trim().toLowerCase()
@@ -85,6 +100,7 @@ export function Musculation() {
   const [tab, setTab] = useState<'journal' | 'types'>('journal')
   const [templates, setTemplates] = useState<MuscuTemplate[] | null>(null)
   const [sessions, setSessions] = useState<MuscuSession[] | null>(null)
+  const [catalog, setCatalog] = useState<CatalogExercise[]>([])
   const [groups, setGroups] = useState<string[]>(MUSCLE_GROUPS_DEFAULT)
   const [error, setError] = useState<string | null>(null)
 
@@ -92,9 +108,15 @@ export function Musculation() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, g] = await Promise.all([listTemplates(user.id), listSessions(user.id), loadMuscleGroups(user.id)])
+      const [t, s, c, g] = await Promise.all([
+        listTemplates(user.id),
+        listSessions(user.id),
+        listCatalog(user.id),
+        loadMuscleGroups(user.id),
+      ])
       setTemplates(t)
       setSessions(s)
+      setCatalog(c)
       setGroups(g)
     } catch (e) {
       setError((e as Error).message)
@@ -126,11 +148,19 @@ export function Musculation() {
       {templates === null || sessions === null ? (
         <div className="animate-pulse text-sm text-muted">Chargement…</div>
       ) : tab === 'journal' ? (
-        <Journal userId={user?.id ?? ''} sessions={sessions} templates={templates} groups={groups} onChange={reload} />
+        <Journal
+          userId={user?.id ?? ''}
+          sessions={sessions}
+          templates={templates}
+          catalog={catalog}
+          groups={groups}
+          onChange={reload}
+        />
       ) : (
         <TypesTab
           userId={user?.id ?? ''}
           templates={templates}
+          catalog={catalog}
           groups={groups}
           onChange={reload}
           onGroups={setGroups}
@@ -156,12 +186,14 @@ function Journal({
   userId,
   sessions,
   templates,
+  catalog,
   groups,
   onChange,
 }: {
   userId: string
   sessions: MuscuSession[]
   templates: MuscuTemplate[]
+  catalog: CatalogExercise[]
   groups: string[]
   onChange: () => void
 }) {
@@ -211,6 +243,7 @@ function Journal({
       <SessionEditor
         draft={draft}
         groups={groups}
+        catalog={catalog}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
           await saveSession(
@@ -344,11 +377,13 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 function SessionEditor({
   draft,
   groups,
+  catalog,
   onCancel,
   onSave,
 }: {
   draft: SessionDraft
   groups: string[]
+  catalog: CatalogExercise[]
   onCancel: () => void
   onSave: (d: SessionDraft) => Promise<void>
 }) {
@@ -403,7 +438,7 @@ function SessionEditor({
         />
       </div>
 
-      <ExoListEditor exos={d.exos} groups={groups} onChange={(exos) => setD({ ...d, exos })} />
+      <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance'}
@@ -417,10 +452,12 @@ function SessionEditor({
 function ExoListEditor({
   exos,
   groups,
+  catalog,
   onChange,
 }: {
   exos: ExoDraft[]
   groups: string[]
+  catalog: CatalogExercise[]
   onChange: (exos: ExoDraft[]) => void
 }) {
   const update = (i: number, patch: Partial<ExoDraft>) =>
@@ -509,9 +546,29 @@ function ExoListEditor({
           />
         </div>
       ))}
-      <button onClick={() => onChange([...exos, emptyExo()])} className="btn-ghost w-full py-2 text-sm">
-        + Ajouter un exercice
-      </button>
+      <div className="flex gap-2">
+        {catalog.length ? (
+          <select
+            className="field"
+            value=""
+            onChange={(ev) => {
+              const c = catalog.find((x) => x.id === ev.target.value)
+              if (c) onChange([...exos, catalogToDraft(c)])
+            }}
+          >
+            <option value="">📚 Ajouter depuis le catalogue…</option>
+            {catalog.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.default_weight_kg !== null ? ` — ${c.default_weight_kg} kg` : ''}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <button onClick={() => onChange([...exos, emptyExo()])} className="btn-ghost shrink-0 px-3 py-2 text-sm">
+          + Vierge
+        </button>
+      </div>
     </div>
   )
 }
@@ -530,12 +587,14 @@ interface TplDraft {
 function TypesTab({
   userId,
   templates,
+  catalog,
   groups,
   onChange,
   onGroups,
 }: {
   userId: string
   templates: MuscuTemplate[]
+  catalog: CatalogExercise[]
   groups: string[]
   onChange: () => void
   onGroups: (g: string[]) => void
@@ -558,6 +617,7 @@ function TypesTab({
       <TemplateEditor
         draft={draft}
         groups={groups}
+        catalog={catalog}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
           await saveTemplate(
@@ -617,6 +677,8 @@ function TypesTab({
         ))}
       </ul>
 
+      <CatalogManager userId={userId} catalog={catalog} groups={groups} onChange={onChange} />
+
       <GroupsManager userId={userId} groups={groups} onGroups={onGroups} />
 
       <InfoBox title="💡 Conseils d'optimisation" tone="amber">
@@ -655,11 +717,13 @@ function summary(exos: MuscuExo[]): string {
 function TemplateEditor({
   draft,
   groups,
+  catalog,
   onCancel,
   onSave,
 }: {
   draft: TplDraft
   groups: string[]
+  catalog: CatalogExercise[]
   onCancel: () => void
   onSave: (d: TplDraft) => Promise<void>
 }) {
@@ -722,11 +786,173 @@ function TemplateEditor({
         />
       </div>
 
-      <ExoListEditor exos={d.exos} groups={groups} onChange={(exos) => setD({ ...d, exos })} />
+      <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance type'}
       </button>
+    </div>
+  )
+}
+
+// ── Catalogue d'exercices types ──────────────────────────────────────────────
+
+interface CatalogDraft {
+  id?: string
+  name: string
+  muscle_group: string
+  sets: string
+  reps: string
+  weight: string
+  notes: string
+}
+
+function CatalogManager({
+  userId,
+  catalog,
+  groups,
+  onChange,
+}: {
+  userId: string
+  catalog: CatalogExercise[]
+  groups: string[]
+  onChange: () => void
+}) {
+  const [draft, setDraft] = useState<CatalogDraft | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    if (!draft || !draft.name.trim()) return
+    setBusy(true)
+    try {
+      const w = parseFloat(draft.weight.replace(',', '.'))
+      await saveCatalogExercise(userId, {
+        id: draft.id,
+        name: draft.name,
+        muscle_group: draft.muscle_group,
+        default_sets: parseInt(draft.sets, 10) || 3,
+        default_reps: draft.reps,
+        default_weight_kg: Number.isFinite(w) ? w : null,
+        notes: draft.notes,
+      })
+      setDraft(null)
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card space-y-2 p-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-ink">📚 Catalogue d'exercices</h3>
+        <button
+          onClick={() => setDraft({ name: '', muscle_group: '', sets: '3', reps: '10', weight: '', notes: '' })}
+          className="text-xs font-semibold text-copper"
+        >
+          + Ajouter
+        </button>
+      </div>
+      <p className="text-[11px] text-muted">
+        Tes exercices avec leurs valeurs par défaut (séries × reps @ charge) — sélectionnables dans l'éditeur de
+        séance.
+      </p>
+
+      {draft ? (
+        <div className="space-y-1.5 rounded-xl2 border border-copper/40 bg-copper/5 p-2.5">
+          <input
+            className="field"
+            placeholder="Nom de l'exercice"
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            autoFocus
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <select
+              className="field w-auto min-w-28 flex-1"
+              value={draft.muscle_group}
+              onChange={(e) => setDraft({ ...draft, muscle_group: e.target.value })}
+            >
+              <option value="">Groupe visé…</option>
+              {(groups.includes(draft.muscle_group) || !draft.muscle_group ? groups : [draft.muscle_group, ...groups]).map(
+                (g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ),
+              )}
+            </select>
+            <input
+              className="field w-14"
+              type="number"
+              inputMode="numeric"
+              min="1"
+              value={draft.sets}
+              onChange={(e) => setDraft({ ...draft, sets: e.target.value })}
+            />
+            <input className="field w-24" placeholder="reps ou 45s" value={draft.reps} onChange={(e) => setDraft({ ...draft, reps: e.target.value })} />
+            <label className="flex items-center gap-1 text-xs text-muted">
+              <input
+                className="field w-20"
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                placeholder="PdC"
+                value={draft.weight}
+                onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
+              />
+              kg
+            </label>
+          </div>
+          <input className="field text-xs" placeholder="Notes (machine, consignes…)" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+          <div className="flex gap-2">
+            <button onClick={save} disabled={busy || !draft.name.trim()} className="btn-primary flex-1 py-1.5 text-sm">
+              Enregistrer
+            </button>
+            <button onClick={() => setDraft(null)} className="btn-ghost px-3 py-1.5 text-sm">
+              Annuler
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <ul className="space-y-1">
+        {catalog.map((c) => (
+          <li key={c.id} className="flex items-center gap-2 border-b border-line/40 pb-1 text-sm last:border-0">
+            <div className="min-w-0 flex-1">
+              <span className="font-semibold text-ink">{c.name}</span>
+              <span className="text-xs text-muted">
+                {' '}
+                — {c.default_sets}×{c.default_reps}
+                {c.default_weight_kg !== null ? ` @ ${c.default_weight_kg} kg` : ''}
+                {c.muscle_group ? ` · ${c.muscle_group}` : ''}
+              </span>
+            </div>
+            <button
+              onClick={() =>
+                setDraft({
+                  id: c.id,
+                  name: c.name,
+                  muscle_group: c.muscle_group,
+                  sets: String(c.default_sets),
+                  reps: c.default_reps,
+                  weight: c.default_weight_kg === null ? '' : String(c.default_weight_kg),
+                  notes: c.notes,
+                })
+              }
+              className="shrink-0 text-xs text-copper"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={() => confirm(`Retirer « ${c.name} » du catalogue ?`) && deleteCatalogExercise(c.id).then(onChange)}
+              className="shrink-0 text-muted hover:text-clay"
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -1,31 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../lib/auth'
-import {
-  WORKOUT_KINDS,
-  addWeighin,
-  addWorkout,
-  deleteWeighin,
-  deleteWorkout,
-  listWeighins,
-  listWorkouts,
-  type Weighin,
-  type Workout,
-} from '../lib/workouts'
+import { addWeighin, deleteWeighin, listWeighins, type Weighin } from '../lib/workouts'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+// Carnet = suivi du poids de corps. Les séances (muscu, béhourd…) vivent
+// dans l'onglet Musculation → Journal, pour centraliser les données.
 export function Carnet() {
   const { user } = useAuth()
-  const [workouts, setWorkouts] = useState<Workout[]>([])
   const [weighins, setWeighins] = useState<Weighin[]>([])
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
-      const [w, p] = await Promise.all([listWorkouts(user.id), listWeighins(user.id)])
-      setWorkouts(w)
-      setWeighins(p)
+      setWeighins(await listWeighins(user.id))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -38,14 +27,18 @@ export function Carnet() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-extrabold text-ink">📓 Carnet d'entraînement</h1>
-        <p className="text-sm text-muted">Tes séances et ton poids — synchronisés, reliés à ta prépa béhourd.</p>
+        <h1 className="text-2xl font-extrabold text-ink">📓 Carnet</h1>
+        <p className="text-sm text-muted">Ton poids de corps, synchronisé téléphone ↔ PC.</p>
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
 
       <WeightSection userId={user?.id ?? ''} weighins={weighins} onChange={reload} />
-      <WorkoutSection userId={user?.id ?? ''} workouts={workouts} onChange={reload} />
+
+      <div className="card p-3 text-xs text-muted">
+        🏋️ Tes séances (muscu, béhourd, cardio…) sont désormais centralisées dans l'onglet{' '}
+        <b className="text-ink">💪 Musculation → 📒 Journal</b>.
+      </div>
     </div>
   )
 }
@@ -116,90 +109,6 @@ function WeightSection({ userId, weighins, onChange }: { userId: string; weighin
           ))}
         </ul>
       ) : null}
-    </section>
-  )
-}
-
-function WorkoutSection({ userId, workouts, onChange }: { userId: string; workouts: Workout[]; onChange: () => void }) {
-  const [date, setDate] = useState(today())
-  const [kind, setKind] = useState(WORKOUT_KINDS[0])
-  const [duration, setDuration] = useState('')
-  const [notes, setNotes] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function add() {
-    if (!userId) return
-    setBusy(true)
-    try {
-      await addWorkout(userId, {
-        date,
-        kind,
-        duration_min: duration ? parseInt(duration, 10) : null,
-        notes: notes.trim(),
-      })
-      setDuration('')
-      setNotes('')
-      onChange()
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <section className="card p-4">
-      <h2 className="mb-2 text-sm font-extrabold text-ink">🏋️ Séances</h2>
-
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <input className="field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          <select className="field" value={kind} onChange={(e) => setKind(e.target.value)}>
-            {WORKOUT_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
-          <input
-            className="field w-24 shrink-0"
-            type="number"
-            inputMode="numeric"
-            placeholder="min"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <input
-            className="field"
-            placeholder="Notes (charges, ressenti…)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-          <button onClick={add} disabled={busy} className="btn-primary shrink-0 px-4 py-2">
-            +
-          </button>
-        </div>
-      </div>
-
-      {workouts.length > 0 ? (
-        <ul className="mt-3 space-y-2">
-          {workouts.slice(0, 15).map((w) => (
-            <li key={w.id} className="flex items-start gap-2 border-b border-line/50 pb-2 text-sm last:border-0">
-              <span className="w-20 shrink-0 text-xs text-muted">{frDate(w.date)}</span>
-              <div className="min-w-0 flex-1">
-                <span className="font-semibold text-ink">{w.kind}</span>
-                {w.duration_min ? <span className="text-muted"> · {w.duration_min} min</span> : null}
-                {w.notes ? <div className="text-xs text-muted">{w.notes}</div> : null}
-              </div>
-              <button onClick={() => deleteWorkout(w.id).then(onChange)} className="shrink-0 text-muted hover:text-clay">
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-xs text-muted">Aucune séance enregistrée. Ajoute ta première ! 💪</p>
-      )}
     </section>
   )
 }

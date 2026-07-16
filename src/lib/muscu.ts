@@ -41,6 +41,17 @@ export interface MuscuSession {
   exercises: MuscuExo[]
 }
 
+export interface CatalogExercise {
+  id: string
+  name: string
+  muscle_group: string
+  default_sets: number
+  default_reps: string
+  default_weight_kg: number | null
+  notes: string
+  position: number
+}
+
 // ── Groupes musculaires : prédéfinis mais modifiables (stockés en perso_kv) ──
 
 export const MUSCLE_GROUPS_DEFAULT = [
@@ -60,6 +71,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
 
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
+const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -99,6 +111,51 @@ function exoRows(userId: string, parentCol: 'template_id' | 'session_id', parent
     notes: e.notes.trim(),
     position: i,
   }))
+}
+
+// ── Catalogue d'exercices types (sélectionnables dans l'éditeur) ─────────────
+
+export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
+  const { data, error } = await supabase
+    .from('perso_muscu_exercises')
+    .select('id,name,muscle_group,default_sets,default_reps,default_weight_kg,notes,position')
+    .eq('user_id', userId)
+    .order('position', { ascending: true })
+    .order('name', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => ({
+    ...r,
+    default_weight_kg: r.default_weight_kg === null ? null : Number(r.default_weight_kg),
+  })) as CatalogExercise[]
+}
+
+export async function saveCatalogExercise(
+  userId: string,
+  exo: Omit<CatalogExercise, 'id' | 'position'> & { id?: string },
+): Promise<void> {
+  const base = {
+    name: exo.name.trim() || 'Exercice',
+    muscle_group: exo.muscle_group.trim(),
+    default_sets: Math.max(1, Math.round(exo.default_sets) || 1),
+    default_reps: exo.default_reps.trim() || '10',
+    default_weight_kg: exo.default_weight_kg,
+    notes: exo.notes.trim(),
+  }
+  if (exo.id) {
+    const { error } = await supabase
+      .from('perso_muscu_exercises')
+      .update({ ...base, updated_at: new Date().toISOString() })
+      .eq('id', exo.id)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase.from('perso_muscu_exercises').insert({ user_id: userId, ...base })
+    if (error) throw new Error(error.message)
+  }
+}
+
+export async function deleteCatalogExercise(id: string): Promise<void> {
+  const { error } = await supabase.from('perso_muscu_exercises').delete().eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 // ── Séances types (modèles) ──────────────────────────────────────────────────
@@ -268,31 +325,68 @@ const SEED_ICONS: Record<string, string> = { push: '💪', pull: '🦾', legs: '
 /** Crée les séances types par défaut à la première visite. Renvoie true si un seed a eu lieu. */
 export async function ensureSeeded(userId: string): Promise<boolean> {
   const seeded = await fetchKv<boolean>(userId, SEED_KEY, false)
-  if (seeded) return false
+  let didSeed = false
 
-  const { count, error } = await supabase
-    .from('perso_muscu_templates')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-  if (error) throw new Error(error.message)
+  if (!seeded) {
+    const { count, error } = await supabase
+      .from('perso_muscu_templates')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    if (error) throw new Error(error.message)
 
-  if (!count) {
-    for (const [key, prog] of Object.entries(MUSCU_PROGRAM)) {
-      const groups = SEED_GROUPS[key] ?? []
-      await saveTemplate(
-        userId,
-        { name: prog.label, icon: SEED_ICONS[key] ?? '🏋️', duration_min: prog.duration_min, notes: '' },
-        prog.exercises.map((e, i) => ({
-          name: e.name,
-          muscle_group: groups[i] ?? '',
-          sets: e.sets,
-          reps: e.reps,
-          weight_kg: null,
-          notes: [e.machine, e.notes].filter(Boolean).join(' — '),
-        })),
-      )
+    if (!count) {
+      for (const [key, prog] of Object.entries(MUSCU_PROGRAM)) {
+        const groups = SEED_GROUPS[key] ?? []
+        await saveTemplate(
+          userId,
+          { name: prog.label, icon: SEED_ICONS[key] ?? '🏋️', duration_min: prog.duration_min, notes: '' },
+          prog.exercises.map((e, i) => ({
+            name: e.name,
+            muscle_group: groups[i] ?? '',
+            sets: e.sets,
+            reps: e.reps,
+            weight_kg: null,
+            notes: [e.machine, e.notes].filter(Boolean).join(' — '),
+          })),
+        )
+      }
     }
+    await saveKv(userId, SEED_KEY, true)
+    didSeed = true
   }
-  await saveKv(userId, SEED_KEY, true)
-  return true
+
+  // Catalogue : complète avec les exercices des séances types absents du
+  // catalogue (une seule fois ; les exos déjà présents — perso — sont gardés).
+  const catSeeded = await fetchKv<boolean>(userId, CATALOG_SEED_KEY, false)
+  if (!catSeeded) {
+    const [existing, tpls] = await Promise.all([listCatalog(userId), listTemplates(userId)])
+    const have = new Set(existing.map((e) => e.name.trim().toLowerCase()))
+    const rows: Array<Record<string, unknown>> = []
+    let pos = 100
+    for (const t of tpls) {
+      for (const e of t.exercises) {
+        const key = e.name.trim().toLowerCase()
+        if (!key || have.has(key)) continue
+        have.add(key)
+        rows.push({
+          user_id: userId,
+          name: e.name,
+          muscle_group: e.muscle_group,
+          default_sets: e.sets,
+          default_reps: e.reps,
+          default_weight_kg: e.weight_kg,
+          notes: e.notes,
+          position: pos++,
+        })
+      }
+    }
+    if (rows.length) {
+      const { error } = await supabase.from('perso_muscu_exercises').insert(rows)
+      if (error) throw new Error(error.message)
+    }
+    await saveKv(userId, CATALOG_SEED_KEY, true)
+    didSeed = true
+  }
+
+  return didSeed
 }
