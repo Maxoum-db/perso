@@ -24,6 +24,7 @@ const moreTabs: Tab[] = [
   { to: '/partage', label: 'À deux', icon: IconHeart },
   { to: '/mails', label: 'Mails', icon: IconMail },
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
+  { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
   { to: '/reglages', label: 'Réglages', icon: IconGear },
 ]
@@ -192,6 +193,16 @@ function IconList({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 6h13M8 12h13M8 18h13" />
       <path d="M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  )
+}
+function IconDumbbell({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8.5 12h7" />
+      <rect x="4.5" y="8" width="3" height="8" rx="1" />
+      <rect x="16.5" y="8" width="3" height="8" rx="1" />
+      <path d="M2 10.5v3M22 10.5v3" />
     </svg>
   )
 }

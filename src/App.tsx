@@ -6,6 +6,7 @@ import { Agenda } from './pages/Agenda'
 import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
 import { Behourd } from './pages/Behourd'
+import { Musculation } from './pages/Musculation'
 import { Brassage } from './pages/Brassage'
 import { Notes } from './pages/Notes'
 import { Listes } from './pages/Listes'
@@ -39,14 +40,14 @@ export default function App() {
         <Route path="/taches" element={<Tasks />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/behourd" element={<Behourd />} />
+        <Route path="/musculation" element={<Musculation />} />
         <Route path="/brassage" element={<Brassage />} />
         <Route path="/reglages" element={<Settings />} />
         {/* Anciennes routes désormais regroupées dans des hubs */}
         <Route path="/journee" element={<Navigate to="/agenda" replace />} />
         <Route path="/humeur" element={<Navigate to="/notes" replace />} />
         <Route path="/drive" element={<Navigate to="/notes" replace />} />
-        <Route path="/musculation" element={<Navigate to="/behourd" replace />} />
-        <Route path="/carnet" element={<Navigate to="/behourd" replace />} />
+        <Route path="/carnet" element={<Navigate to="/musculation" replace />} />
         <Route path="/habitudes" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
