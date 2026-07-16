@@ -4,34 +4,22 @@ import { SubTabs } from '../components/SubTabs'
 import {
   type MySpace,
   type SharedEvent,
-  type SharedListItem,
-  type SharedListWithCount,
   type SharedNote,
-  addSharedItem,
-  clearDoneShared,
   createInvite,
   createSharedEvent,
-  createSharedList,
   createSharedNote,
   createSpace,
   deleteSharedEvent,
-  deleteSharedItem,
-  deleteSharedList,
   deleteSharedNote,
   getMySpace,
   joinSpace,
   listSharedEvents,
-  listSharedItems,
-  listSharedLists,
   listSharedNotes,
   setSharedEventGoogleId,
   setSpaceCalendar,
-  toggleSharedItem,
   updateSharedNote,
 } from '../lib/space'
 import { canWriteCalendar, createEvent, deleteEvent, listCalendars, type EventInput, type GCalendar } from '../lib/google'
-
-const LIST_EMOJIS = ['📝', '🛒', '✅', '🎁', '🍽️', '🏖️', '🏠', '💡', '💕', '🧳']
 
 const today = () => new Date().toISOString().slice(0, 10)
 function frDate(d: string): string {
@@ -44,7 +32,7 @@ function frDateTime(iso: string): string {
 export function Partage() {
   const { user } = useAuth()
   const [space, setSpace] = useState<MySpace | null | undefined>(undefined)
-  const [tab, setTab] = useState<'listes' | 'mots' | 'agenda'>('mots')
+  const [tab, setTab] = useState<'mots' | 'agenda'>('mots')
 
   const me = useMemo(
     () => ({
@@ -72,7 +60,6 @@ export function Partage() {
       <SubTabs
         tabs={[
           { id: 'mots', label: '💌 Petits mots' },
-          { id: 'listes', label: '🛒 Listes' },
           { id: 'agenda', label: '📅 Agenda' },
         ]}
         active={tab}
@@ -80,8 +67,6 @@ export function Partage() {
       />
       {tab === 'mots' ? (
         <NotesTab spaceId={space.spaceId} me={me} />
-      ) : tab === 'listes' ? (
-        <ListsTab spaceId={space.spaceId} />
       ) : (
         <EventsTab space={space} me={me} onSpaceReload={reload} />
       )}
@@ -126,7 +111,7 @@ function Onboarding({ me, onReady }: { me: { id: string; name: string; email: st
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">💕 Espace partagé</h1>
-        <p className="text-sm text-muted">Un espace à deux : listes, petits mots et agenda communs.</p>
+        <p className="text-sm text-muted">Un espace à deux : petits mots et agenda communs.</p>
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
@@ -307,159 +292,6 @@ function NoteCard({ note, canEdit, onChange }: { note: SharedNote; canEdit: bool
         </>
       )}
     </li>
-  )
-}
-
-// ── Onglet Listes partagées ─────────────────────────────────────────────────
-
-function ListsTab({ spaceId }: { spaceId: string }) {
-  const [lists, setLists] = useState<SharedListWithCount[]>([])
-  const [openId, setOpenId] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [title, setTitle] = useState('')
-  const [emoji, setEmoji] = useState('🛒')
-
-  async function reload() {
-    setLists(await listSharedLists(spaceId))
-  }
-  useEffect(() => {
-    reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceId])
-
-  async function create() {
-    if (!title.trim()) return
-    await createSharedList(spaceId, title, emoji)
-    setTitle('')
-    setEmoji('🛒')
-    setCreating(false)
-    await reload()
-  }
-
-  return (
-    <div className="space-y-3">
-      {creating ? (
-        <div className="card space-y-2 p-3">
-          <input className="field" placeholder="Nom de la liste" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <div className="flex flex-wrap gap-1.5">
-            {LIST_EMOJIS.map((e) => (
-              <button
-                key={e}
-                onClick={() => setEmoji(e)}
-                className={`rounded-lg px-2 py-1 text-lg ${emoji === e ? 'bg-copper/20' : 'bg-bg'}`}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={create} disabled={!title.trim()} className="btn-primary flex-1 py-2">
-              Créer
-            </button>
-            <button onClick={() => setCreating(false)} className="btn-ghost px-4 py-2">
-              Annuler
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setCreating(true)} className="btn-primary w-full py-2.5">
-          + Nouvelle liste
-        </button>
-      )}
-
-      {lists.length === 0 && !creating ? (
-        <p className="text-center text-xs text-muted">Aucune liste partagée. 🛒</p>
-      ) : null}
-
-      <ul className="space-y-2">
-        {lists.map((l) => (
-          <li key={l.id} className="card overflow-hidden">
-            <button onClick={() => setOpenId(openId === l.id ? null : l.id)} className="flex w-full items-center gap-3 p-3 text-left">
-              <span className="text-xl">{l.emoji}</span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-bold text-ink">{l.title}</div>
-                <div className="text-xs text-muted">{l.done}/{l.total} fait{l.total > 1 ? 's' : ''}</div>
-              </div>
-              <span className="shrink-0 text-muted">{openId === l.id ? '▾' : '▸'}</span>
-            </button>
-            {openId === l.id ? <ListItems spaceId={spaceId} listId={l.id} onCountChange={reload} onDeleteList={() => deleteSharedList(l.id).then(() => { setOpenId(null); reload() })} /> : null}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function ListItems({
-  spaceId,
-  listId,
-  onCountChange,
-  onDeleteList,
-}: {
-  spaceId: string
-  listId: string
-  onCountChange: () => void
-  onDeleteList: () => void
-}) {
-  const [items, setItems] = useState<SharedListItem[]>([])
-  const [content, setContent] = useState('')
-
-  async function reload() {
-    setItems(await listSharedItems(listId))
-    onCountChange()
-  }
-  useEffect(() => {
-    reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId])
-
-  async function add() {
-    if (!content.trim()) return
-    await addSharedItem(spaceId, listId, content)
-    setContent('')
-    await reload()
-  }
-
-  const hasDone = items.some((i) => i.done)
-
-  return (
-    <div className="space-y-2 border-t border-line/60 bg-bg/40 p-3">
-      <div className="flex gap-2">
-        <input
-          className="field"
-          placeholder="Ajouter…"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-        />
-        <button onClick={add} disabled={!content.trim()} className="btn-primary shrink-0 px-4 py-2">
-          +
-        </button>
-      </div>
-      <ul className="space-y-1">
-        {items.map((it) => (
-          <li key={it.id} className="flex items-center gap-2">
-            <button onClick={() => toggleSharedItem(it.id, !it.done).then(reload)} className="text-lg leading-none">
-              {it.done ? '☑️' : '⬜'}
-            </button>
-            <span className={`flex-1 text-sm ${it.done ? 'text-muted line-through' : 'text-ink'}`}>{it.content}</span>
-            <button onClick={() => deleteSharedItem(it.id).then(reload)} className="text-muted hover:text-clay">
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex justify-between pt-1 text-xs">
-        {hasDone ? (
-          <button onClick={() => clearDoneShared(listId).then(reload)} className="text-muted hover:text-copper">
-            Effacer les cochés
-          </button>
-        ) : <span />}
-        <button onClick={onDeleteList} className="text-muted hover:text-clay">
-          Supprimer la liste
-        </button>
-      </div>
-    </div>
   )
 }
 

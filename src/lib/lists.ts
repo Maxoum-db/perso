@@ -24,11 +24,12 @@ export interface ListeWithCount extends Liste {
 // Quelques emojis pratiques pour personnaliser une liste.
 export const LIST_EMOJIS = ['📝', '🛒', '✅', '🎒', '🎁', '🍽️', '🍺', '🍻', '🏖️', '🏠', '💡', '💕']
 
-export async function listListes(userId: string): Promise<ListeWithCount[]> {
+// La RLS renvoie les listes des deux membres de l'espace (partagées à deux) :
+// pas de filtre user_id en lecture. Les insertions restent signées par l'auteur.
+export async function listListes(): Promise<ListeWithCount[]> {
   const { data: lists, error } = await supabase
     .from('perso_lists')
     .select('id,title,emoji,position')
-    .eq('user_id', userId)
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
@@ -36,7 +37,6 @@ export async function listListes(userId: string): Promise<ListeWithCount[]> {
   const { data: items } = await supabase
     .from('perso_list_items')
     .select('list_id,done')
-    .eq('user_id', userId)
 
   const counts = new Map<string, { total: number; done: number }>()
   for (const it of items ?? []) {

@@ -31,7 +31,7 @@ export function Listes() {
   async function reloadLists() {
     if (!user) return
     try {
-      setLists(await listListes(user.id))
+      setLists(await listListes())
     } catch (e) {
       setError((e as Error).message)
     }
@@ -75,7 +75,10 @@ export function Listes() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-extrabold text-ink">📝 Mes listes</h1>
+      <div>
+        <h1 className="text-2xl font-extrabold text-ink">📝 Nos listes</h1>
+        <p className="text-sm text-muted">Partagées à deux : chacun voit et modifie tout.</p>
+      </div>
 
       <div className="flex items-center gap-2">
         <input
