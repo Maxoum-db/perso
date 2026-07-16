@@ -1,6 +1,8 @@
 import { supabase } from './supabase'
 
-// ── Espace partagé (couple) : listes, petits mots et agenda communs ─────────
+// ── Espace partagé (couple) : petits mots et agenda communs ────────────────
+// (Les listes du couple vivent dans perso_lists, partagées via la RLS
+//  same_space_as — voir lists.ts et la page Listes.)
 
 export interface SpaceMember {
   user_id: string
@@ -14,24 +16,6 @@ export interface MySpace {
   members: SpaceMember[]
   googleCalendarId: string | null
   googleCalendarName: string | null
-}
-
-export interface SharedList {
-  id: string
-  title: string
-  emoji: string
-  position: number
-}
-export interface SharedListWithCount extends SharedList {
-  total: number
-  done: number
-}
-export interface SharedListItem {
-  id: string
-  list_id: string
-  content: string
-  done: boolean
-  position: number
 }
 
 export interface SharedNote {
@@ -119,93 +103,6 @@ export async function joinSpace(code: string, displayName: string, email: string
     if (error.message.includes('invite_invalid')) throw new Error('Code invalide ou expiré.')
     throw new Error(error.message)
   }
-}
-
-// ── Listes partagées ────────────────────────────────────────────────────────
-
-export async function listSharedLists(spaceId: string): Promise<SharedListWithCount[]> {
-  const { data: lists, error } = await supabase
-    .from('shared_lists')
-    .select('id,title,emoji,position')
-    .eq('space_id', spaceId)
-    .order('position', { ascending: true })
-    .order('created_at', { ascending: true })
-  if (error) throw new Error(error.message)
-
-  const { data: items } = await supabase
-    .from('shared_list_items')
-    .select('list_id,done')
-    .eq('space_id', spaceId)
-
-  const counts = new Map<string, { total: number; done: number }>()
-  for (const it of items ?? []) {
-    const c = counts.get(it.list_id) ?? { total: 0, done: 0 }
-    c.total++
-    if (it.done) c.done++
-    counts.set(it.list_id, c)
-  }
-  return (lists ?? []).map((l) => ({
-    ...l,
-    total: counts.get(l.id)?.total ?? 0,
-    done: counts.get(l.id)?.done ?? 0,
-  }))
-}
-
-export async function createSharedList(spaceId: string, title: string, emoji = '📝'): Promise<SharedList> {
-  const { data, error } = await supabase
-    .from('shared_lists')
-    .insert({ space_id: spaceId, title: title.trim() || 'Liste', emoji })
-    .select('id,title,emoji,position')
-    .single()
-  if (error) throw new Error(error.message)
-  return data as SharedList
-}
-
-export async function updateSharedList(id: string, patch: Partial<Pick<SharedList, 'title' | 'emoji'>>): Promise<void> {
-  const { error } = await supabase.from('shared_lists').update(patch).eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function deleteSharedList(id: string): Promise<void> {
-  const { error } = await supabase.from('shared_lists').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function listSharedItems(listId: string): Promise<SharedListItem[]> {
-  const { data, error } = await supabase
-    .from('shared_list_items')
-    .select('id,list_id,content,done,position')
-    .eq('list_id', listId)
-    .order('done', { ascending: true })
-    .order('position', { ascending: true })
-    .order('created_at', { ascending: true })
-  if (error) throw new Error(error.message)
-  return (data ?? []) as SharedListItem[]
-}
-
-export async function addSharedItem(spaceId: string, listId: string, content: string): Promise<SharedListItem> {
-  const { data, error } = await supabase
-    .from('shared_list_items')
-    .insert({ space_id: spaceId, list_id: listId, content: content.trim() })
-    .select('id,list_id,content,done,position')
-    .single()
-  if (error) throw new Error(error.message)
-  return data as SharedListItem
-}
-
-export async function toggleSharedItem(id: string, done: boolean): Promise<void> {
-  const { error } = await supabase.from('shared_list_items').update({ done }).eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function deleteSharedItem(id: string): Promise<void> {
-  const { error } = await supabase.from('shared_list_items').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function clearDoneShared(listId: string): Promise<void> {
-  const { error } = await supabase.from('shared_list_items').delete().eq('list_id', listId).eq('done', true)
-  if (error) throw new Error(error.message)
 }
 
 // ── Petits mots (notes partagées) ───────────────────────────────────────────

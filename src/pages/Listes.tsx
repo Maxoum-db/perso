@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import {
   LIST_EMOJIS,
@@ -31,7 +31,7 @@ export function Listes() {
   async function reloadLists() {
     if (!user) return
     try {
-      setLists(await listListes(user.id))
+      setLists(await listListes())
     } catch (e) {
       setError((e as Error).message)
     }
@@ -75,7 +75,10 @@ export function Listes() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-extrabold text-ink">📝 Mes listes</h1>
+      <div>
+        <h1 className="text-2xl font-extrabold text-ink">📝 Nos listes</h1>
+        <p className="text-sm text-muted">Partagées à deux : chacun voit et modifie tout.</p>
+      </div>
 
       <div className="flex items-center gap-2">
         <input
@@ -140,6 +143,7 @@ function ListDetail({
   const { user } = useAuth()
   const [items, setItems] = useState<ListItem[] | null>(null)
   const [newItem, setNewItem] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(title)
@@ -163,12 +167,15 @@ function ListDetail({
     const t = newItem.trim()
     if (!t || !user) return
     setNewItem('')
+    inputRef.current?.focus() // garder le clavier/curseur sur la barre
     try {
       const it = await addItem(user.id, listId, t)
       setItems((prev) => [...(prev ?? []), it])
       onChanged()
     } catch (e) {
       setError((e as Error).message)
+    } finally {
+      inputRef.current?.focus()
     }
   }
 
@@ -274,11 +281,17 @@ function ListDetail({
 
       <div className="flex items-center gap-2">
         <input
+          ref={inputRef}
           className="field"
           placeholder="Ajouter un élément…"
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+          }}
         />
         <button onClick={add} className="btn-primary shrink-0 px-4 py-2">
           +
