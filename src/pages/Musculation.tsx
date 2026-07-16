@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import { InfoBox } from '../components/training-ui'
+import { Poids } from './Carnet'
 import {
   MUSCLE_GROUPS_DEFAULT,
   deleteCatalogExercise,
@@ -83,6 +84,25 @@ function catalogToDraft(c: CatalogExercise): ExoDraft {
   }
 }
 
+// ── Tonnage : somme des séries × reps × charge (exos au temps ou sans charge ignorés) ──
+
+function exoTonnage(e: { sets: number; reps: string; weight_kg: number | null }): number {
+  if (e.weight_kg === null || e.weight_kg <= 0) return 0
+  if (/\d\s*(s|sec|min)\b/i.test(e.reps)) return 0 // temps (gainage) : pas de tonnage
+  const m = e.reps.match(/\d+/)
+  if (!m) return 0
+  return e.sets * parseInt(m[0], 10) * e.weight_kg
+}
+
+function sessionTonnage(exos: Array<{ sets: number; reps: string; weight_kg: number | null }>): number {
+  return exos.reduce((sum, e) => sum + exoTonnage(e), 0)
+}
+
+function fmtTonnage(kg: number): string {
+  if (kg >= 10000) return `${(kg / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} t`
+  return `${Math.round(kg).toLocaleString('fr-FR')} kg`
+}
+
 /** Dernière trace d'un exercice dans le journal (sessions triées par date desc). */
 function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
   const n = name.trim().toLowerCase()
@@ -97,7 +117,7 @@ function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
 
 export function Musculation() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'journal' | 'types'>('journal')
+  const [tab, setTab] = useState<'journal' | 'types' | 'poids'>('journal')
   const [templates, setTemplates] = useState<MuscuTemplate[] | null>(null)
   const [sessions, setSessions] = useState<MuscuSession[] | null>(null)
   const [catalog, setCatalog] = useState<CatalogExercise[]>([])
@@ -131,7 +151,7 @@ export function Musculation() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">💪 Musculation</h1>
-        <p className="text-sm text-muted">Journal des séances · séances types modifiables</p>
+        <p className="text-sm text-muted">Journal · séances types · poids de corps</p>
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
@@ -140,12 +160,15 @@ export function Musculation() {
         tabs={[
           { id: 'journal', label: '📒 Journal' },
           { id: 'types', label: '📋 Séances types' },
+          { id: 'poids', label: '⚖️ Poids' },
         ]}
         active={tab}
         onChange={(id) => setTab(id as typeof tab)}
       />
 
-      {templates === null || sessions === null ? (
+      {tab === 'poids' ? (
+        <Poids />
+      ) : templates === null || sessions === null ? (
         <div className="animate-pulse text-sm text-muted">Chargement…</div>
       ) : tab === 'journal' ? (
         <Journal
@@ -204,6 +227,7 @@ function Journal({
   const month = today().slice(0, 7)
   const monthSessions = sessions.filter((s) => s.date.startsWith(month))
   const monthMin = monthSessions.reduce((sum, s) => sum + (s.duration_min ?? 0), 0)
+  const monthTonnage = monthSessions.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
 
   function startBlank() {
     setPicking(false)
@@ -270,7 +294,7 @@ function Journal({
       <div className="grid grid-cols-3 gap-2">
         <StatCard label="Ce mois-ci" value={String(monthSessions.length)} sub="séances" />
         <StatCard label="Temps ce mois" value={monthMin ? `${Math.floor(monthMin / 60)}h${String(monthMin % 60).padStart(2, '0')}` : '—'} sub="cumulé" />
-        <StatCard label="Au total" value={String(sessions.length)} sub="séances" />
+        <StatCard label="Tonnage ce mois" value={monthTonnage ? fmtTonnage(monthTonnage) : '—'} sub="soulevé au total" />
       </div>
 
       {picking ? (
@@ -319,6 +343,7 @@ function Journal({
                   <div className="text-xs text-muted">
                     {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
                     {s.duration_min ? ` · ${s.duration_min} min` : ''}
+                    {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
                   </div>
                 </div>
                 <span className="shrink-0 text-muted">{openId === s.id ? '▾' : '▸'}</span>
@@ -340,6 +365,11 @@ function Journal({
                       </li>
                     ))}
                   </ul>
+                  {sessionTonnage(s.exercises) > 0 ? (
+                    <p className="text-xs font-semibold text-copper">
+                      🏋️ Tonnage total : {fmtTonnage(sessionTonnage(s.exercises))} (séries × reps × charge)
+                    </p>
+                  ) : null}
                   {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
                   <div className="flex justify-end gap-3 text-xs">
                     <button onClick={() => startEdit(s)} className="font-semibold text-copper">
@@ -439,6 +469,13 @@ function SessionEditor({
       </div>
 
       <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
+
+      {(() => {
+        const t = sessionTonnage(d.exos.map(draftToInput))
+        return t > 0 ? (
+          <p className="text-center text-xs font-semibold text-copper">🏋️ Tonnage de la séance : {fmtTonnage(t)}</p>
+        ) : null
+      })()}
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance'}

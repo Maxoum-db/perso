@@ -2,15 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { fetchKv, saveKv, readKvCache } from '../lib/kv'
 import { ArmorBodyDiagram } from '../components/ArmorBodyDiagram'
-import { SubTabs } from '../components/SubTabs'
-import { Musculation } from './Musculation'
-import { Carnet } from './Carnet'
 import {
   Section,
   Stat,
   InfoBox,
   BulletGroup,
-  ExerciseTable,
   CalendarHelp,
   CategoryGrid,
 } from '../components/training-ui'
@@ -19,7 +15,6 @@ import {
   BEHOURD_CALENDAR_CFG,
   BEHOURD_TRAINING,
   PERSO_CALENDAR_CFG,
-  TANK_BEHOURD_PROGRAM,
   type ArmorPiece,
 } from '../data/behourd'
 
@@ -29,26 +24,9 @@ function freshArmor(): ArmorPiece[] {
   return ARMOR_PIECES_TEMPLATE.map((p) => ({ ...p, owned: false, weight_actual_kg: p.typical_weight_kg, notes_user: '' }))
 }
 
-// Hub Béhourd : guide armure/entraînement + module Musculation + Carnet d'entraînement.
+// Page Béhourd : armure, entraînement spécifique et calendriers.
+// (La musculation a sa propre page : /musculation.)
 export function Behourd() {
-  const [tab, setTab] = useState<'behourd' | 'muscu' | 'carnet'>('behourd')
-  return (
-    <div className="space-y-4">
-      <SubTabs
-        tabs={[
-          { id: 'behourd', label: '🛡️ Béhourd' },
-          { id: 'muscu', label: '💪 Musculation' },
-          { id: 'carnet', label: '📓 Carnet' },
-        ]}
-        active={tab}
-        onChange={(id) => setTab(id as typeof tab)}
-      />
-      {tab === 'behourd' ? <BehourdGuide /> : tab === 'muscu' ? <Musculation /> : <Carnet />}
-    </div>
-  )
-}
-
-function BehourdGuide() {
   const { user } = useAuth()
   const [armor, setArmor] = useState<ArmorPiece[]>(() => readKvCache<ArmorPiece[]>(ARMOR_KEY, freshArmor()))
   const [loaded, setLoaded] = useState(false)
@@ -83,7 +61,7 @@ function BehourdGuide() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">🛡️ Béhourd</h1>
-        <p className="text-sm text-muted">Armure · Entraînement TANK · Calendriers dédiés</p>
+        <p className="text-sm text-muted">Armure · Entraînement spécifique · Calendriers dédiés</p>
       </div>
 
       {/* ───────── Armure ───────── */}
@@ -180,105 +158,6 @@ function BehourdGuide() {
           <BulletGroup label="Drills techniques" items={BEHOURD_TRAINING.specific_drills} />
           <BulletGroup label="Prévention blessures" items={BEHOURD_TRAINING.injury_prevention} />
         </InfoBox>
-
-        <InfoBox title="📅 Template hebdo (béhourd + muscu)" tone="violet" className="mt-3">
-          <table className="w-full text-xs text-ink">
-            <tbody>
-              {Object.entries(BEHOURD_TRAINING.weekly_template).map(([day, plan]) => (
-                <tr key={day} className="border-b border-line/50">
-                  <td className="w-24 py-1 pr-2 font-bold">{day}</td>
-                  <td className="py-1">{plan}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </InfoBox>
-      </Section>
-
-      {/* ───────── Programme TANK ───────── */}
-      <Section title="⚔️ Programme TANK Béhourd" subtitle="100 kg / 180 cm · body recomp + force" accent="#f87171">
-        <p className="mb-3 rounded-xl2 bg-white/5 p-2 text-xs italic text-muted">{TANK_BEHOURD_PROGRAM.description}</p>
-
-        <div className="mb-3 grid gap-2 sm:grid-cols-2">
-          <InfoBox title="📊 Ton profil" tone="violet">
-            <div className="text-xs leading-relaxed text-ink">
-              Poids : <b>{TANK_BEHOURD_PROGRAM.user_profile.poids_kg} kg</b> · Taille :{' '}
-              <b>{TANK_BEHOURD_PROGRAM.user_profile.taille_cm} cm</b>
-              <br />
-              IMC : <b>{TANK_BEHOURD_PROGRAM.user_profile.IMC}</b> — {TANK_BEHOURD_PROGRAM.user_profile.classification}
-              <br />
-              Objectif : <b>{TANK_BEHOURD_PROGRAM.user_profile.objectif}</b>
-              <br />
-              Durée : <b>{TANK_BEHOURD_PROGRAM.user_profile.duree_programme}</b>
-            </div>
-          </InfoBox>
-          <InfoBox title="📅 Split hebdomadaire" tone="green">
-            <table className="w-full text-[11px] text-ink">
-              <tbody>
-                {Object.entries(TANK_BEHOURD_PROGRAM.weekly_split).map(([day, info]) => (
-                  <tr key={day} className="border-b border-line/50">
-                    <td className="w-28 py-0.5 pr-1 font-bold">{day}</td>
-                    <td className="py-0.5">{info.type}</td>
-                    <td className="w-12 py-0.5 text-right text-muted">{info.duration_min > 0 ? info.duration_min + ' min' : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </InfoBox>
-        </div>
-
-        {Object.entries(TANK_BEHOURD_PROGRAM.sessions).map(([key, s]) => (
-          <div key={key} className="mb-3 rounded-xl2 border bg-white/5 p-3" style={{ borderLeft: `3px solid ${s.color}`, borderColor: s.color + '55' }}>
-            <div className="mb-1 text-sm font-extrabold text-ink">
-              {s.icon} {s.label} · ⏱ {s.duration_min} min
-            </div>
-            <div className="mb-2 text-[11px] italic text-muted">
-              <b>🔥 Échauffement :</b> {s.warmup}
-            </div>
-            <ExerciseTable exercises={s.exercises} showRest show1rm />
-            <div className="mt-2 text-[10px] italic text-muted">
-              <b>🧊 Retour au calme :</b> {s.cooldown}
-            </div>
-          </div>
-        ))}
-
-        <InfoBox title="🍽️ Nutrition body recomp (gras → muscle)" tone="amber">
-          <div className="text-[11px] leading-relaxed text-ink">
-            <b>Calories :</b> {TANK_BEHOURD_PROGRAM.nutrition.calories_jour}
-            <br />
-            <b>Protéines :</b> {TANK_BEHOURD_PROGRAM.nutrition.proteines_g_jour}g/jour — {TANK_BEHOURD_PROGRAM.nutrition.proteines_sources.join(', ')}
-            <br />
-            <b>Glucides :</b> {TANK_BEHOURD_PROGRAM.nutrition.glucides_g_jour}g/jour — {TANK_BEHOURD_PROGRAM.nutrition.glucides_sources.join(', ')}
-            <br />
-            <b>Lipides :</b> {TANK_BEHOURD_PROGRAM.nutrition.lipides_g_jour}g/jour — {TANK_BEHOURD_PROGRAM.nutrition.lipides_sources.join(', ')}
-            <br />
-            <b>Hydratation :</b> {TANK_BEHOURD_PROGRAM.nutrition.hydratation_L} L/jour
-            <br />
-            <b>Timing :</b> {TANK_BEHOURD_PROGRAM.nutrition.timing}
-            <BulletGroup label="Suppléments optionnels" items={TANK_BEHOURD_PROGRAM.nutrition.supplements_optionnels} />
-          </div>
-        </InfoBox>
-
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <InfoBox title="📈 Progression" tone="blue">
-            <div className="text-[10px] leading-relaxed text-ink">
-              <b>Sem 1-4 :</b> {TANK_BEHOURD_PROGRAM.progression.semaine_1_4}
-              <br />
-              <b>Sem 5-8 :</b> {TANK_BEHOURD_PROGRAM.progression.semaine_5_8}
-              <br />
-              <b>Sem 9-12 :</b> {TANK_BEHOURD_PROGRAM.progression.semaine_9_12}
-              <br />
-              <b>Sem 12+ :</b> {TANK_BEHOURD_PROGRAM.progression.semaine_12_plus}
-            </div>
-          </InfoBox>
-          <InfoBox title="📏 Mesures à tracker" tone="violet">
-            <ul className="ml-4 list-disc text-[10px] leading-relaxed text-ink">
-              {TANK_BEHOURD_PROGRAM.measurements_to_track.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          </InfoBox>
-        </div>
       </Section>
 
       {/* ───────── Calendriers ───────── */}
