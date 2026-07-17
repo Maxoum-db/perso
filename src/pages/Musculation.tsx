@@ -3,8 +3,11 @@ import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import { InfoBox } from '../components/training-ui'
 import { Poids } from './Carnet'
+import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
   MUSCLE_GROUPS_DEFAULT,
+  fmtTonnage,
+  sessionTonnage,
   deleteCatalogExercise,
   deleteSession,
   deleteTemplate,
@@ -82,25 +85,6 @@ function catalogToDraft(c: CatalogExercise): ExoDraft {
     weight: c.default_weight_kg === null ? '' : String(c.default_weight_kg),
     notes: '',
   }
-}
-
-// ── Tonnage : somme des séries × reps × charge (exos au temps ou sans charge ignorés) ──
-
-function exoTonnage(e: { sets: number; reps: string; weight_kg: number | null }): number {
-  if (e.weight_kg === null || e.weight_kg <= 0) return 0
-  if (/\d\s*(s|sec|min)\b/i.test(e.reps)) return 0 // temps (gainage) : pas de tonnage
-  const m = e.reps.match(/\d+/)
-  if (!m) return 0
-  return e.sets * parseInt(m[0], 10) * e.weight_kg
-}
-
-function sessionTonnage(exos: Array<{ sets: number; reps: string; weight_kg: number | null }>): number {
-  return exos.reduce((sum, e) => sum + exoTonnage(e), 0)
-}
-
-function fmtTonnage(kg: number): string {
-  if (kg >= 10000) return `${(kg / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} t`
-  return `${Math.round(kg).toLocaleString('fr-FR')} kg`
 }
 
 /** Dernière trace d'un exercice dans le journal (sessions triées par date desc). */
@@ -221,8 +205,10 @@ function Journal({
   onChange: () => void
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Séance en direct : reprise automatique si une séance est en cours (localStorage).
+  const [live, setLive] = useState<LiveState | null>(() => loadLive())
 
   const month = today().slice(0, 7)
   const monthSessions = sessions.filter((s) => s.date.startsWith(month))
@@ -230,12 +216,14 @@ function Journal({
   const monthTonnage = monthSessions.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
 
   function startBlank() {
-    setPicking(false)
+    if (picking === 'live') return startLive(null)
+    setPicking(null)
     setDraft({ date: today(), name: 'Séance', duration: '', notes: '', template_id: null, exos: [emptyExo()] })
   }
 
   function startFromTemplate(tpl: MuscuTemplate) {
-    setPicking(false)
+    if (picking === 'live') return startLive(tpl)
+    setPicking(null)
     setDraft({
       date: today(),
       name: tpl.name,
@@ -250,6 +238,31 @@ function Journal({
     })
   }
 
+  function startLive(tpl: MuscuTemplate | null) {
+    setPicking(null)
+    const state: LiveState = {
+      startedAt: Date.now(),
+      name: tpl?.name ?? 'Séance',
+      template_id: tpl?.id ?? null,
+      restSec: 90,
+      notes: '',
+      exos: (tpl?.exercises ?? []).map((e) => {
+        const last = lastExo(sessions, e.name)
+        const weight = last?.weight_kg ?? e.weight_kg
+        return {
+          name: e.name,
+          muscle_group: e.muscle_group,
+          reps: last?.reps || e.reps,
+          weight: weight === null ? '' : String(weight),
+          notes: '',
+          done: Array(Math.max(1, e.sets)).fill(false),
+        }
+      }),
+    }
+    storeLive(state)
+    setLive(state)
+  }
+
   function startEdit(s: MuscuSession) {
     setDraft({
       id: s.id,
@@ -260,6 +273,24 @@ function Journal({
       template_id: s.template_id,
       exos: s.exercises.map(exoToDraft),
     })
+  }
+
+  if (live) {
+    return (
+      <LiveSession
+        userId={userId}
+        initial={live}
+        catalog={catalog}
+        onFinish={() => {
+          setLive(null)
+          onChange()
+        }}
+        onQuit={() => {
+          clearLive()
+          setLive(null)
+        }}
+      />
+    )
   }
 
   if (draft) {
@@ -300,8 +331,10 @@ function Journal({
       {picking ? (
         <div className="card space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-ink">Partir d'une séance type ?</span>
-            <button onClick={() => setPicking(false)} className="text-xs text-copper">
+            <span className="text-sm font-bold text-ink">
+              {picking === 'live' ? '▶️ Démarrer : quelle séance ?' : '✍️ Saisir : quelle séance ?'}
+            </span>
+            <button onClick={() => setPicking(null)} className="text-xs text-copper">
               Fermer
             </button>
           </div>
@@ -323,9 +356,14 @@ function Journal({
           <p className="text-[11px] text-muted">💡 Les charges et reps sont pré-remplies depuis ta dernière séance.</p>
         </div>
       ) : (
-        <button onClick={() => setPicking(true)} className="btn-primary w-full py-2.5">
-          + Nouvelle séance
-        </button>
+        <div className="space-y-2">
+          <button onClick={() => setPicking('live')} className="btn-primary w-full py-3">
+            ▶️ Démarrer une séance (en direct)
+          </button>
+          <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
+            ✍️ Saisir une séance après coup
+          </button>
+        </div>
       )}
 
       {sessions.length === 0 ? (
