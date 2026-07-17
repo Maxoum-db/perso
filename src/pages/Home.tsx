@@ -18,6 +18,8 @@ import {
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 import { BREW_STATUSES, listBrews, type Brew } from '../lib/brews'
 import { getMySpace, listSharedEvents, type SharedEvent } from '../lib/space'
+import { fmtTonnage, listSessions, sessionTonnage, type MuscuSession } from '../lib/muscu'
+import { loadLive } from './MusculationLive'
 
 export function Home() {
   const { user } = useAuth()
@@ -28,11 +30,15 @@ export function Home() {
   const [needAuth, setNeedAuth] = useState(!hasFreshGoogleToken())
   const [error, setError] = useState<string | null>(null)
   const [brews, setBrews] = useState<Brew[]>([])
+  const [muscu, setMuscu] = useState<MuscuSession[]>([])
 
   useEffect(() => {
     if (!user) return
     listBrews(user.id)
       .then(setBrews)
+      .catch(() => {})
+    listSessions(user.id, 40)
+      .then(setMuscu)
       .catch(() => {})
     // Prochains événements du couple (espace partagé).
     getMySpace()
@@ -232,19 +238,70 @@ export function Home() {
         </Link>
       ) : null}
 
+      <MuscuCard sessions={muscu} />
+
       <BrassageCard brews={brews} />
 
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/notes" title="Notes" subtitle="Notes · humeur · synthèses" emoji="📝" />
         <QuickCard to="/listes" title="Listes" subtitle="Courses · à cocher ✅" emoji="🛒" />
         <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />
-        <QuickCard to="/partage" title="À deux" subtitle="Listes · mots · agenda 💕" emoji="💕" />
+        <QuickCard to="/partage" title="À deux" subtitle="Mots · agenda 💕" emoji="💕" />
         <QuickCard to="/mails" title="Mails" subtitle="Gmail" emoji="📧" />
-        <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · muscu · carnet" emoji="🛡️" />
+        <QuickCard to="/musculation" title="Muscu" subtitle="Journal · séances · poids 💪" emoji="💪" />
+        <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement 🛡️" emoji="🛡️" />
         <QuickCard to="/brassage" title="Brassage" subtitle="Brassins · recettes 🍺" emoji="🍺" />
         <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
       </div>
     </div>
+  )
+}
+
+// Dashboard muscu : séance en cours à reprendre, sinon dernière séance + stats du mois.
+function MuscuCard({ sessions }: { sessions: MuscuSession[] }) {
+  const live = loadLive()
+  const month = new Date().toISOString().slice(0, 7)
+  const monthSessions = sessions.filter((s) => s.date.startsWith(month))
+  const monthTonnage = monthSessions.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
+  const last = sessions[0]
+
+  if (live) {
+    return (
+      <Link to="/musculation" className="card block border-copper/40 p-4 transition hover:shadow-lift">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-clay" />
+          💪 Musculation — séance en cours
+        </div>
+        <div className="mt-2 flex items-center justify-between text-sm">
+          <span className="font-bold text-ink">{live.name}</span>
+          <span className="font-semibold text-copper">Reprendre ▸</span>
+        </div>
+      </Link>
+    )
+  }
+
+  if (!last) return null
+
+  return (
+    <Link to="/musculation" className="card block p-4 transition hover:shadow-lift">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">💪 Musculation</div>
+        <span className="text-xs font-semibold text-copper">▶️ Démarrer</span>
+      </div>
+      <div className="mt-2 flex items-baseline gap-3 text-sm">
+        <span className="w-20 shrink-0 text-xs font-semibold text-copper">
+          {new Date(last.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-ink">{last.name}</span>
+        {sessionTonnage(last.exercises) > 0 ? (
+          <span className="shrink-0 text-xs text-muted">🏋️ {fmtTonnage(sessionTonnage(last.exercises))}</span>
+        ) : null}
+      </div>
+      <div className="mt-1 text-xs text-muted">
+        Ce mois : {monthSessions.length} séance{monthSessions.length > 1 ? 's' : ''}
+        {monthTonnage > 0 ? ` · ${fmtTonnage(monthTonnage)} soulevés` : ''}
+      </div>
+    </Link>
   )
 }
 
