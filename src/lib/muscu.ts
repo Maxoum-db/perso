@@ -52,6 +52,25 @@ export interface CatalogExercise {
   position: number
 }
 
+// ── Tonnage : séries × reps × charge (exos au temps ou sans charge ignorés) ──
+
+export function exoTonnage(e: { sets: number; reps: string; weight_kg: number | null }): number {
+  if (e.weight_kg === null || e.weight_kg <= 0) return 0
+  if (/\d\s*(s|sec|min)\b/i.test(e.reps)) return 0 // temps (gainage) : pas de tonnage
+  const m = e.reps.match(/\d+/)
+  if (!m) return 0
+  return e.sets * parseInt(m[0], 10) * e.weight_kg
+}
+
+export function sessionTonnage(exos: Array<{ sets: number; reps: string; weight_kg: number | null }>): number {
+  return exos.reduce((sum, e) => sum + exoTonnage(e), 0)
+}
+
+export function fmtTonnage(kg: number): string {
+  if (kg >= 10000) return `${(kg / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} t`
+  return `${Math.round(kg).toLocaleString('fr-FR')} kg`
+}
+
 // ── Groupes musculaires : prédéfinis mais modifiables (stockés en perso_kv) ──
 
 export const MUSCLE_GROUPS_DEFAULT = [
