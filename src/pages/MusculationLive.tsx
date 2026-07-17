@@ -207,6 +207,16 @@ export function LiveSession({
     setS((prev) => ({ ...prev, exos: prev.exos.filter((_, i) => i !== j) }))
   }
 
+  function moveExo(j: number, dir: -1 | 1) {
+    setS((prev) => {
+      const k = j + dir
+      if (k < 0 || k >= prev.exos.length) return prev
+      const exos = [...prev.exos]
+      ;[exos[j], exos[k]] = [exos[k], exos[j]]
+      return { ...prev, exos }
+    })
+  }
+
   async function finish() {
     const kept = s.exos
       .map((e) => ({ ...e, doneCount: e.done.filter(Boolean).length }))
@@ -314,6 +324,22 @@ export function LiveSession({
                   onChange={(ev) => updateExo(j, { name: ev.target.value })}
                 />
                 {e.muscle_group ? <span className="chip shrink-0 bg-copper/10 text-[10px] text-copper">{e.muscle_group}</span> : null}
+                <button
+                  onClick={() => moveExo(j, -1)}
+                  disabled={j === 0}
+                  title="Monter"
+                  className="shrink-0 px-1 text-muted disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => moveExo(j, 1)}
+                  disabled={j === s.exos.length - 1}
+                  title="Descendre"
+                  className="shrink-0 px-1 text-muted disabled:opacity-30"
+                >
+                  ↓
+                </button>
                 <button onClick={() => removeExo(j)} className="shrink-0 text-muted hover:text-clay">
                   ✕
                 </button>
