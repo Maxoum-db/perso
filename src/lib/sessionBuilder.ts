@@ -3,6 +3,7 @@ import { PRIORITE_BEHOURD, poidsBehourd } from '../data/behourdPriority'
 import { regionsForGroup, type MuscleRegion } from '../components/MuscleBodyDiagram'
 import { groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { suggererCharge, type ChargeSuggestion } from './charge'
+import { FOCUS, POIDS_FOCUS, type FocusId } from './focus'
 
 // Générateur de séance : compose une séance à partir de ce que le corps a déjà
 // encaissé. Le principe est celui du mannequin, appliqué à l'envers — au lieu
@@ -116,6 +117,8 @@ export interface BuildOptions {
   exclude?: Set<string>
   /** Poids de corps, pour les exercices qui s'y chargent. */
   bodyWeight?: number | null
+  /** Point faible à rattraper : ses muscles pèsent plus et ont une place réservée. */
+  focus?: FocusId
 }
 
 /**
@@ -132,6 +135,7 @@ export function buildSession(
   const exclude = options.exclude ?? new Set<string>()
   const loads: Record<string, GroupLoad> = groupLoads(sessions)
   const repos = reposParMuscle(loads)
+  const focusRegions = new Set(FOCUS[options.focus ?? 'aucun'].regions)
   const reposDe = (r: MuscleRegion) => repos[r] ?? JAMAIS
 
   const candidats = catalog
@@ -141,7 +145,8 @@ export function buildSession(
       const moteurs = [...muscles.entries()].filter(([, i]) => i >= 0.8).map(([r]) => r)
       let score = 0
       for (const [region, intensity] of muscles) {
-        score += intensity * poidsRepos(reposDe(region)) * poidsBehourd(region)
+        const focus = focusRegions.has(region) ? POIDS_FOCUS : 1
+        score += intensity * poidsRepos(reposDe(region)) * poidsBehourd(region) * focus
       }
       const fatigue = moteurs.some((r) => reposDe(r) <= 2)
       const reposMin = moteurs.length ? Math.min(...moteurs.map(reposDe)) : JAMAIS
@@ -178,6 +183,19 @@ export function buildSession(
         options.bodyWeight ?? null,
       ),
     })
+  }
+
+  // Réserve du point faible : deux exercices garantis dessus quand il est
+  // reposé. Le multiplicateur de score ne suffit pas — un exercice de gainage
+  // ne vise qu'un ou deux muscles et perd contre n'importe quel polyarticulaire.
+  if (focusRegions.size > 0) {
+    for (let n = 0; n < 2; n++) {
+      const best = classes.find(
+        (c) => !pris.has(c.exo.id) && c.moteurs.some((r) => focusRegions.has(r) && reposDe(r) >= 3),
+      )
+      if (!best) break
+      prendre(best)
+    }
   }
 
   // Réserve béhourd : le cou et la préhension se travaillent en isolation, donc
