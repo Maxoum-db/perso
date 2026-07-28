@@ -129,8 +129,8 @@ export interface GroupLoad {
    * Jours « ressentis » : un muscle sollicité en secondaire récupère nettement
    * plus vite qu'un moteur principal. La pondération est quadratique
    * (jours ÷ intensité²) : à pleine intensité rien ne change, et l'accélération
-   * s'accentue à mesure que le ratio baisse — 1 jour à 0.5 pèse autant que
-   * 4 jours à pleine charge, 1 jour à 0.3 en pèse 11.
+   * s'accentue à mesure que le ratio baisse. Garde-fou : le lendemain d'une
+   * séance, un muscle reste au minimum orange — jamais vert d'emblée.
    */
   effectiveDays: number
 }
@@ -145,7 +145,11 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       for (const g of parseGroupEntries(e.muscle_group)) {
-        const effectiveDays = days / (g.intensity * g.intensity)
+        // Pondération quadratique, mais un muscle travaillé la veille ne peut
+        // pas repasser au vert : il garde au minimum un palier orange, même
+        // pour une sollicitation légère (0.3-0.4).
+        const raw = days / (g.intensity * g.intensity)
+        const effectiveDays = days <= 1 ? Math.min(raw, 4) : raw
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
         if (!cur || effectiveDays < cur.effectiveDays) {
