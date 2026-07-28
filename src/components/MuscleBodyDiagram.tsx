@@ -55,11 +55,18 @@ const REGION_KEYWORDS: Array<[MuscleRegion, string[]]> = [
 
 const ALL_REGIONS: MuscleRegion[] = REGION_KEYWORDS.map(([r]) => r)
 
+// Groupes « parapluie » : une activité (course, natation…) sollicite tout un
+// bloc, on colore donc plusieurs zones à la fois.
+const LEGS: MuscleRegion[] = ['quads', 'hamstrings', 'calves', 'glutes']
+const UPPER: MuscleRegion[] = ['back', 'shoulders', 'chest', 'biceps', 'triceps']
+
 /** Les zones du corps couvertes par un libellé de groupe musculaire. */
 export function regionsForGroup(label: string): MuscleRegion[] {
   const n = norm(label)
   if (!n) return []
   if (n.includes('full body') || n.includes('full-body') || n.includes('corps entier')) return ALL_REGIONS
+  if (n.includes('jambes')) return LEGS
+  if (n.includes('haut du corps')) return UPPER
   for (const [region, keywords] of REGION_KEYWORDS) {
     if (keywords.some((k) => n.includes(k))) return [region]
   }

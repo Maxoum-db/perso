@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   exoTonnage,
   fmtTonnage,
+  isBodyweightExercise,
   saveSession,
   type CatalogExercise,
 } from '../lib/muscu'
@@ -101,6 +102,7 @@ export function LiveSession({
   initial,
   catalog,
   groups,
+  bodyWeight,
   onFinish,
   onQuit,
 }: {
@@ -108,6 +110,7 @@ export function LiveSession({
   initial: LiveState
   catalog: CatalogExercise[]
   groups: string[]
+  bodyWeight: number | null
   onFinish: () => void
   onQuit: () => void
 }) {
@@ -191,7 +194,9 @@ export function LiveSession({
           name: c.name,
           muscle_group: c.muscle_group,
           reps: c.default_reps,
-          weight: '', // charge saisie en séance, pas pré-remplie depuis le catalogue
+          // Charge saisie en séance — sauf au poids du corps : on part de la
+          // dernière pesée de l'utilisateur connecté.
+          weight: bodyWeight && isBodyweightExercise(c.name) ? String(bodyWeight) : '',
           notes: '',
           done: Array(Math.max(1, c.default_sets)).fill(false),
         },
