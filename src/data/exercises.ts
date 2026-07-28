@@ -266,6 +266,12 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Sangles de suspension — tirage', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Biceps:0.5, Grand droit:0.5, Deltoïde postérieur:0.4', sets: 3, reps: '12' },
   { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Triceps:0.6, Deltoïde antérieur:0.5, Grand droit:0.5', sets: 3, reps: '12' },
   { name: 'Marche latérale élastique (mini-band)', groups: 'Moyen fessier:1, Grand fessier:0.4', sets: 3, reps: '15/côté', notes: 'Échauffement de hanche : réveille le moyen fessier avant le travail lourd de jambes.' },
+
+  // ── ✊ Préhension (matériel perso) ────────────────────────────────────────
+  // L'anneau de poigne se travaille n'importe où : c'est le muscle le plus
+  // rentable du béhourd, celui qui lâche avant la force ou le cardio.
+  { name: 'Anneau de préhension 40 kg', groups: 'Fléchisseurs avant-bras:1, Brachio-radial:0.5, Brachial:0.3', sets: 1, reps: '15 min', notes: 'Anneau Domyos rouge, résistance difficile (40 kg). Séance libre de 15 min, en alternant les mains. ⚠️ Compenser avec « Extensions de poignets » une fois par semaine — prévention épicondylite.' },
+  { name: 'Anneau de préhension — tenue isométrique', groups: 'Fléchisseurs avant-bras:1, Brachio-radial:0.4', sets: 5, reps: '45 s/main', notes: 'Serrage maintenu, pas de répétitions : c’est le mode qui correspond vraiment à tenir l’arme et le bouclier tout un round.' },
 ]
 
 /**

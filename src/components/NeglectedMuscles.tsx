@@ -13,11 +13,17 @@ const SEUIL_JOURS = 10
 interface Priorite {
   rang: number
   pourquoi: string
+  /** Exercice conseillé imposé, quand du matériel perso fait mieux que la salle. */
+  exo?: string
 }
 
 const PRIORITE_BEHOURD: Partial<Record<MuscleRegion, Priorite>> = {
   neck: { rang: 1, pourquoi: 'encaisse les frappes sous heaume — prévention commotion' },
-  forearmFlex: { rang: 2, pourquoi: 'tient l’arme et le bouclier : souvent le vrai facteur limitant' },
+  forearmFlex: {
+    rang: 2,
+    pourquoi: 'tient l’arme et le bouclier : souvent le vrai facteur limitant',
+    exo: 'Anneau de préhension 40 kg',
+  },
   trapsUpper: { rang: 3, pourquoi: 'porte les 33 kg du harnois' },
   erectors: { rang: 4, pourquoi: 'soutient la brigantine et protège les lombaires' },
   obliques: { rang: 5, pourquoi: 'porte les frappes en rotation' },
@@ -74,7 +80,7 @@ export function NeglectedMuscles({ loads }: { loads: Record<string, GroupLoad> }
       </p>
       <ul className="space-y-2">
         {negliges.map(({ region, prio, jours }) => {
-          const suggestion = exerciceSuggere(region)
+          const suggestion = prio.exo ?? exerciceSuggere(region)
           return (
             <li key={region} className="rounded-xl2 border border-clay/30 bg-clay/5 p-2.5">
               <div className="flex items-baseline justify-between gap-2">
