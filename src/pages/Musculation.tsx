@@ -11,6 +11,8 @@ import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
 import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
 import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
+import { FocusPicker } from '../components/FocusPicker'
+import { FOCUS_PAR_DEFAUT, loadFocus, saveFocus, type FocusId } from '../lib/focus'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -175,24 +177,28 @@ export function Musculation() {
   // Poids de corps de l'utilisateur connecté : sert de charge aux exercices
   // au poids du corps (chacun le sien).
   const [bodyWeight, setBodyWeight] = useState<number | null>(null)
+  // Point faible à rattraper : pèse sur le générateur et sur l'alerte des négligés.
+  const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w] = await Promise.all([
+      const [t, s, c, g, w, f] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
         loadMuscleGroups(user.id),
         listWeighins(user.id).catch(() => []),
+        loadFocus(user.id).catch(() => FOCUS_PAR_DEFAUT),
       ])
       setTemplates(t)
       setSessions(s)
       setCatalog(c)
       setGroups(g)
       setBodyWeight(w[0]?.weight_kg ?? null)
+      setFocus(f)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -236,6 +242,11 @@ export function Musculation() {
           catalog={catalog}
           bodyWeight={bodyWeight}
           groups={groups}
+          focus={focus}
+          onFocus={(id) => {
+            setFocus(id)
+            if (user) saveFocus(user.id, id).catch(() => {})
+          }}
           onChange={reload}
         />
       ) : (
@@ -271,6 +282,8 @@ function Journal({
   catalog,
   groups,
   bodyWeight,
+  focus,
+  onFocus,
   onChange,
 }: {
   userId: string
@@ -279,6 +292,8 @@ function Journal({
   catalog: CatalogExercise[]
   groups: string[]
   bodyWeight: number | null
+  focus: FocusId
+  onFocus: (id: FocusId) => void
   onChange: () => void
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
@@ -356,14 +371,14 @@ function Journal({
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight }), exclude })
+    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus }), exclude })
   }
 
   function regenerer() {
     if (!suggest) return
     const next = new Set(suggest.exclude)
     for (const e of suggest.session?.exercises ?? []) next.add(e.exo.id)
-    const session = buildSession(catalog, sessions, { exclude: next, bodyWeight })
+    const session = buildSession(catalog, sessions, { exclude: next, bodyWeight, focus })
     // Plus rien de neuf à proposer : on repart du catalogue complet.
     if (!session) suggerer(new Set())
     else setSuggest({ session, exclude: next })
@@ -529,6 +544,8 @@ function Journal({
         </div>
       )}
 
+      <FocusPicker value={focus} onChange={onFocus} />
+
       {suggest ? (
         <SuggestedSessionCard
           suggestion={suggest.session}
@@ -547,7 +564,7 @@ function Journal({
         <MuscleBodyDiagram loads={groupLoads(sessions)} />
       </section>
 
-      <NeglectedMuscles loads={groupLoads(sessions)} />
+      <NeglectedMuscles loads={groupLoads(sessions)} focus={focus} />
 
       {sessions.length === 0 ? (
         <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>

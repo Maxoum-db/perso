@@ -279,6 +279,26 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // rentable du béhourd, celui qui lâche avant la force ou le cardio.
   { name: 'Anneau de préhension 40 kg', groups: 'Fléchisseurs avant-bras:1, Brachio-radial:0.5, Brachial:0.3', sets: 1, reps: '15 min', notes: 'Anneau Domyos rouge, résistance difficile (40 kg). Séance libre de 15 min, en alternant les mains. ⚠️ Compenser avec « Extensions de poignets » une fois par semaine — prévention épicondylite.' },
   { name: 'Anneau de préhension — tenue isométrique', groups: 'Fléchisseurs avant-bras:1, Brachio-radial:0.4', sets: 5, reps: '45 s/main', notes: 'Serrage maintenu, pas de répétitions : c’est le mode qui correspond vraiment à tenir l’arme et le bouclier tout un round.' },
+
+  // ── 🌀 Ceinture abdominale ────────────────────────────────────────────────
+  // La ceinture ne se résume pas aux crunchs : elle travaille surtout à
+  // RÉSISTER — à l'extension, à la rotation, à l'inclinaison. C'est ce transfert
+  // qui manque quand la force des jambes ne remonte pas jusqu'aux bras.
+  // ⚠️ Antéversion du bassin : privilégier l'anti-extension au travail en flexion.
+  { name: 'Gainage ventral lesté', groups: 'Grand droit:1, Obliques:0.6, Dentelé antérieur:0.4, Deltoïde antérieur:0.3', sets: 4, reps: '45 s', notes: 'Disque sur le haut du dos. Bassin en rétroversion : les lombaires ne doivent jamais creuser.' },
+  { name: 'Hollow body (bateau)', groups: 'Grand droit:1, Obliques:0.5, Droit fémoral:0.4', sets: 4, reps: '30 s', notes: 'Le meilleur test d’anti-extension : si les lombaires décollent du sol, replier les genoux.' },
+  { name: 'Roulette abdominale debout', groups: 'Grand droit:1, Obliques:0.6, Grand dorsal:0.5, Dentelé antérieur:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '8', notes: 'Version dure de la roulette. À ne tenter qu’une fois 3×10 à genoux maîtrisées.' },
+  { name: 'Rowing en position de planche (renegade row)', groups: 'Obliques:1, Grand droit:0.9, Grand dorsal:0.7, Deltoïde postérieur:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '8/bras', notes: 'Anti-rotation sous charge : le bassin ne doit pas bouger d’un millimètre. Le transfert le plus direct vers le combat en armure.' },
+  { name: 'Planche latérale avec rotation', groups: 'Obliques:1, Grand droit:0.6, Dentelé antérieur:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '10/côté' },
+  { name: 'Planche latérale danoise (copenhagen)', groups: 'Obliques:1, Adducteurs:0.9, Grand droit:0.5', sets: 3, reps: '20 s/côté', notes: 'Obliques et adducteurs ensemble. Commencer genou plié sur le banc.' },
+  { name: 'Bûcheron à la poulie (haut vers bas)', groups: 'Obliques:1, Grand droit:0.7, Grand dorsal:0.5, Deltoïde antérieur:0.4, Grand fessier:0.4', sets: 3, reps: '12/côté', notes: 'La rotation part des hanches, pas des bras. C’est le geste de frappe en armure.' },
+  { name: 'Relevé diagonal à la poulie (bas vers haut)', groups: 'Obliques:1, Grand droit:0.7, Deltoïde antérieur:0.6, Grand fessier:0.4', sets: 3, reps: '12/côté' },
+  { name: 'Relevés de jambes tendues suspendu', groups: 'Grand droit:1, Obliques:0.6, Fléchisseurs avant-bras:0.6, Droit fémoral:0.5', sets: 3, reps: '10', notes: 'Version dure des relevés de genoux. Monter sans balancer.' },
+  { name: 'Flexion latérale à la poulie', groups: 'Obliques:1, Érecteurs du rachis:0.5', sets: 3, reps: '12/côté', notes: 'Charge modérée : le but est le contrôle latéral, pas l’épaisseur de taille.' },
+  { name: 'Gainage sur ballon (anti-extension)', groups: 'Grand droit:1, Obliques:0.5, Dentelé antérieur:0.5, Deltoïde antérieur:0.4', sets: 3, reps: '30 s', notes: 'L’instabilité force le transverse à travailler en continu.' },
+  { name: 'Vacuum abdominal', groups: 'Grand droit:0.6', sets: 3, reps: '20 s', notes: 'Transverse profond : expirer à fond puis rentrer le ventre sous les côtes. À jeun, sans charge — c’est ce qui resserre la sangle.' },
+  { name: 'Deadbug lesté', groups: 'Grand droit:1, Obliques:0.5', sets: 3, reps: '10/côté', notes: 'Un haltère léger tenu bras tendus : l’anti-extension devient beaucoup plus exigeante.' },
+  { name: 'Portage frontal unilatéral (rack sur une épaule)', groups: 'Obliques:1, Grand droit:0.8, Érecteurs du rachis:0.6, Trapèze supérieur:0.5, Quadriceps:0.4', sets: 3, reps: '30 m/côté', notes: 'Charge asymétrique en hauteur : la ceinture encaisse tout. Très proche du port du bouclier.' },
 ]
 
 /**

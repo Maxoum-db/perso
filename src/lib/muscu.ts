@@ -315,7 +315,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v8'
+const LIBRARY_SEED_KEY = 'muscu_library_v9'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
