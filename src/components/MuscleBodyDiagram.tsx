@@ -1,34 +1,48 @@
 import type { GroupLoad } from '../lib/muscu'
 
-// Mannequin de récupération musculaire, façon planche anatomique : silhouette
-// face + dos découpée muscle par muscle. Chaque zone se colore selon
-// l'ancienneté de son dernier travail pondérée par l'intensité (un muscle
-// sollicité en secondaire récupère plus vite qu'un moteur principal) :
+// Mannequin de récupération, façon planche anatomique : chaque muscle est un
+// tracé distinct (une trentaine), coloré selon l'ancienneté de son dernier
+// travail pondérée par l'intensité :
 //   0-2 j  → rouge  (en récupération)
 //   3-4 j  → orange (bientôt prêt)
 //   ≥ 5 j  → vert   (prêt / jamais travaillé)
 //
 // Les tracés sont exprimés dans un repère centré (x = 0 au milieu du corps) :
-// on ne dessine qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)),
-// ce qui garantit un corps parfaitement symétrique.
+// on ne décrit qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)).
 
 export type MuscleRegion =
   | 'neck'
-  | 'traps'
-  | 'shoulders'
-  | 'chest'
-  | 'back'
-  | 'lowback'
+  | 'trapsUpper'
+  | 'trapsMid'
+  | 'trapsLow'
+  | 'deltAnt'
+  | 'deltLat'
+  | 'deltPost'
+  | 'pecUpper'
+  | 'pecLower'
+  | 'serratus'
+  | 'lats'
+  | 'teres'
+  | 'erectors'
   | 'biceps'
-  | 'triceps'
-  | 'forearms'
-  | 'abs'
+  | 'brachialis'
+  | 'tricepsLong'
+  | 'tricepsLat'
+  | 'forearmFlex'
+  | 'forearmExt'
+  | 'rectus'
   | 'obliques'
-  | 'glutes'
-  | 'quads'
+  | 'gluteMax'
+  | 'gluteMed'
+  | 'rectusFemoris'
+  | 'vastusLat'
+  | 'vastusMed'
   | 'adductors'
-  | 'hamstrings'
-  | 'calves'
+  | 'bicepsFemoris'
+  | 'hamsInner'
+  | 'gastroc'
+  | 'soleus'
+  | 'tibialis'
 
 const RED = '#EF4444'
 const ORANGE = '#F59E0B'
@@ -48,53 +62,95 @@ function norm(s: string): string {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
+    .trim()
 }
 
-// Premier mot-clé trouvé gagne : « abdos » est testé avant « dos », sinon
-// « Abdos/Core » serait pris pour du dos.
-const REGION_KEYWORDS: Array<[MuscleRegion, string[]]> = [
-  ['obliques', ['oblique']],
-  ['abs', ['abdo', 'core', 'gainage', 'transverse', 'ceinture']],
-  ['neck', ['cou', 'cervical', 'nuque']],
-  ['traps', ['trapez']],
-  ['lowback', ['lombaire', 'erecteur']],
-  ['shoulders', ['epaule', 'deltoid']],
-  ['chest', ['pector', 'pecs', 'poitrine']],
-  ['back', ['dos', 'dorsaux']],
-  ['biceps', ['biceps']],
-  ['triceps', ['triceps']],
-  ['forearms', ['avant-bras', 'avant bras', 'grip']],
-  ['glutes', ['fessier', 'glute']],
-  ['quads', ['quadriceps', 'quad', 'cuisse']],
-  ['adductors', ['adducteur']],
-  ['hamstrings', ['ischio']],
-  ['calves', ['mollet']],
-]
+// ── Correspondance libellé → muscles ────────────────────────────────────────
+// La recherche se fait par égalité sur le libellé normalisé : plus de piège de
+// sous-chaîne (« Abdos » contient « dos »).
 
-const ALL_REGIONS: MuscleRegion[] = REGION_KEYWORDS.map(([r]) => r)
-// Groupes « parapluie » : une activité sollicite tout un bloc.
-const LEGS: MuscleRegion[] = ['quads', 'hamstrings', 'calves', 'glutes', 'adductors']
-const UPPER: MuscleRegion[] = ['back', 'shoulders', 'chest', 'biceps', 'triceps', 'traps']
+const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
+const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow']
+const PECS: MuscleRegion[] = ['pecUpper', 'pecLower']
+const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
+const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt']
+const BACK: MuscleRegion[] = ['lats', 'teres', 'trapsMid', 'trapsLow']
+const ABS: MuscleRegion[] = ['rectus', 'obliques']
+const GLUTES: MuscleRegion[] = ['gluteMax', 'gluteMed']
+const QUADS: MuscleRegion[] = ['rectusFemoris', 'vastusLat', 'vastusMed']
+const HAMS: MuscleRegion[] = ['bicepsFemoris', 'hamsInner']
+const CALVES: MuscleRegion[] = ['gastroc', 'soleus']
+const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'tibialis']
+const UPPER: MuscleRegion[] = [...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'biceps', 'brachialis']
 
-/** Les zones du corps couvertes par un libellé de groupe musculaire. */
+const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
+  // Groupes larges
+  epaules: DELTS,
+  pectoraux: PECS,
+  dos: BACK,
+  trapezes: TRAPS,
+  triceps: TRICEPS,
+  'avant-bras': FOREARMS,
+  'abdos/core': ABS,
+  fessiers: GLUTES,
+  quadriceps: QUADS,
+  ischios: HAMS,
+  mollets: CALVES,
+  lombaires: ['erectors'],
+  cou: ['neck'],
+  biceps: ['biceps', 'brachialis'],
+  obliques: ['obliques'],
+  adducteurs: ['adductors'],
+  // Muscles précis
+  'deltoide anterieur': ['deltAnt'],
+  'deltoide lateral': ['deltLat'],
+  'deltoide posterieur': ['deltPost'],
+  'trapeze superieur': ['trapsUpper'],
+  'trapeze moyen': ['trapsMid'],
+  'trapeze inferieur': ['trapsLow'],
+  rhomboides: ['trapsMid'],
+  'pectoral superieur': ['pecUpper'],
+  'grand pectoral': PECS,
+  'grand dorsal': ['lats'],
+  'grand rond': ['teres'],
+  'dentele anterieur': ['serratus'],
+  'erecteurs du rachis': ['erectors'],
+  brachial: ['brachialis'],
+  'brachio-radial': ['forearmFlex'],
+  'grand droit': ['rectus'],
+  transverse: ['rectus'],
+  'grand fessier': ['gluteMax'],
+  'moyen fessier': ['gluteMed'],
+  'droit femoral': ['rectusFemoris'],
+  'vaste lateral': ['vastusLat'],
+  'vaste medial': ['vastusMed'],
+  'biceps femoral': ['bicepsFemoris'],
+  'ischios internes': ['hamsInner'],
+  gastrocnemiens: ['gastroc'],
+  soleaire: ['soleus'],
+  'tibial anterieur': ['tibialis'],
+}
+
+/** Les muscles couverts par un libellé de groupe ou de muscle. */
 export function regionsForGroup(label: string): MuscleRegion[] {
   const n = norm(label)
   if (!n) return []
-  if (n.includes('full body') || n.includes('full-body') || n.includes('corps entier')) return ALL_REGIONS
+  const exact = MUSCLE_MAP[n]
+  if (exact) return exact
+  if (n.includes('full body') || n.includes('corps entier')) return [...LEGS, ...UPPER, ...ABS, 'neck', ...FOREARMS]
   if (n.includes('jambes')) return LEGS
   if (n.includes('haut du corps')) return UPPER
-  // « Abdos/Core » couvre le grand droit ET les obliques.
-  if (n.includes('abdo') || n.includes('core')) return ['abs', 'obliques']
-  for (const [region, keywords] of REGION_KEYWORDS) {
-    if (keywords.some((k) => n.includes(k))) return [region]
+  // Repli tolérant pour les libellés personnalisés.
+  for (const [key, regions] of Object.entries(MUSCLE_MAP)) {
+    if (n.includes(key)) return regions
   }
-  return [] // ex. « Cardio » : aucune zone dédiée
+  return [] // ex. « Cardio » : aucun muscle dédié
 }
 
 // ── Tracés (repère centré, moitié gauche du corps) ──────────────────────────
 
-// Silhouette de base dessinée SOUS les muscles : sans elle, le fond apparaît
-// entre les tracés et le corps semble fragmenté.
+// Silhouette de base sous les muscles : sans elle, le fond apparaît entre les
+// tracés et le corps semble fragmenté.
 const BASE_CENTER =
   'M-25,44 C-27,62 -22,92 -19,109 L19,109 C22,92 27,62 25,44 C22,37 12,32 6,30 L-6,30 C-12,32 -22,37 -25,44 Z'
 const BASE_HALF: string[] = [
@@ -105,36 +161,55 @@ const BASE_HALF: string[] = [
 ]
 
 const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
-  ['traps', 'M-7,31 C-13,33 -19,39 -24,46 L-14,49 C-11,42 -8,36 -7,31 Z'],
-  ['shoulders', 'M-26,47 C-35,50 -38,61 -35,71 C-28,72 -24,65 -23,56 Z'],
-  ['chest', 'M-21,51 C-13,48 -4,49 -2,53 L-2,70 C-9,75 -18,72 -22,65 C-24,60 -23,55 -21,51 Z'],
-  ['obliques', 'M-16,74 C-13,85 -11,96 -10,105 L-16,101 C-18,92 -18,82 -16,74 Z'],
-  ['biceps', 'M-32,72 C-38,78 -38,90 -34,97 C-29,95 -28,81 -29,73 Z'],
-  ['forearms', 'M-35,98 C-40,106 -41,118 -38,127 L-31,125 C-30,114 -30,104 -32,99 Z'],
+  ['neck', 'M-4,26 C-7,30 -8,34 -8,37 L-3,37 C-3,33 -3,29 -3,26 Z'],
+  ['trapsUpper', 'M-7,31 C-13,33 -19,39 -24,46 L-14,49 C-11,42 -8,36 -7,31 Z'],
+  ['deltLat', 'M-26,47 C-34,50 -38,60 -36,70 C-32,71 -29,64 -28,55 Z'],
+  ['deltAnt', 'M-23,49 C-28,52 -31,60 -30,68 C-26,69 -23,62 -22,55 Z'],
+  ['pecUpper', 'M-21,50 C-13,47 -4,48 -2,52 L-2,58 L-20,58 C-21,55 -21,52 -21,50 Z'],
+  ['pecLower', 'M-20,59 L-2,59 L-2,70 C-9,75 -18,72 -22,65 C-23,62 -21,60 -20,59 Z'],
+  ['serratus', 'M-19,63 C-17,67 -16,71 -16,74 L-12,73 C-13,69 -15,65 -16,62 Z'],
+  ['obliques', 'M-16,76 C-13,86 -11,96 -10,105 L-16,101 C-18,92 -18,84 -16,76 Z'],
+  ['biceps', 'M-31,71 C-36,77 -36,88 -32,95 C-28,93 -27,80 -28,72 Z'],
+  ['brachialis', 'M-27,84 C-29,89 -29,94 -28,97 L-24,95 C-25,90 -25,86 -25,83 Z'],
+  ['forearmFlex', 'M-34,97 C-39,105 -40,117 -37,126 L-31,124 C-30,113 -30,104 -31,98 Z'],
   ['neutral', 'M-36,128 C-40,131 -40,138 -36,140 C-32,138 -32,131 -36,128 Z'], // main
-  ['quads', 'M-19,126 C-22,142 -21,160 -17,174 L-6,174 C-5,156 -6,138 -8,128 Z'],
-  ['adductors', 'M-5,129 C-7,141 -7,153 -6,162 L-1,162 L-1,129 Z'],
-  ['neutral', 'M-18,175 C-14,179 -7,179 -4,175 L-4,181 C-8,184 -14,184 -18,181 Z'], // genou
-  ['calves', 'M-16,182 C-18,193 -17,205 -14,212 L-5,212 C-4,200 -5,190 -8,182 Z'],
+  ['vastusLat', 'M-19,126 C-22,140 -21,154 -18,167 L-13,167 C-13,150 -13,136 -14,127 Z'],
+  ['rectusFemoris', 'M-12,127 C-14,142 -13,158 -11,172 L-6,172 C-5,156 -6,140 -7,128 Z'],
+  ['vastusMed', 'M-18,159 C-18,167 -16,173 -12,175 L-7,173 C-9,167 -12,163 -13,158 Z'],
+  ['adductors', 'M-5,129 C-7,141 -7,153 -6,162 L0,162 L0,129 Z'],
+  ['neutral', 'M-18,176 C-14,180 -7,180 -4,176 L-4,182 C-8,185 -14,185 -18,182 Z'], // genou
+  ['gastroc', 'M-16,183 C-17,193 -16,203 -14,209 L-11,209 C-11,199 -12,190 -13,183 Z'],
+  ['tibialis', 'M-12,183 C-13,194 -12,204 -10,211 L-5,211 C-4,199 -5,190 -7,183 Z'],
   ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
 ]
 
 const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
-  ['traps', 'M0,32 L-7,32 C-15,35 -21,41 -26,47 L-13,66 L0,59 Z'],
-  ['shoulders', 'M-26,47 C-35,50 -38,61 -35,71 C-28,72 -24,65 -23,56 Z'],
-  ['back', 'M-24,60 C-26,73 -22,89 -12,101 L0,101 L0,62 Z'],
-  ['triceps', 'M-32,72 C-38,78 -38,90 -34,97 C-29,95 -28,81 -29,73 Z'],
-  ['forearms', 'M-35,98 C-40,106 -41,118 -38,127 L-31,125 C-30,114 -30,104 -32,99 Z'],
+  ['neck', 'M-5,26 C-7,30 -7,34 -7,37 L-2,37 C-2,33 -2,29 -2,26 Z'],
+  ['deltLat', 'M-27,46 C-35,49 -38,59 -36,69 C-33,70 -30,63 -29,54 Z'],
+  ['deltPost', 'M-24,48 C-30,51 -33,58 -32,66 C-28,67 -25,60 -24,53 Z'],
+  ['trapsUpper', 'M0,32 L-7,32 C-14,35 -20,41 -25,47 L-16,52 C-11,44 -5,38 0,36 Z'],
+  ['trapsMid', 'M0,38 L-15,53 L-13,66 L0,60 Z'],
+  ['trapsLow', 'M0,61 L-12,67 L-6,86 L0,84 Z'],
+  ['teres', 'M-22,57 C-18,59 -15,62 -13,66 L-18,70 C-20,65 -22,61 -22,57 Z'],
+  ['lats', 'M-24,63 C-25,75 -21,89 -12,100 L-3,100 L-5,85 L-14,71 Z'],
+  ['erectors', 'M-7,87 L-1,87 L-1,116 L-6,116 Z'],
+  ['tricepsLong', 'M-29,72 C-31,80 -31,90 -30,96 L-26,94 C-26,86 -26,78 -26,73 Z'],
+  ['tricepsLat', 'M-34,74 C-37,80 -37,90 -34,96 L-31,95 C-31,87 -31,80 -32,74 Z'],
+  ['forearmExt', 'M-35,97 C-40,105 -41,117 -38,126 L-31,124 C-30,113 -30,104 -32,98 Z'],
   ['neutral', 'M-36,128 C-40,131 -40,138 -36,140 C-32,138 -32,131 -36,128 Z'], // main
-  ['glutes', 'M-18,118 C-21,125 -20,135 -14,140 C-6,141 -2,134 -2,126 L-2,118 Z'],
-  ['hamstrings', 'M-17,142 C-19,156 -18,169 -15,178 L-5,178 C-4,164 -5,150 -7,143 Z'],
-  ['neutral', 'M-18,179 C-14,183 -7,183 -4,179 L-4,184 C-8,187 -14,187 -18,184 Z'], // genou
-  ['calves', 'M-16,185 C-19,194 -18,206 -14,212 L-5,212 C-4,201 -6,191 -8,185 Z'],
+  ['gluteMed', 'M-19,113 C-21,117 -21,123 -19,127 L-14,124 C-15,120 -16,116 -16,112 Z'],
+  ['gluteMax', 'M-16,119 C-19,126 -18,135 -13,140 C-6,141 -2,134 -2,126 L-2,119 Z'],
+  ['bicepsFemoris', 'M-17,142 C-19,155 -18,168 -15,177 L-11,177 C-11,163 -12,150 -13,143 Z'],
+  ['hamsInner', 'M-10,143 C-11,156 -10,168 -9,177 L-5,177 C-4,164 -5,151 -6,143 Z'],
+  ['neutral', 'M-18,178 C-14,182 -7,182 -4,178 L-4,184 C-8,187 -14,187 -18,184 Z'], // genou
+  ['gastroc', 'M-16,185 C-19,193 -18,202 -15,206 L-11,206 C-11,198 -12,191 -13,185 Z'],
+  ['gastroc', 'M-10,185 C-10,194 -9,202 -8,206 L-5,206 C-4,198 -5,191 -6,185 Z'],
+  ['soleus', 'M-15,206 C-16,210 -15,212 -13,213 L-6,213 C-5,210 -5,207 -6,206 Z'],
   ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
 ]
 
 export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> }) {
-  // Chaque zone prend la sollicitation la plus fraîche parmi les groupes qui la couvrent.
+  // Chaque muscle prend la sollicitation la plus fraîche parmi les libellés qui le couvrent.
   const byRegion: Partial<Record<MuscleRegion, number>> = {}
   for (const [group, load] of Object.entries(loads)) {
     for (const region of regionsForGroup(group)) {
@@ -152,7 +227,7 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
         viewBox="0 0 300 240"
         className="mx-auto w-full max-w-sm"
         stroke="#ffffff"
-        strokeWidth="1.1"
+        strokeWidth="0.9"
         strokeLinejoin="round"
         aria-label="Récupération musculaire"
       >
@@ -223,16 +298,13 @@ function Figure({
       <path d={BASE_CENTER} fill={NEUTRAL} stroke="none" />
       {base}
       <g transform="scale(-1,1)">{base}</g>
-      {/* Axe médian : tête, cou, tronc central */}
       <ellipse cx="0" cy="16" rx="10" ry="12" fill={NEUTRAL} />
-      <path d="M-6,25 L6,25 L7,36 L-7,36 Z" fill={fill('neck')} />
-      {back ? (
-        <path d="M-8,101 L8,101 L6,119 L-6,119 Z" fill={fill('lowback')} />
-      ) : (
+      <path d="M-6,24 L6,24 L7,38 L-7,38 Z" fill={NEUTRAL} stroke="none" />
+      {/* Grand droit : uniquement de face */}
+      {back ? null : (
         <>
-          <path d="M-9,73 L9,73 L8,107 C4,111 -4,111 -8,107 Z" fill={fill('abs')} />
-          {/* Segments du grand droit */}
-          <path d="M-8,84 L8,84 M-8,95 L8,95 M0,74 L0,106" strokeWidth="0.8" fill="none" />
+          <path d="M-9,74 L9,74 L8,107 C4,111 -4,111 -8,107 Z" fill={fill('rectus')} />
+          <path d="M-8,85 L8,85 M-8,96 L8,96 M0,75 L0,106" strokeWidth="0.7" fill="none" />
         </>
       )}
       {/* Bassin */}

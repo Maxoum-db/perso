@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { OUTDOOR_ACTIVITIES } from '../data/activities'
-import { EXERCISE_LIBRARY } from '../data/exercises'
+import { EXERCISE_LIBRARY, EXERCISE_RENAMES } from '../data/exercises'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -179,6 +179,33 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Haut du corps (global)',
   'Cardio',
   'Full body',
+  // Muscles précis : pour ceux qui veulent viser finement (le mannequin les
+  // distingue un par un).
+  'Deltoïde antérieur',
+  'Deltoïde latéral',
+  'Deltoïde postérieur',
+  'Pectoral supérieur',
+  'Grand pectoral',
+  'Grand dorsal',
+  'Grand rond',
+  'Rhomboïdes',
+  'Trapèze supérieur',
+  'Trapèze moyen',
+  'Trapèze inférieur',
+  'Érecteurs du rachis',
+  'Brachial',
+  'Brachio-radial',
+  'Grand droit',
+  'Grand fessier',
+  'Moyen fessier',
+  'Droit fémoral',
+  'Vaste latéral',
+  'Vaste médial',
+  'Biceps fémoral',
+  'Ischios internes',
+  'Gastrocnémiens',
+  'Soléaire',
+  'Tibial antérieur',
 ]
 
 /**
@@ -194,12 +221,12 @@ const BODYWEIGHT_KEYWORDS = [
   'escalade',
   'sprint',
   'corde à sauter',
-  'box jump',
-  'hanging knee',
-  'mountain climber',
-  'rucking',
+  'saut sur box',
+  'genoux suspendu',
+  'grimpeur',
+  'sac lesté',
   'course à pied',
-  'trail',
+  'sentier',
 ]
 
 export function isBodyweightExercise(name: string): boolean {
@@ -212,7 +239,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v2'
+const LIBRARY_SEED_KEY = 'muscu_library_v3'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -572,7 +599,14 @@ async function ensureLibrary(userId: string): Promise<boolean> {
   if (done) return false
 
   const existing = await listCatalog(userId)
-  const byName = new Map(existing.map((e) => [e.name.trim().toLowerCase(), e]))
+  // Un exercice renommé (ex. « Hip thrust » → « Poussée de hanches ») est
+  // indexé sous son NOUVEAU nom : il sera mis à jour, pas dupliqué.
+  const byName = new Map(
+    existing.map((e) => {
+      const key = e.name.trim().toLowerCase()
+      return [(EXERCISE_RENAMES[key] ?? e.name).trim().toLowerCase(), e]
+    }),
+  )
 
   const toAdd: Array<Record<string, unknown>> = []
   let position = 300
@@ -593,10 +627,10 @@ async function ensureLibrary(userId: string): Promise<boolean> {
     }
     // Réalignement sur la référence (les exercices que TU as créés toi-même ne
     // sont pas dans la bibliothèque : ils ne sont donc jamais touchés).
-    if (current.muscle_group.trim() === lib.groups) continue
+    if (current.name.trim() === lib.name && current.muscle_group.trim() === lib.groups) continue
     const { error } = await supabase
       .from('perso_muscu_exercises')
-      .update({ muscle_group: lib.groups, updated_at: new Date().toISOString() })
+      .update({ name: lib.name, muscle_group: lib.groups, updated_at: new Date().toISOString() })
       .eq('id', current.id)
     if (error) throw new Error(error.message)
   }
