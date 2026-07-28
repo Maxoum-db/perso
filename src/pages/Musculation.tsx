@@ -10,7 +10,7 @@ import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
   MUSCLE_GROUPS_DEFAULT,
-  daysSinceByGroup,
+  groupLoads,
   fmtTonnage,
   isBodyweightExercise,
   sessionTonnage,
@@ -350,7 +350,7 @@ function Journal({
         <p className="text-[11px] text-muted">
           En rouge ce que tu viens de travailler, en vert ce qui est reposé — pour varier les groupes.
         </p>
-        <MuscleBodyDiagram daysByGroup={daysSinceByGroup(sessions)} />
+        <MuscleBodyDiagram loads={groupLoads(sessions)} />
       </section>
 
       <div className="grid grid-cols-3 gap-2">
