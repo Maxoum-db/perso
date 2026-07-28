@@ -8,6 +8,8 @@ import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { GroupPicker } from '../components/GroupPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
+import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
+import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -278,6 +280,9 @@ function Journal({
   const [draft, setDraft] = useState<SessionDraft | null>(null)
   const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Séance composée automatiquement : on garde les exercices déjà proposés pour
+  // que « autre proposition » ne resserve pas la même chose.
+  const [suggest, setSuggest] = useState<{ session: SuggestedSession | null; exclude: Set<string> } | null>(null)
   // Séance en direct : reprise automatique si une séance est en cours (localStorage).
   const [live, setLive] = useState<LiveState | null>(() => loadLive())
 
@@ -329,6 +334,59 @@ function Journal({
           done: Array(Math.max(1, e.sets)).fill(false),
         }
       }),
+    }
+    storeLive(state)
+    setLive(state)
+  }
+
+  // ── Séance composée depuis l'état de récupération ─────────────────────────
+
+  function suggerer(exclude = new Set<string>()) {
+    setPicking(null)
+    setSuggest({ session: buildSession(catalog, groupLoads(sessions), { exclude }), exclude })
+  }
+
+  function regenerer() {
+    if (!suggest) return
+    const next = new Set(suggest.exclude)
+    for (const e of suggest.session?.exercises ?? []) next.add(e.exo.id)
+    const session = buildSession(catalog, groupLoads(sessions), { exclude: next })
+    // Plus rien de neuf à proposer : on repart du catalogue complet.
+    if (!session) suggerer(new Set())
+    else setSuggest({ session, exclude: next })
+  }
+
+  /** Charges et reps reprises de la dernière fois, comme pour une séance type. */
+  function rappel(c: CatalogExercise) {
+    const last = lastExo(sessions, c.name)
+    const base = catalogToDraft(c, bodyWeight)
+    if (!last) return base
+    return { ...base, reps: last.reps || base.reps, weight: last.weight_kg === null ? base.weight : String(last.weight_kg) }
+  }
+
+  function lancerSuggestion(live: boolean) {
+    const s = suggest?.session
+    if (!s) return
+    const drafts = s.exercises.map((x) => rappel(x.exo))
+    setSuggest(null)
+    if (!live) {
+      setDraft({ date: today(), name: s.name, duration: '', notes: '', template_id: null, exos: drafts })
+      return
+    }
+    const state: LiveState = {
+      startedAt: Date.now(),
+      name: s.name,
+      template_id: null,
+      restSec: 90,
+      notes: '',
+      exos: s.exercises.map((x, i) => ({
+        name: drafts[i].name,
+        muscle_group: drafts[i].muscle_group,
+        reps: drafts[i].reps,
+        weight: drafts[i].weight,
+        notes: '',
+        done: Array(Math.max(1, x.exo.default_sets)).fill(false),
+      })),
     }
     storeLive(state)
     setLive(state)
@@ -437,8 +495,21 @@ function Journal({
           <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
             ✍️ Saisir une séance après coup
           </button>
+          <button onClick={() => suggerer()} className="btn-ghost w-full py-2 text-sm">
+            🧠 Composer une séance selon ma récup
+          </button>
         </div>
       )}
+
+      {suggest ? (
+        <SuggestedSessionCard
+          suggestion={suggest.session}
+          onLive={() => lancerSuggestion(true)}
+          onManual={() => lancerSuggestion(false)}
+          onRegenerate={regenerer}
+          onClose={() => setSuggest(null)}
+        />
+      ) : null}
 
       <section className="card space-y-2 p-3">
         <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>

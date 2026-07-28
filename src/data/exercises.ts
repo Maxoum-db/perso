@@ -14,6 +14,13 @@ export interface LibraryExercise {
   sets: number
   reps: string
   notes?: string
+  /**
+   * Activité à part entière (nage, course, béhourd, bois, cardio machine) par
+   * opposition à un exercice de salle. Elles comptent dans la récupération
+   * musculaire, mais le générateur de séance ne les propose pas comme
+   * « exercice » — on ne place pas 20 min de crawl au milieu d'un push.
+   */
+  kind?: 'activite'
 }
 
 export const EXERCISE_LIBRARY: LibraryExercise[] = [
@@ -130,65 +137,65 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Cordes ondulatoires ou rameur en sprint', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.6, Cardio:0.8, Grand droit:0.5, Fléchisseurs avant-bras:0.5', sets: 4, reps: '30 s' },
 
   // ── Natation ──────────────────────────────────────────────────────────────
-  { name: 'Crawl (nage libre)', groups: 'Grand dorsal:1, Grand pectoral:0.8, Obliques:0.7, Triceps:0.6, Grand rond:0.5, Deltoïde postérieur:0.5, Deltoïde latéral:0.5, Dentelé antérieur:0.4, Droit fémoral:0.4, Cardio:0.8', sets: 1, reps: '20 min' },
-  { name: 'Brasse', groups: 'Adducteurs:1, Grand pectoral:0.9, Quadriceps:0.8, Grand fessier:0.7, Grand dorsal:0.6, Ischios:0.5, Gastrocnémiens:0.4, Cardio:0.8', sets: 1, reps: '20 min' },
-  { name: 'Dos crawlé', groups: 'Grand dorsal:1, Deltoïde postérieur:0.7, Grand rond:0.6, Triceps:0.6, Obliques:0.5, Trapèze moyen:0.5, Droit fémoral:0.4, Cardio:0.7', sets: 1, reps: '15 min' },
-  { name: 'Papillon', groups: 'Grand pectoral:1, Grand dorsal:1, Deltoïde antérieur:0.7, Érecteurs du rachis:0.7, Grand droit:0.7, Triceps:0.6, Grand fessier:0.5, Quadriceps:0.5, Cardio:0.8', sets: 1, reps: '10 min' },
-  { name: 'Jambes avec planche (natation)', groups: 'Droit fémoral:1, Grand fessier:0.7, Ischios:0.5, Gastrocnémiens:0.5, Grand droit:0.5, Vaste latéral:0.4', sets: 4, reps: '50 m' },
-  { name: 'Nage bras seuls (pull buoy)', groups: 'Grand dorsal:1, Grand pectoral:0.7, Triceps:0.6, Grand rond:0.5, Deltoïde postérieur:0.5, Fléchisseurs avant-bras:0.3', sets: 4, reps: '50 m' },
-  { name: 'Nage avec plaquettes', groups: 'Grand dorsal:1, Grand pectoral:0.8, Deltoïde latéral:0.8, Deltoïde postérieur:0.7, Triceps:0.6, Grand rond:0.5', sets: 4, reps: '50 m' },
-  { name: 'Nage en eau libre', groups: 'Grand dorsal:1, Cardio:0.9, Grand pectoral:0.7, Obliques:0.6, Deltoïde postérieur:0.6, Cou:0.4', sets: 1, reps: '30 min' },
-  { name: 'Aquagym / marche aquatique', groups: 'Cardio:1, Quadriceps:0.5, Grand fessier:0.4, Deltoïde latéral:0.4, Grand droit:0.3', sets: 1, reps: '30 min' },
+  { name: 'Crawl (nage libre)', groups: 'Grand dorsal:1, Grand pectoral:0.8, Obliques:0.7, Triceps:0.6, Grand rond:0.5, Deltoïde postérieur:0.5, Deltoïde latéral:0.5, Dentelé antérieur:0.4, Droit fémoral:0.4, Cardio:0.8', sets: 1, reps: '20 min', kind: 'activite' },
+  { name: 'Brasse', groups: 'Adducteurs:1, Grand pectoral:0.9, Quadriceps:0.8, Grand fessier:0.7, Grand dorsal:0.6, Ischios:0.5, Gastrocnémiens:0.4, Cardio:0.8', sets: 1, reps: '20 min', kind: 'activite' },
+  { name: 'Dos crawlé', groups: 'Grand dorsal:1, Deltoïde postérieur:0.7, Grand rond:0.6, Triceps:0.6, Obliques:0.5, Trapèze moyen:0.5, Droit fémoral:0.4, Cardio:0.7', sets: 1, reps: '15 min', kind: 'activite' },
+  { name: 'Papillon', groups: 'Grand pectoral:1, Grand dorsal:1, Deltoïde antérieur:0.7, Érecteurs du rachis:0.7, Grand droit:0.7, Triceps:0.6, Grand fessier:0.5, Quadriceps:0.5, Cardio:0.8', sets: 1, reps: '10 min', kind: 'activite' },
+  { name: 'Jambes avec planche (natation)', groups: 'Droit fémoral:1, Grand fessier:0.7, Ischios:0.5, Gastrocnémiens:0.5, Grand droit:0.5, Vaste latéral:0.4', sets: 4, reps: '50 m', kind: 'activite' },
+  { name: 'Nage bras seuls (pull buoy)', groups: 'Grand dorsal:1, Grand pectoral:0.7, Triceps:0.6, Grand rond:0.5, Deltoïde postérieur:0.5, Fléchisseurs avant-bras:0.3', sets: 4, reps: '50 m', kind: 'activite' },
+  { name: 'Nage avec plaquettes', groups: 'Grand dorsal:1, Grand pectoral:0.8, Deltoïde latéral:0.8, Deltoïde postérieur:0.7, Triceps:0.6, Grand rond:0.5', sets: 4, reps: '50 m', kind: 'activite' },
+  { name: 'Nage en eau libre', groups: 'Grand dorsal:1, Cardio:0.9, Grand pectoral:0.7, Obliques:0.6, Deltoïde postérieur:0.6, Cou:0.4', sets: 1, reps: '30 min', kind: 'activite' },
+  { name: 'Aquagym / marche aquatique', groups: 'Cardio:1, Quadriceps:0.5, Grand fessier:0.4, Deltoïde latéral:0.4, Grand droit:0.3', sets: 1, reps: '30 min', kind: 'activite' },
 
-  { name: 'Jambes de brasse (planche)', groups: 'Adducteurs:1, Quadriceps:0.8, Grand fessier:0.7, Ischios:0.5, Gastrocnémiens:0.4', sets: 4, reps: '50 m', notes: 'Le fouet de jambes fournit l’essentiel de la propulsion en brasse. ⚠️ Rotules : amplitude modérée, sans forcer la rotation du genou.' },
-  { name: 'Ondulations dauphin (dolphin kick)', groups: 'Grand droit:1, Érecteurs du rachis:0.8, Grand fessier:0.6, Quadriceps:0.5, Droit fémoral:0.4', sets: 4, reps: '25 m', notes: 'Ondulation initiée par le bassin, jamais par les genoux. Excellent gainage profond.' },
-  { name: 'Crawl en sprint (25-50 m)', groups: 'Grand dorsal:1, Cardio:1, Grand pectoral:0.8, Triceps:0.7, Obliques:0.6, Deltoïde latéral:0.5', sets: 8, reps: '25 m', notes: 'Effort maximal court, récupération complète entre les longueurs. ⚠️ AC droite : réduire la fréquence si l’épaule chauffe.' },
-  { name: 'Nage indienne (récupération)', groups: 'Grand dorsal:0.6, Adducteurs:0.5, Obliques:0.4, Cardio:0.5', sets: 1, reps: '10 min', notes: 'Nage sur le côté, très souple — récupération active entre les séries.' },
+  { name: 'Jambes de brasse (planche)', groups: 'Adducteurs:1, Quadriceps:0.8, Grand fessier:0.7, Ischios:0.5, Gastrocnémiens:0.4', sets: 4, reps: '50 m', notes: 'Le fouet de jambes fournit l’essentiel de la propulsion en brasse. ⚠️ Rotules : amplitude modérée, sans forcer la rotation du genou.', kind: 'activite' },
+  { name: 'Ondulations dauphin (dolphin kick)', groups: 'Grand droit:1, Érecteurs du rachis:0.8, Grand fessier:0.6, Quadriceps:0.5, Droit fémoral:0.4', sets: 4, reps: '25 m', notes: 'Ondulation initiée par le bassin, jamais par les genoux. Excellent gainage profond.', kind: 'activite' },
+  { name: 'Crawl en sprint (25-50 m)', groups: 'Grand dorsal:1, Cardio:1, Grand pectoral:0.8, Triceps:0.7, Obliques:0.6, Deltoïde latéral:0.5', sets: 8, reps: '25 m', notes: 'Effort maximal court, récupération complète entre les longueurs. ⚠️ AC droite : réduire la fréquence si l’épaule chauffe.', kind: 'activite' },
+  { name: 'Nage indienne (récupération)', groups: 'Grand dorsal:0.6, Adducteurs:0.5, Obliques:0.4, Cardio:0.5', sets: 1, reps: '10 min', notes: 'Nage sur le côté, très souple — récupération active entre les séries.', kind: 'activite' },
   // ── Course ────────────────────────────────────────────────────────────────
-  { name: 'Course à pied — endurance (zone 2)', groups: 'Cardio:1, Gastrocnémiens:1, Soléaire:0.8, Quadriceps:0.7, Ischios:0.7, Grand fessier:0.5', sets: 1, reps: '30 min' },
-  { name: 'Fractionné 30/30', groups: 'Cardio:1, Gastrocnémiens:0.8, Quadriceps:0.7, Ischios:0.6, Soléaire:0.5', sets: 10, reps: '30 s' },
-  { name: 'Sprints en côte', groups: 'Quadriceps:1, Grand fessier:0.9, Gastrocnémiens:0.8, Cardio:0.8, Ischios:0.6', sets: 8, reps: '20 s' },
-  { name: 'Course en sentier', groups: 'Quadriceps:1, Gastrocnémiens:0.8, Cardio:0.8, Ischios:0.6, Grand fessier:0.6, Tibial antérieur:0.5', sets: 1, reps: '45 min' },
-  { name: 'Marche rapide / randonnée', groups: 'Cardio:0.6, Soléaire:0.6, Gastrocnémiens:0.5, Quadriceps:0.5, Grand fessier:0.4', sets: 1, reps: '60 min' },
-  { name: 'Randonnée avec sac lesté', groups: 'Cardio:0.7, Quadriceps:0.7, Grand fessier:0.7, Trapèze supérieur:0.6, Soléaire:0.6, Érecteurs du rachis:0.5, Grand droit:0.5', sets: 1, reps: '45 min' },
-  { name: 'Corde à sauter', groups: 'Gastrocnémiens:1, Soléaire:0.6, Cardio:0.8, Tibial antérieur:0.4', sets: 5, reps: '2 min' },
-  { name: 'Sprint / pliométrie sur herbe', groups: 'Ischios:1, Quadriceps:1, Gastrocnémiens:0.8, Grand fessier:0.7', sets: 6, reps: '30 m' },
+  { name: 'Course à pied — endurance (zone 2)', groups: 'Cardio:1, Gastrocnémiens:1, Soléaire:0.8, Quadriceps:0.7, Ischios:0.7, Grand fessier:0.5', sets: 1, reps: '30 min', kind: 'activite' },
+  { name: 'Fractionné 30/30', groups: 'Cardio:1, Gastrocnémiens:0.8, Quadriceps:0.7, Ischios:0.6, Soléaire:0.5', sets: 10, reps: '30 s', kind: 'activite' },
+  { name: 'Sprints en côte', groups: 'Quadriceps:1, Grand fessier:0.9, Gastrocnémiens:0.8, Cardio:0.8, Ischios:0.6', sets: 8, reps: '20 s', kind: 'activite' },
+  { name: 'Course en sentier', groups: 'Quadriceps:1, Gastrocnémiens:0.8, Cardio:0.8, Ischios:0.6, Grand fessier:0.6, Tibial antérieur:0.5', sets: 1, reps: '45 min', kind: 'activite' },
+  { name: 'Marche rapide / randonnée', groups: 'Cardio:0.6, Soléaire:0.6, Gastrocnémiens:0.5, Quadriceps:0.5, Grand fessier:0.4', sets: 1, reps: '60 min', kind: 'activite' },
+  { name: 'Randonnée avec sac lesté', groups: 'Cardio:0.7, Quadriceps:0.7, Grand fessier:0.7, Trapèze supérieur:0.6, Soléaire:0.6, Érecteurs du rachis:0.5, Grand droit:0.5', sets: 1, reps: '45 min', kind: 'activite' },
+  { name: 'Corde à sauter', groups: 'Gastrocnémiens:1, Soléaire:0.6, Cardio:0.8, Tibial antérieur:0.4', sets: 5, reps: '2 min', kind: 'activite' },
+  { name: 'Sprint / pliométrie sur herbe', groups: 'Ischios:1, Quadriceps:1, Gastrocnémiens:0.8, Grand fessier:0.7', sets: 6, reps: '30 m', kind: 'activite' },
 
   // ── Bois & extérieur ─────────────────────────────────────────────────────
-  { name: 'Fendre du bois (hache)', groups: 'Obliques:0.9, Grand dorsal:0.8, Grand droit:0.8, Deltoïde antérieur:0.7, Fléchisseurs avant-bras:0.7, Grand fessier:0.6, Érecteurs du rachis:0.5', sets: 4, reps: '20 coups' },
-  { name: 'Sciage manuel (bûche)', groups: 'Grand dorsal:1, Fléchisseurs avant-bras:0.8, Biceps:0.6, Trapèze moyen:0.4, Grand pectoral:0.4', sets: 3, reps: '5 min' },
-  { name: 'Portage de bûches', groups: 'Fléchisseurs avant-bras:1, Trapèze supérieur:0.8, Grand droit:0.7, Obliques:0.6, Quadriceps:0.5', sets: 4, reps: '50 m' },
-  { name: 'Empilage / rangement de bois', groups: 'Érecteurs du rachis:0.6, Quadriceps:0.6, Grand fessier:0.6, Grand droit:0.5', sets: 1, reps: '20 min' },
-  { name: 'Débitage / tronçonnage', groups: 'Fléchisseurs avant-bras:0.8, Deltoïde antérieur:0.6, Grand droit:0.6, Érecteurs du rachis:0.5, Trapèze supérieur:0.4', sets: 1, reps: '30 min' },
-  { name: 'Débroussaillage / élagage', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.7, Fléchisseurs avant-bras:0.7, Grand droit:0.5, Trapèze supérieur:0.4', sets: 1, reps: '30 min' },
-  { name: 'Vélo / VTT', groups: 'Quadriceps:1, Cardio:0.9, Grand fessier:0.6, Gastrocnémiens:0.5, Soléaire:0.4', sets: 1, reps: '45 min' },
-  { name: 'Kayak / aviron sur l’eau', groups: 'Grand dorsal:1, Grand droit:0.7, Deltoïde postérieur:0.7, Cardio:0.7, Obliques:0.6, Biceps:0.6, Fléchisseurs avant-bras:0.5', sets: 1, reps: '40 min' },
-  { name: 'Escalade / bloc', groups: 'Grand dorsal:1, Fléchisseurs avant-bras:1, Biceps:0.7, Grand droit:0.6, Brachial:0.5, Deltoïde postérieur:0.4', sets: 1, reps: '60 min' },
-  { name: 'Jardinage (bêchage)', groups: 'Érecteurs du rachis:0.7, Grand dorsal:0.6, Grand fessier:0.6, Fléchisseurs avant-bras:0.5, Grand droit:0.4', sets: 1, reps: '45 min' },
-  { name: 'Slackline (travail d’équilibre)', groups: 'Grand droit:1, Obliques:0.7, Soléaire:0.6, Tibial antérieur:0.5, Quadriceps:0.5', sets: 3, reps: '5 min' },
-  { name: 'Étirement fléchisseurs de hanche (fente basse)', groups: 'Grand fessier:0.4, Droit fémoral:0.3', sets: 2, reps: '45 s/côté' },
+  { name: 'Fendre du bois (hache)', groups: 'Obliques:0.9, Grand dorsal:0.8, Grand droit:0.8, Deltoïde antérieur:0.7, Fléchisseurs avant-bras:0.7, Grand fessier:0.6, Érecteurs du rachis:0.5', sets: 4, reps: '20 coups', kind: 'activite' },
+  { name: 'Sciage manuel (bûche)', groups: 'Grand dorsal:1, Fléchisseurs avant-bras:0.8, Biceps:0.6, Trapèze moyen:0.4, Grand pectoral:0.4', sets: 3, reps: '5 min', kind: 'activite' },
+  { name: 'Portage de bûches', groups: 'Fléchisseurs avant-bras:1, Trapèze supérieur:0.8, Grand droit:0.7, Obliques:0.6, Quadriceps:0.5', sets: 4, reps: '50 m', kind: 'activite' },
+  { name: 'Empilage / rangement de bois', groups: 'Érecteurs du rachis:0.6, Quadriceps:0.6, Grand fessier:0.6, Grand droit:0.5', sets: 1, reps: '20 min', kind: 'activite' },
+  { name: 'Débitage / tronçonnage', groups: 'Fléchisseurs avant-bras:0.8, Deltoïde antérieur:0.6, Grand droit:0.6, Érecteurs du rachis:0.5, Trapèze supérieur:0.4', sets: 1, reps: '30 min', kind: 'activite' },
+  { name: 'Débroussaillage / élagage', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.7, Fléchisseurs avant-bras:0.7, Grand droit:0.5, Trapèze supérieur:0.4', sets: 1, reps: '30 min', kind: 'activite' },
+  { name: 'Vélo / VTT', groups: 'Quadriceps:1, Cardio:0.9, Grand fessier:0.6, Gastrocnémiens:0.5, Soléaire:0.4', sets: 1, reps: '45 min', kind: 'activite' },
+  { name: 'Kayak / aviron sur l’eau', groups: 'Grand dorsal:1, Grand droit:0.7, Deltoïde postérieur:0.7, Cardio:0.7, Obliques:0.6, Biceps:0.6, Fléchisseurs avant-bras:0.5', sets: 1, reps: '40 min', kind: 'activite' },
+  { name: 'Escalade / bloc', groups: 'Grand dorsal:1, Fléchisseurs avant-bras:1, Biceps:0.7, Grand droit:0.6, Brachial:0.5, Deltoïde postérieur:0.4', sets: 1, reps: '60 min', kind: 'activite' },
+  { name: 'Jardinage (bêchage)', groups: 'Érecteurs du rachis:0.7, Grand dorsal:0.6, Grand fessier:0.6, Fléchisseurs avant-bras:0.5, Grand droit:0.4', sets: 1, reps: '45 min', kind: 'activite' },
+  { name: 'Slackline (travail d’équilibre)', groups: 'Grand droit:1, Obliques:0.7, Soléaire:0.6, Tibial antérieur:0.5, Quadriceps:0.5', sets: 3, reps: '5 min', kind: 'activite' },
+  { name: 'Étirement fléchisseurs de hanche (fente basse)', groups: 'Grand fessier:0.4, Droit fémoral:0.3', sets: 2, reps: '45 s/côté', kind: 'activite' },
   // ── ⚔️ Béhourd ────────────────────────────────────────────────────────────
   // Discipline de combat en armure : le cou encaisse les frappes sous heaume,
   // les trapèzes et les érecteurs portent les 33 kg d'acier, la préhension
   // tient l'arme et le bouclier, et la rotation du buste porte les frappes.
-  { name: 'Béhourd — entraînement technique (sans armure)', groups: 'Deltoïde antérieur:0.8, Obliques:0.8, Fléchisseurs avant-bras:0.7, Grand dorsal:0.6, Triceps:0.6, Grand droit:0.6, Quadriceps:0.5, Cardio:0.7', sets: 1, reps: '60 min', notes: 'Frappes à vide, footwork, drills à deux. ⚠️ AC droite : alterner les côtés, éviter les enchaînements prolongés bras haut.' },
-  { name: 'Béhourd — port du harnois (endurance armure)', groups: 'Trapèze supérieur:1, Érecteurs du rachis:0.9, Quadriceps:0.8, Cou:0.8, Grand fessier:0.7, Soléaire:0.7, Grand droit:0.6, Cardio:0.7', sets: 1, reps: '30 min', notes: 'Simple déplacement en armure complète pour habituer le corps aux 33 kg. Le point de départ avant tout sparring.' },
-  { name: 'Béhourd — garde au bouclier (isométrie)', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.8, Trapèze supérieur:0.7, Fléchisseurs avant-bras:0.7, Grand droit:0.4', sets: 4, reps: '60 s', notes: 'Maintien de la garde haute — c’est ce qui lâche en premier en fin de round. ⚠️ AC droite : alterner, ne pas dépasser 60 s côté droit.' },
-  { name: 'Béhourd — frappes sur pneu ou sac', groups: 'Obliques:1, Deltoïde antérieur:0.8, Fléchisseurs avant-bras:0.8, Grand dorsal:0.7, Triceps:0.6, Grand droit:0.6, Grand fessier:0.5', sets: 5, reps: '2 min', notes: 'Rotation initiée par les hanches, jamais par les bras seuls. ⚠️ AC droite : limiter les frappes au-dessus de la ligne d’épaule.' },
-  { name: 'Béhourd — duel 1 contre 1', groups: 'Obliques:0.9, Cardio:0.9, Deltoïde antérieur:0.8, Fléchisseurs avant-bras:0.8, Cou:0.7, Quadriceps:0.7, Grand dorsal:0.6, Triceps:0.6', sets: 6, reps: '2 min', notes: 'Plus technique que la mêlée : footwork, timing, garde. Forte sollicitation en rotation du buste.' },
-  { name: 'Béhourd — mêlée (combat de masse)', groups: 'Cardio:1, Cou:1, Trapèze supérieur:0.9, Deltoïde antérieur:0.8, Fléchisseurs avant-bras:0.8, Érecteurs du rachis:0.8, Quadriceps:0.8, Obliques:0.7, Grand fessier:0.7, Grand dorsal:0.6', sets: 5, reps: '3 min', notes: 'Rounds à intensité maximale : poussées, corps à corps, frappes. Le facteur limitant est le cardio anaérobie, pas la force.' },
-  { name: 'Béhourd — corps à corps (lutte en armure)', groups: 'Fléchisseurs avant-bras:1, Grand dorsal:0.9, Érecteurs du rachis:0.8, Cou:0.8, Quadriceps:0.8, Trapèze supérieur:0.7, Grand fessier:0.7, Obliques:0.7', sets: 5, reps: '90 s', notes: 'Poussées, projections, contrôle au sol. Très demandeur en préhension et en chaîne postérieure.' },
-  { name: 'Béhourd — sparring en armure', groups: 'Cardio:1, Cou:0.9, Trapèze supérieur:0.9, Fléchisseurs avant-bras:0.9, Deltoïde antérieur:0.8, Érecteurs du rachis:0.8, Obliques:0.8, Quadriceps:0.8, Grand fessier:0.7, Gastrocnémiens:0.6, Grand dorsal:0.6, Grand droit:0.6', sets: 1, reps: '90 min', notes: '33 kg d’acier + gambeson. Hydratation 1 L/h. Séance la plus exigeante de la semaine : compter 48 h de récupération avant du lourd en jambes.' },
+  { name: 'Béhourd — entraînement technique (sans armure)', groups: 'Deltoïde antérieur:0.8, Obliques:0.8, Fléchisseurs avant-bras:0.7, Grand dorsal:0.6, Triceps:0.6, Grand droit:0.6, Quadriceps:0.5, Cardio:0.7', sets: 1, reps: '60 min', notes: 'Frappes à vide, footwork, drills à deux. ⚠️ AC droite : alterner les côtés, éviter les enchaînements prolongés bras haut.', kind: 'activite' },
+  { name: 'Béhourd — port du harnois (endurance armure)', groups: 'Trapèze supérieur:1, Érecteurs du rachis:0.9, Quadriceps:0.8, Cou:0.8, Grand fessier:0.7, Soléaire:0.7, Grand droit:0.6, Cardio:0.7', sets: 1, reps: '30 min', notes: 'Simple déplacement en armure complète pour habituer le corps aux 33 kg. Le point de départ avant tout sparring.', kind: 'activite' },
+  { name: 'Béhourd — garde au bouclier (isométrie)', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.8, Trapèze supérieur:0.7, Fléchisseurs avant-bras:0.7, Grand droit:0.4', sets: 4, reps: '60 s', notes: 'Maintien de la garde haute — c’est ce qui lâche en premier en fin de round. ⚠️ AC droite : alterner, ne pas dépasser 60 s côté droit.', kind: 'activite' },
+  { name: 'Béhourd — frappes sur pneu ou sac', groups: 'Obliques:1, Deltoïde antérieur:0.8, Fléchisseurs avant-bras:0.8, Grand dorsal:0.7, Triceps:0.6, Grand droit:0.6, Grand fessier:0.5', sets: 5, reps: '2 min', notes: 'Rotation initiée par les hanches, jamais par les bras seuls. ⚠️ AC droite : limiter les frappes au-dessus de la ligne d’épaule.', kind: 'activite' },
+  { name: 'Béhourd — duel 1 contre 1', groups: 'Obliques:0.9, Cardio:0.9, Deltoïde antérieur:0.8, Fléchisseurs avant-bras:0.8, Cou:0.7, Quadriceps:0.7, Grand dorsal:0.6, Triceps:0.6', sets: 6, reps: '2 min', notes: 'Plus technique que la mêlée : footwork, timing, garde. Forte sollicitation en rotation du buste.', kind: 'activite' },
+  { name: 'Béhourd — mêlée (combat de masse)', groups: 'Cardio:1, Cou:1, Trapèze supérieur:0.9, Deltoïde antérieur:0.8, Fléchisseurs avant-bras:0.8, Érecteurs du rachis:0.8, Quadriceps:0.8, Obliques:0.7, Grand fessier:0.7, Grand dorsal:0.6', sets: 5, reps: '3 min', notes: 'Rounds à intensité maximale : poussées, corps à corps, frappes. Le facteur limitant est le cardio anaérobie, pas la force.', kind: 'activite' },
+  { name: 'Béhourd — corps à corps (lutte en armure)', groups: 'Fléchisseurs avant-bras:1, Grand dorsal:0.9, Érecteurs du rachis:0.8, Cou:0.8, Quadriceps:0.8, Trapèze supérieur:0.7, Grand fessier:0.7, Obliques:0.7', sets: 5, reps: '90 s', notes: 'Poussées, projections, contrôle au sol. Très demandeur en préhension et en chaîne postérieure.', kind: 'activite' },
+  { name: 'Béhourd — sparring en armure', groups: 'Cardio:1, Cou:0.9, Trapèze supérieur:0.9, Fléchisseurs avant-bras:0.9, Deltoïde antérieur:0.8, Érecteurs du rachis:0.8, Obliques:0.8, Quadriceps:0.8, Grand fessier:0.7, Gastrocnémiens:0.6, Grand dorsal:0.6, Grand droit:0.6', sets: 1, reps: '90 min', notes: '33 kg d’acier + gambeson. Hydratation 1 L/h. Séance la plus exigeante de la semaine : compter 48 h de récupération avant du lourd en jambes.', kind: 'activite' },
 
   // ── Compléments : machines Basic Fit et variantes courantes ───────────────
   { name: 'Développé couché prise serrée', groups: 'Triceps:1, Grand pectoral:0.6, Deltoïde antérieur:0.4', sets: 3, reps: '8-10', notes: 'Mains à largeur d’épaules, coudes le long du corps.' },
   { name: 'Écarté incliné haltères', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.4', sets: 3, reps: '12', notes: '⚠️ AC droite : amplitude limitée, coudes jamais sous la ligne du buste.' },
   { name: 'Tirage T-bar', groups: 'Grand dorsal:1, Trapèze moyen:0.7, Rhomboïdes:0.6, Biceps:0.5, Érecteurs du rachis:0.4', sets: 4, reps: '8-10' },
   { name: 'Tirage menton (rowing vertical)', groups: 'Deltoïde latéral:1, Trapèze supérieur:0.8, Biceps:0.4', sets: 3, reps: '12', notes: '⚠️ AC droite : à éviter — forte rotation interne. Ne monter que sous la ligne des épaules.' },
-  { name: 'Rameur (cardio)', groups: 'Grand dorsal:1, Cardio:0.9, Quadriceps:0.7, Trapèze moyen:0.6, Biceps:0.5, Érecteurs du rachis:0.5', sets: 1, reps: '15 min', notes: 'Séquence jambes → buste → bras. Dos neutre.' },
-  { name: 'Vélo / Assault bike', groups: 'Cardio:1, Quadriceps:0.8, Grand fessier:0.5, Deltoïde antérieur:0.4', sets: 1, reps: '15 min', notes: 'Sans impact — parfait échauffement genoux.' },
-  { name: 'Marche inclinée (tapis)', groups: 'Cardio:0.7, Grand fessier:0.6, Soléaire:0.6, Ischios:0.5, Quadriceps:0.4', sets: 1, reps: '20 min', notes: 'Pente 8-12 %, sans se tenir aux poignées.' },
-  { name: 'Escalier (Stairmaster)', groups: 'Quadriceps:1, Grand fessier:0.8, Gastrocnémiens:0.6, Cardio:0.8', sets: 1, reps: '15 min', notes: '⚠️ Rotules : rythme modéré, poser tout le pied.' },
+  { name: 'Rameur (cardio)', groups: 'Grand dorsal:1, Cardio:0.9, Quadriceps:0.7, Trapèze moyen:0.6, Biceps:0.5, Érecteurs du rachis:0.5', sets: 1, reps: '15 min', notes: 'Séquence jambes → buste → bras. Dos neutre.', kind: 'activite' },
+  { name: 'Vélo / Assault bike', groups: 'Cardio:1, Quadriceps:0.8, Grand fessier:0.5, Deltoïde antérieur:0.4', sets: 1, reps: '15 min', notes: 'Sans impact — parfait échauffement genoux.', kind: 'activite' },
+  { name: 'Marche inclinée (tapis)', groups: 'Cardio:0.7, Grand fessier:0.6, Soléaire:0.6, Ischios:0.5, Quadriceps:0.4', sets: 1, reps: '20 min', notes: 'Pente 8-12 %, sans se tenir aux poignées.', kind: 'activite' },
+  { name: 'Escalier (Stairmaster)', groups: 'Quadriceps:1, Grand fessier:0.8, Gastrocnémiens:0.6, Cardio:0.8', sets: 1, reps: '15 min', notes: '⚠️ Rotules : rythme modéré, poser tout le pied.', kind: 'activite' },
   { name: 'Squat à la machine (hack squat)', groups: 'Vaste latéral:1, Vaste médial:0.9, Droit fémoral:0.7, Grand fessier:0.5', sets: 3, reps: '10-12', notes: 'Dos plaqué, genoux jamais verrouillés.' },
   { name: 'Soulevé de terre sumo', groups: 'Grand fessier:1, Adducteurs:0.9, Quadriceps:0.8, Érecteurs du rachis:0.7, Trapèze supérieur:0.5, Fléchisseurs avant-bras:0.4', sets: 4, reps: '5-6', notes: 'Prise étroite, pieds larges : moins de flexion lombaire que le conventionnel.' },
   { name: 'Soulevé de terre trap bar', groups: 'Quadriceps:1, Grand fessier:1, Ischios:0.7, Trapèze supérieur:0.6, Érecteurs du rachis:0.6, Fléchisseurs avant-bras:0.5', sets: 4, reps: '6-8', notes: 'Barre hexagonale : dos plus vertical, excellent compromis pour les lombaires.' },
@@ -213,10 +220,10 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // reprennent l'appellation française usuelle en salle.
 
   // Cardio
-  { name: 'Vélo elliptique', groups: 'Cardio:1, Quadriceps:0.6, Grand fessier:0.5, Grand dorsal:0.4, Ischios:0.4, Triceps:0.3', sets: 1, reps: '20 min', notes: 'Sans impact : le cardio le plus tolérant pour les rotules.' },
-  { name: 'Course sur tapis', groups: 'Cardio:1, Gastrocnémiens:0.9, Quadriceps:0.7, Ischios:0.6, Soléaire:0.6, Grand fessier:0.5', sets: 1, reps: '25 min' },
-  { name: 'Vélo semi-allongé', groups: 'Cardio:0.9, Quadriceps:0.8, Ischios:0.4, Grand fessier:0.4', sets: 1, reps: '25 min', notes: 'Dossier : ménage les lombaires, parfait en récupération active le lendemain du béhourd.' },
-  { name: 'Vélo de biking (RPM)', groups: 'Cardio:1, Quadriceps:0.9, Grand fessier:0.6, Gastrocnémiens:0.4, Ischios:0.4', sets: 1, reps: '30 min' },
+  { name: 'Vélo elliptique', groups: 'Cardio:1, Quadriceps:0.6, Grand fessier:0.5, Grand dorsal:0.4, Ischios:0.4, Triceps:0.3', sets: 1, reps: '20 min', notes: 'Sans impact : le cardio le plus tolérant pour les rotules.', kind: 'activite' },
+  { name: 'Course sur tapis', groups: 'Cardio:1, Gastrocnémiens:0.9, Quadriceps:0.7, Ischios:0.6, Soléaire:0.6, Grand fessier:0.5', sets: 1, reps: '25 min', kind: 'activite' },
+  { name: 'Vélo semi-allongé', groups: 'Cardio:0.9, Quadriceps:0.8, Ischios:0.4, Grand fessier:0.4', sets: 1, reps: '25 min', notes: 'Dossier : ménage les lombaires, parfait en récupération active le lendemain du béhourd.', kind: 'activite' },
+  { name: 'Vélo de biking (RPM)', groups: 'Cardio:1, Quadriceps:0.9, Grand fessier:0.6, Gastrocnémiens:0.4, Ischios:0.4', sets: 1, reps: '30 min', kind: 'activite' },
 
   // Barre guidée (Smith machine)
   { name: 'Développé couché à la barre guidée', groups: 'Grand pectoral:1, Triceps:0.5, Deltoïde antérieur:0.5', sets: 4, reps: '8-10', notes: '⚠️ AC droite : trajectoire imposée — garder les coudes à 45°, ne pas écarter.' },
