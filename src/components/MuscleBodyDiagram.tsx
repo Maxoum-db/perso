@@ -60,8 +60,18 @@ const ALL_REGIONS: MuscleRegion[] = REGION_KEYWORDS.map(([r]) => r)
 const LEGS: MuscleRegion[] = ['quads', 'hamstrings', 'calves', 'glutes']
 const UPPER: MuscleRegion[] = ['back', 'shoulders', 'chest', 'biceps', 'triceps']
 
-/** Les zones du corps couvertes par un libellé de groupe musculaire. */
+/**
+ * Les zones du corps couvertes par un libellé de groupe musculaire. Le libellé
+ * peut en contenir plusieurs (« Pectoraux, Triceps ») : on réunit leurs zones.
+ */
 export function regionsForGroup(label: string): MuscleRegion[] {
+  if (label.includes(',')) {
+    const all = new Set<MuscleRegion>()
+    for (const part of label.split(',')) {
+      for (const r of regionsForGroup(part)) all.add(r)
+    }
+    return [...all]
+  }
   const n = norm(label)
   if (!n) return []
   if (n.includes('full body') || n.includes('full-body') || n.includes('corps entier')) return ALL_REGIONS

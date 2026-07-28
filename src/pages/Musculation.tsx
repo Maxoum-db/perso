@@ -5,6 +5,7 @@ import { InfoBox } from '../components/training-ui'
 import { Poids } from './Carnet'
 import { listWeighins } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
+import { GroupPicker } from '../components/GroupPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -608,19 +609,12 @@ function ExoListEditor({
               ✕
             </button>
           </div>
+          <GroupPicker
+            value={e.muscle_group}
+            groups={groups}
+            onChange={(v) => update(i, { muscle_group: v })}
+          />
           <div className="flex flex-wrap items-center gap-1.5">
-            <select
-              className="field w-auto min-w-28 flex-1"
-              value={e.muscle_group}
-              onChange={(ev) => update(i, { muscle_group: ev.target.value })}
-            >
-              <option value="">Groupe visé…</option>
-              {(groups.includes(e.muscle_group) || !e.muscle_group ? groups : [e.muscle_group, ...groups]).map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
             <label className="flex items-center gap-1 text-xs text-muted">
               <input
                 className="field w-14"
@@ -976,21 +970,12 @@ function CatalogManager({
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             autoFocus
           />
+          <GroupPicker
+            value={draft.muscle_group}
+            groups={groups}
+            onChange={(v) => setDraft({ ...draft, muscle_group: v })}
+          />
           <div className="flex flex-wrap items-center gap-1.5">
-            <select
-              className="field w-auto min-w-28 flex-1"
-              value={draft.muscle_group}
-              onChange={(e) => setDraft({ ...draft, muscle_group: e.target.value })}
-            >
-              <option value="">Groupe visé…</option>
-              {(groups.includes(draft.muscle_group) || !draft.muscle_group ? groups : [draft.muscle_group, ...groups]).map(
-                (g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ),
-              )}
-            </select>
             <input
               className="field w-14"
               type="number"

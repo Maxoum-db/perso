@@ -7,6 +7,7 @@ import {
   type CatalogExercise,
 } from '../lib/muscu'
 import { ExercisePicker } from '../components/ExercisePicker'
+import { GroupPicker } from '../components/GroupPicker'
 
 // ── Séance en direct ─────────────────────────────────────────────────────────
 // Chrono global, séries à cocher une à une (chaque série lance le minuteur de
@@ -352,19 +353,13 @@ export function LiveSession({
                 </button>
               </div>
 
+              <GroupPicker
+                value={e.muscle_group}
+                groups={groups}
+                onChange={(v) => updateExo(j, { muscle_group: v })}
+              />
+
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                <select
-                  className="field w-auto min-w-24 flex-1"
-                  value={e.muscle_group}
-                  onChange={(ev) => updateExo(j, { muscle_group: ev.target.value })}
-                >
-                  <option value="">Groupe visé…</option>
-                  {(groups.includes(e.muscle_group) || !e.muscle_group ? groups : [e.muscle_group, ...groups]).map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
                 <input
                   className="field w-20"
                   placeholder="reps ou 45s"

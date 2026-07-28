@@ -72,6 +72,21 @@ export function fmtTonnage(kg: number): string {
   return `${Math.round(kg).toLocaleString('fr-FR')} kg`
 }
 
+// ── Groupes musculaires d'un exercice : un ou plusieurs, séparés par des virgules ──
+
+/** « Pectoraux, Triceps » → ['Pectoraux', 'Triceps'] */
+export function parseGroups(value: string): string[] {
+  return value
+    .split(',')
+    .map((g) => g.trim())
+    .filter(Boolean)
+}
+
+/** ['Pectoraux', 'Triceps'] → « Pectoraux, Triceps » */
+export function joinGroups(groups: string[]): string {
+  return groups.map((g) => g.trim()).filter(Boolean).join(', ')
+}
+
 // ── Récupération : depuis combien de jours chaque groupe a-t-il été travaillé ──
 
 /**
@@ -86,10 +101,11 @@ export function daysSinceByGroup(sessions: MuscuSession[]): Record<string, numbe
   for (const s of sessions) {
     const days = Math.round((today.getTime() - new Date(s.date + 'T00:00:00').getTime()) / 86400000)
     if (days < 0) continue // séance datée dans le futur : ignorée
+    // Un exercice peut viser plusieurs groupes : chacun compte séparément.
     for (const e of s.exercises) {
-      const g = e.muscle_group.trim()
-      if (!g) continue
-      if (out[g] === undefined || days < out[g]) out[g] = days
+      for (const g of parseGroups(e.muscle_group)) {
+        if (out[g] === undefined || days < out[g]) out[g] = days
+      }
     }
   }
   return out
