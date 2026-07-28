@@ -71,6 +71,29 @@ export function fmtTonnage(kg: number): string {
   return `${Math.round(kg).toLocaleString('fr-FR')} kg`
 }
 
+// ── Récupération : depuis combien de jours chaque groupe a-t-il été travaillé ──
+
+/**
+ * Pour chaque groupe musculaire, le nombre de jours écoulés depuis la dernière
+ * séance qui l'a travaillé (0 = aujourd'hui). Un groupe absent n'a jamais été
+ * travaillé sur la période chargée.
+ */
+export function daysSinceByGroup(sessions: MuscuSession[]): Record<string, number> {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const out: Record<string, number> = {}
+  for (const s of sessions) {
+    const days = Math.round((today.getTime() - new Date(s.date + 'T00:00:00').getTime()) / 86400000)
+    if (days < 0) continue // séance datée dans le futur : ignorée
+    for (const e of s.exercises) {
+      const g = e.muscle_group.trim()
+      if (!g) continue
+      if (out[g] === undefined || days < out[g]) out[g] = days
+    }
+  }
+  return out
+}
+
 // ── Groupes musculaires : prédéfinis mais modifiables (stockés en perso_kv) ──
 
 export const MUSCLE_GROUPS_DEFAULT = [
