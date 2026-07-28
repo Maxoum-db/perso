@@ -139,13 +139,14 @@ export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
     .from('perso_muscu_exercises')
     .select('id,name,muscle_group,default_sets,default_reps,default_weight_kg,notes,position')
     .eq('user_id', userId)
-    .order('position', { ascending: true })
-    .order('name', { ascending: true })
   if (error) throw new Error(error.message)
-  return (data ?? []).map((r) => ({
-    ...r,
-    default_weight_kg: r.default_weight_kg === null ? null : Number(r.default_weight_kg),
-  })) as CatalogExercise[]
+  // Ordre alphabétique (localeCompare : « Élévations » se range bien avec les E).
+  return (data ?? [])
+    .map((r) => ({
+      ...r,
+      default_weight_kg: r.default_weight_kg === null ? null : Number(r.default_weight_kg),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })) as CatalogExercise[]
 }
 
 export async function saveCatalogExercise(

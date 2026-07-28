@@ -5,6 +5,7 @@ import {
   saveSession,
   type CatalogExercise,
 } from '../lib/muscu'
+import { ExercisePicker } from '../components/ExercisePicker'
 
 // ── Séance en direct ─────────────────────────────────────────────────────────
 // Chrono global, séries à cocher une à une (chaque série lance le minuteur de
@@ -188,7 +189,7 @@ export function LiveSession({
           name: c.name,
           muscle_group: c.muscle_group,
           reps: c.default_reps,
-          weight: c.default_weight_kg === null ? '' : String(c.default_weight_kg),
+          weight: '', // charge saisie en séance, pas pré-remplie depuis le catalogue
           notes: '',
           done: Array(Math.max(1, c.default_sets)).fill(false),
         },
@@ -402,22 +403,7 @@ export function LiveSession({
       </ul>
 
       {/* ── Ajouter un exo en cours de route ── */}
-      <div className="flex gap-2">
-        {catalog.length ? (
-          <select className="field" value="" onChange={(ev) => ev.target.value && addFromCatalog(ev.target.value)}>
-            <option value="">📚 Ajouter depuis le catalogue…</option>
-            {catalog.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.default_weight_kg !== null ? ` — ${c.default_weight_kg} kg` : ''}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <button onClick={addBlank} className="btn-ghost shrink-0 px-3 py-2 text-sm">
-          + Vierge
-        </button>
-      </div>
+      <ExercisePicker catalog={catalog} onPick={(c) => addFromCatalog(c.id)} onBlank={addBlank} />
 
       <textarea
         className="field"

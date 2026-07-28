@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import { InfoBox } from '../components/training-ui'
 import { Poids } from './Carnet'
+import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
   MUSCLE_GROUPS_DEFAULT,
@@ -77,12 +78,13 @@ function draftToInput(d: ExoDraft): ExoInput {
 }
 
 function catalogToDraft(c: CatalogExercise): ExoDraft {
+  // Pas de charge pré-remplie : on saisit le poids réellement soulevé.
   return {
     name: c.name,
     muscle_group: c.muscle_group,
     sets: String(c.default_sets),
     reps: c.default_reps,
-    weight: c.default_weight_kg === null ? '' : String(c.default_weight_kg),
+    weight: '',
     notes: '',
   }
 }
@@ -621,29 +623,11 @@ function ExoListEditor({
           />
         </div>
       ))}
-      <div className="flex gap-2">
-        {catalog.length ? (
-          <select
-            className="field"
-            value=""
-            onChange={(ev) => {
-              const c = catalog.find((x) => x.id === ev.target.value)
-              if (c) onChange([...exos, catalogToDraft(c)])
-            }}
-          >
-            <option value="">📚 Ajouter depuis le catalogue…</option>
-            {catalog.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.default_weight_kg !== null ? ` — ${c.default_weight_kg} kg` : ''}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <button onClick={() => onChange([...exos, emptyExo()])} className="btn-ghost shrink-0 px-3 py-2 text-sm">
-          + Vierge
-        </button>
-      </div>
+      <ExercisePicker
+        catalog={catalog}
+        onPick={(c) => onChange([...exos, catalogToDraft(c)])}
+        onBlank={() => onChange([...exos, emptyExo()])}
+      />
     </div>
   )
 }
@@ -895,19 +879,23 @@ function CatalogManager({
 }) {
   const [draft, setDraft] = useState<CatalogDraft | null>(null)
   const [busy, setBusy] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const shown = query.trim()
+    ? catalog.filter((c) => normalizeName(c.name).includes(normalizeName(query.trim())))
+    : catalog
 
   async function save() {
     if (!draft || !draft.name.trim()) return
     setBusy(true)
     try {
-      const w = parseFloat(draft.weight.replace(',', '.'))
       await saveCatalogExercise(userId, {
         id: draft.id,
         name: draft.name,
         muscle_group: draft.muscle_group,
         default_sets: parseInt(draft.sets, 10) || 3,
         default_reps: draft.reps,
-        default_weight_kg: Number.isFinite(w) ? w : null,
+        default_weight_kg: null, // la charge se saisit à la séance, pas au catalogue
         notes: draft.notes,
       })
       setDraft(null)
@@ -929,9 +917,17 @@ function CatalogManager({
         </button>
       </div>
       <p className="text-[11px] text-muted">
-        Tes exercices avec leurs valeurs par défaut (séries × reps @ charge) — sélectionnables dans l'éditeur de
-        séance.
+        Tes exercices avec leur format par défaut (séries × reps) — sélectionnables dans l'éditeur de séance. La
+        charge se saisit pendant la séance.
       </p>
+
+      <input
+        className="field"
+        type="search"
+        placeholder="🔍 Filtrer par nom…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
 
       {draft ? (
         <div className="space-y-1.5 rounded-xl2 border border-copper/40 bg-copper/5 p-2.5">
@@ -966,18 +962,6 @@ function CatalogManager({
               onChange={(e) => setDraft({ ...draft, sets: e.target.value })}
             />
             <input className="field w-24" placeholder="reps ou 45s" value={draft.reps} onChange={(e) => setDraft({ ...draft, reps: e.target.value })} />
-            <label className="flex items-center gap-1 text-xs text-muted">
-              <input
-                className="field w-20"
-                type="number"
-                inputMode="decimal"
-                step="0.5"
-                placeholder="PdC"
-                value={draft.weight}
-                onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
-              />
-              kg
-            </label>
           </div>
           <input className="field text-xs" placeholder="Notes (machine, consignes…)" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
           <div className="flex gap-2">
@@ -992,14 +976,13 @@ function CatalogManager({
       ) : null}
 
       <ul className="space-y-1">
-        {catalog.map((c) => (
+        {shown.map((c) => (
           <li key={c.id} className="flex items-center gap-2 border-b border-line/40 pb-1 text-sm last:border-0">
             <div className="min-w-0 flex-1">
               <span className="font-semibold text-ink">{c.name}</span>
               <span className="text-xs text-muted">
                 {' '}
                 — {c.default_sets}×{c.default_reps}
-                {c.default_weight_kg !== null ? ` @ ${c.default_weight_kg} kg` : ''}
                 {c.muscle_group ? ` · ${c.muscle_group}` : ''}
               </span>
             </div>
@@ -1011,7 +994,7 @@ function CatalogManager({
                   muscle_group: c.muscle_group,
                   sets: String(c.default_sets),
                   reps: c.default_reps,
-                  weight: c.default_weight_kg === null ? '' : String(c.default_weight_kg),
+                  weight: '',
                   notes: c.notes,
                 })
               }
