@@ -1,14 +1,19 @@
 import type { GroupLoad } from '../lib/muscu'
 
-// Mannequin de récupération musculaire : silhouette face + dos, détaillée par
-// zone, dont chaque muscle se colore selon l'ancienneté de son dernier travail
-// pondérée par l'intensité (un muscle sollicité en secondaire récupère plus
-// vite qu'un moteur principal) :
+// Mannequin de récupération musculaire, façon planche anatomique : silhouette
+// face + dos découpée muscle par muscle. Chaque zone se colore selon
+// l'ancienneté de son dernier travail pondérée par l'intensité (un muscle
+// sollicité en secondaire récupère plus vite qu'un moteur principal) :
 //   0-2 j  → rouge  (en récupération)
 //   3-4 j  → orange (bientôt prêt)
 //   ≥ 5 j  → vert   (prêt / jamais travaillé)
+//
+// Les tracés sont exprimés dans un repère centré (x = 0 au milieu du corps) :
+// on ne dessine qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)),
+// ce qui garantit un corps parfaitement symétrique.
 
 export type MuscleRegion =
+  | 'neck'
   | 'traps'
   | 'shoulders'
   | 'chest'
@@ -28,7 +33,7 @@ export type MuscleRegion =
 const RED = '#EF4444'
 const ORANGE = '#F59E0B'
 const GREEN = '#10B981'
-const NEUTRAL = '#D1D5DB'
+const NEUTRAL = '#C9C4BD'
 
 /** Seuils : rouge jusqu'à 2 j, orange à 3-4 j, vert à partir de 5 j. */
 export function recoveryColor(effectiveDays: number | undefined): string {
@@ -48,10 +53,11 @@ function norm(s: string): string {
 // Premier mot-clé trouvé gagne : « abdos » est testé avant « dos », sinon
 // « Abdos/Core » serait pris pour du dos.
 const REGION_KEYWORDS: Array<[MuscleRegion, string[]]> = [
-  ['abs', ['abdo', 'core', 'gainage', 'transverse', 'ceinture']],
   ['obliques', ['oblique']],
+  ['abs', ['abdo', 'core', 'gainage', 'transverse', 'ceinture']],
+  ['neck', ['cou', 'cervical', 'nuque']],
   ['traps', ['trapez']],
-  ['lowback', ['lombaire']],
+  ['lowback', ['lombaire', 'erecteur']],
   ['shoulders', ['epaule', 'deltoid']],
   ['chest', ['pector', 'pecs', 'poitrine']],
   ['back', ['dos', 'dorsaux']],
@@ -77,13 +83,55 @@ export function regionsForGroup(label: string): MuscleRegion[] {
   if (n.includes('full body') || n.includes('full-body') || n.includes('corps entier')) return ALL_REGIONS
   if (n.includes('jambes')) return LEGS
   if (n.includes('haut du corps')) return UPPER
-  // « Abdos/Core » couvre aussi les obliques.
+  // « Abdos/Core » couvre le grand droit ET les obliques.
   if (n.includes('abdo') || n.includes('core')) return ['abs', 'obliques']
   for (const [region, keywords] of REGION_KEYWORDS) {
     if (keywords.some((k) => n.includes(k))) return [region]
   }
   return [] // ex. « Cardio » : aucune zone dédiée
 }
+
+// ── Tracés (repère centré, moitié gauche du corps) ──────────────────────────
+
+// Silhouette de base dessinée SOUS les muscles : sans elle, le fond apparaît
+// entre les tracés et le corps semble fragmenté.
+const BASE_CENTER =
+  'M-25,44 C-27,62 -22,92 -19,109 L19,109 C22,92 27,62 25,44 C22,37 12,32 6,30 L-6,30 C-12,32 -22,37 -25,44 Z'
+const BASE_HALF: string[] = [
+  // bras : de l'épaule à la main
+  'M-24,44 C-34,48 -40,62 -37,78 C-35,95 -41,112 -39,129 C-38,137 -31,139 -30,130 C-28,112 -30,96 -28,80 C-26,64 -20,52 -19,46 Z',
+  // jambe : de la hanche au pied
+  'M-20,106 C-24,128 -22,160 -18,182 C-17,197 -18,209 -17,217 L-4,217 C-3,200 -4,186 -4,176 C-4,150 -2,128 0,107 Z',
+]
+
+const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
+  ['traps', 'M-7,31 C-13,33 -19,39 -24,46 L-14,49 C-11,42 -8,36 -7,31 Z'],
+  ['shoulders', 'M-26,47 C-35,50 -38,61 -35,71 C-28,72 -24,65 -23,56 Z'],
+  ['chest', 'M-21,51 C-13,48 -4,49 -2,53 L-2,70 C-9,75 -18,72 -22,65 C-24,60 -23,55 -21,51 Z'],
+  ['obliques', 'M-16,74 C-13,85 -11,96 -10,105 L-16,101 C-18,92 -18,82 -16,74 Z'],
+  ['biceps', 'M-32,72 C-38,78 -38,90 -34,97 C-29,95 -28,81 -29,73 Z'],
+  ['forearms', 'M-35,98 C-40,106 -41,118 -38,127 L-31,125 C-30,114 -30,104 -32,99 Z'],
+  ['neutral', 'M-36,128 C-40,131 -40,138 -36,140 C-32,138 -32,131 -36,128 Z'], // main
+  ['quads', 'M-19,126 C-22,142 -21,160 -17,174 L-6,174 C-5,156 -6,138 -8,128 Z'],
+  ['adductors', 'M-5,129 C-7,141 -7,153 -6,162 L-1,162 L-1,129 Z'],
+  ['neutral', 'M-18,175 C-14,179 -7,179 -4,175 L-4,181 C-8,184 -14,184 -18,181 Z'], // genou
+  ['calves', 'M-16,182 C-18,193 -17,205 -14,212 L-5,212 C-4,200 -5,190 -8,182 Z'],
+  ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
+]
+
+const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
+  ['traps', 'M0,32 L-7,32 C-15,35 -21,41 -26,47 L-13,66 L0,59 Z'],
+  ['shoulders', 'M-26,47 C-35,50 -38,61 -35,71 C-28,72 -24,65 -23,56 Z'],
+  ['back', 'M-24,60 C-26,73 -22,89 -12,101 L0,101 L0,62 Z'],
+  ['triceps', 'M-32,72 C-38,78 -38,90 -34,97 C-29,95 -28,81 -29,73 Z'],
+  ['forearms', 'M-35,98 C-40,106 -41,118 -38,127 L-31,125 C-30,114 -30,104 -32,99 Z'],
+  ['neutral', 'M-36,128 C-40,131 -40,138 -36,140 C-32,138 -32,131 -36,128 Z'], // main
+  ['glutes', 'M-18,118 C-21,125 -20,135 -14,140 C-6,141 -2,134 -2,126 L-2,118 Z'],
+  ['hamstrings', 'M-17,142 C-19,156 -18,169 -15,178 L-5,178 C-4,164 -5,150 -7,143 Z'],
+  ['neutral', 'M-18,179 C-14,183 -7,183 -4,179 L-4,184 C-8,187 -14,187 -18,184 Z'], // genou
+  ['calves', 'M-16,185 C-19,194 -18,206 -14,212 L-5,212 C-4,201 -6,191 -8,185 Z'],
+  ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
+]
 
 export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> }) {
   // Chaque zone prend la sollicitation la plus fraîche parmi les groupes qui la couvrent.
@@ -95,22 +143,25 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
     }
   }
 
-  const fill = (r: MuscleRegion) => recoveryColor(byRegion[r])
-  const S = { stroke: '#ffffff', strokeWidth: 1.2, strokeLinejoin: 'round' as const }
-
+  const fill = (r: MuscleRegion | 'neutral') => (r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]))
   const tracked = Object.entries(loads).sort((a, b) => a[1].effectiveDays - b[1].effectiveDays)
 
   return (
     <div className="space-y-2">
-      <svg viewBox="0 0 300 250" className="mx-auto w-full max-w-sm" aria-label="Récupération musculaire">
-        {/* ── Face ── */}
-        <FrontFigure cx={75} fill={fill} S={S} />
-        {/* ── Dos ── */}
-        <BackFigure cx={225} fill={fill} S={S} />
-        <text x="75" y="246" textAnchor="middle" fill="#a8a29e" fontSize="9">
+      <svg
+        viewBox="0 0 300 240"
+        className="mx-auto w-full max-w-sm"
+        stroke="#ffffff"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+        aria-label="Récupération musculaire"
+      >
+        <Figure cx={75} half={FRONT_HALF} fill={fill} back={false} />
+        <Figure cx={225} half={BACK_HALF} fill={fill} back />
+        <text x="75" y="236" textAnchor="middle" fill="#a8a29e" fontSize="9" stroke="none">
           Face
         </text>
-        <text x="225" y="246" textAnchor="middle" fill="#a8a29e" fontSize="9">
+        <text x="225" y="236" textAnchor="middle" fill="#a8a29e" fontSize="9" stroke="none">
           Dos
         </text>
       </svg>
@@ -153,102 +204,41 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
   )
 }
 
-type FillFn = (r: MuscleRegion) => string
-type StrokeProps = { stroke: string; strokeWidth: number; strokeLinejoin: 'round' }
-
-function FrontFigure({ cx, fill, S }: { cx: number; fill: FillFn; S: StrokeProps }) {
+function Figure({
+  cx,
+  half,
+  fill,
+  back,
+}: {
+  cx: number
+  half: Array<[MuscleRegion | 'neutral', string]>
+  fill: (r: MuscleRegion | 'neutral') => string
+  back: boolean
+}) {
+  const side = half.map(([region, d], i) => <path key={i} d={d} fill={fill(region)} />)
+  const base = BASE_HALF.map((d, i) => <path key={i} d={d} fill={NEUTRAL} stroke="none" />)
   return (
-    <g>
-      {/* Tête, cou, mains, pieds : non suivis */}
-      <circle cx={cx} cy="18" r="11" fill={NEUTRAL} {...S} />
-      <rect x={cx - 6} y="27" width="12" height="9" rx="3" fill={NEUTRAL} {...S} />
-
-      {/* Trapèzes (faisceaux supérieurs, du cou vers l'épaule) */}
-      <path d={`M${cx - 5},32 L${cx - 21},45 L${cx - 11},47 L${cx - 5},41 Z`} fill={fill('traps')} {...S} />
-      <path d={`M${cx + 5},32 L${cx + 21},45 L${cx + 11},47 L${cx + 5},41 Z`} fill={fill('traps')} {...S} />
-
-      {/* Deltoïdes antérieurs (dessinés avant les pectoraux, qui passent dessus) */}
-      <ellipse cx={cx - 27} cy="55" rx="10" ry="10" fill={fill('shoulders')} {...S} />
-      <ellipse cx={cx + 27} cy="55" rx="10" ry="10" fill={fill('shoulders')} {...S} />
-
-      {/* Pectoraux */}
-      <rect x={cx - 19} y="46" width="17" height="26" rx="6" fill={fill('chest')} {...S} />
-      <rect x={cx + 2} y="46" width="17" height="26" rx="6" fill={fill('chest')} {...S} />
-
-      {/* Abdominaux + obliques */}
-      <rect x={cx - 10} y="73" width="20" height="35" rx="4" fill={fill('abs')} {...S} />
-      <path d={`M${cx - 19},74 q7,15 5,29 l-7,-3 q-3,-13 -2,-26 Z`} fill={fill('obliques')} {...S} />
-      <path d={`M${cx + 19},74 q-7,15 -5,29 l7,-3 q3,-13 2,-26 Z`} fill={fill('obliques')} {...S} />
-
-      {/* Biceps + avant-bras */}
-      <ellipse cx={cx - 31} cy="78" rx="8" ry="15" fill={fill('biceps')} {...S} />
-      <ellipse cx={cx + 31} cy="78" rx="8" ry="15" fill={fill('biceps')} {...S} />
-      <ellipse cx={cx - 34} cy="110" rx="7" ry="15" fill={fill('forearms')} {...S} />
-      <ellipse cx={cx + 34} cy="110" rx="7" ry="15" fill={fill('forearms')} {...S} />
-      <circle cx={cx - 35} cy="130" r="5" fill={NEUTRAL} {...S} />
-      <circle cx={cx + 35} cy="130" r="5" fill={NEUTRAL} {...S} />
-
-      {/* Bassin (neutre de face) */}
-      <rect x={cx - 15} y="108" width="30" height="17" rx="6" fill={NEUTRAL} {...S} />
-
-      {/* Quadriceps + adducteurs */}
-      <rect x={cx - 18} y="125" width="11" height="48" rx="5" fill={fill('quads')} {...S} />
-      <rect x={cx + 7} y="125" width="11" height="48" rx="5" fill={fill('quads')} {...S} />
-      <rect x={cx - 6} y="128" width="5" height="38" rx="2" fill={fill('adductors')} {...S} />
-      <rect x={cx + 1} y="128" width="5" height="38" rx="2" fill={fill('adductors')} {...S} />
-
-      {/* Jambiers (mollets vus de face) */}
-      <rect x={cx - 17} y="178" width="11" height="32" rx="5" fill={fill('calves')} {...S} />
-      <rect x={cx + 6} y="178" width="11" height="32" rx="5" fill={fill('calves')} {...S} />
-
-      {/* Pieds */}
-      <rect x={cx - 18} y="212" width="13" height="8" rx="3" fill={NEUTRAL} {...S} />
-      <rect x={cx + 5} y="212" width="13" height="8" rx="3" fill={NEUTRAL} {...S} />
-    </g>
-  )
-}
-
-function BackFigure({ cx, fill, S }: { cx: number; fill: FillFn; S: StrokeProps }) {
-  return (
-    <g>
-      <circle cx={cx} cy="18" r="11" fill={NEUTRAL} {...S} />
-      <rect x={cx - 6} y="27" width="12" height="9" rx="3" fill={NEUTRAL} {...S} />
-
-      {/* Deltoïdes postérieurs (dessous, comme de face) */}
-      <ellipse cx={cx - 27} cy="55" rx="10" ry="10" fill={fill('shoulders')} {...S} />
-      <ellipse cx={cx + 27} cy="55" rx="10" ry="10" fill={fill('shoulders')} {...S} />
-
-      {/* Trapèzes (cerf-volant du haut du dos) */}
-      <path d={`M${cx - 6},32 L${cx - 21},46 L${cx - 15},66 L${cx},60 L${cx + 15},66 L${cx + 21},46 L${cx + 6},32 Z`} fill={fill('traps')} {...S} />
-
-      {/* Grands dorsaux (V) */}
-      <path d={`M${cx - 20},64 L${cx + 20},64 L${cx + 11},101 L${cx - 11},101 Z`} fill={fill('back')} {...S} />
-
-      {/* Lombaires */}
-      <rect x={cx - 11} y="101" width="22" height="15" rx="4" fill={fill('lowback')} {...S} />
-
-      {/* Triceps + avant-bras */}
-      <ellipse cx={cx - 31} cy="78" rx="8" ry="15" fill={fill('triceps')} {...S} />
-      <ellipse cx={cx + 31} cy="78" rx="8" ry="15" fill={fill('triceps')} {...S} />
-      <ellipse cx={cx - 34} cy="110" rx="7" ry="15" fill={fill('forearms')} {...S} />
-      <ellipse cx={cx + 34} cy="110" rx="7" ry="15" fill={fill('forearms')} {...S} />
-      <circle cx={cx - 35} cy="130" r="5" fill={NEUTRAL} {...S} />
-      <circle cx={cx + 35} cy="130" r="5" fill={NEUTRAL} {...S} />
-
-      {/* Fessiers */}
-      <rect x={cx - 17} y="116" width="15" height="22" rx="7" fill={fill('glutes')} {...S} />
-      <rect x={cx + 2} y="116" width="15" height="22" rx="7" fill={fill('glutes')} {...S} />
-
-      {/* Ischio-jambiers */}
-      <rect x={cx - 17} y="140" width="13" height="38" rx="6" fill={fill('hamstrings')} {...S} />
-      <rect x={cx + 4} y="140" width="13" height="38" rx="6" fill={fill('hamstrings')} {...S} />
-
-      {/* Mollets (jumeaux) */}
-      <rect x={cx - 17} y="180" width="12" height="32" rx="6" fill={fill('calves')} {...S} />
-      <rect x={cx + 5} y="180" width="12" height="32" rx="6" fill={fill('calves')} {...S} />
-
-      <rect x={cx - 18} y="212" width="13" height="8" rx="3" fill={NEUTRAL} {...S} />
-      <rect x={cx + 5} y="212" width="13" height="8" rx="3" fill={NEUTRAL} {...S} />
+    <g transform={`translate(${cx},0)`}>
+      {/* Silhouette de base, puis les muscles par-dessus */}
+      <path d={BASE_CENTER} fill={NEUTRAL} stroke="none" />
+      {base}
+      <g transform="scale(-1,1)">{base}</g>
+      {/* Axe médian : tête, cou, tronc central */}
+      <ellipse cx="0" cy="16" rx="10" ry="12" fill={NEUTRAL} />
+      <path d="M-6,25 L6,25 L7,36 L-7,36 Z" fill={fill('neck')} />
+      {back ? (
+        <path d="M-8,101 L8,101 L6,119 L-6,119 Z" fill={fill('lowback')} />
+      ) : (
+        <>
+          <path d="M-9,73 L9,73 L8,107 C4,111 -4,111 -8,107 Z" fill={fill('abs')} />
+          {/* Segments du grand droit */}
+          <path d="M-8,84 L8,84 M-8,95 L8,95 M0,74 L0,106" strokeWidth="0.8" fill="none" />
+        </>
+      )}
+      {/* Bassin */}
+      <path d={back ? 'M-10,108 L10,108 L11,120 L-11,120 Z' : 'M-10,108 L10,108 L12,125 L-12,125 Z'} fill={NEUTRAL} />
+      {side}
+      <g transform="scale(-1,1)">{side}</g>
     </g>
   )
 }

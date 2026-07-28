@@ -169,6 +169,8 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Lombaires',
   'Avant-bras',
   'Adducteurs',
+  'Obliques',
+  'Cou',
   'Mollets',
   'Abdos/Core',
   // Groupes « parapluie » pour les activités qui sollicitent tout un bloc
@@ -210,7 +212,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v1'
+const LIBRARY_SEED_KEY = 'muscu_library_v2'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -589,8 +591,9 @@ async function ensureLibrary(userId: string): Promise<boolean> {
       })
       continue
     }
-    // Déjà multi-groupes : c'est un choix de l'utilisateur, on n'y touche pas.
-    if (parseGroupEntries(current.muscle_group).length > 1) continue
+    // Réalignement sur la référence (les exercices que TU as créés toi-même ne
+    // sont pas dans la bibliothèque : ils ne sont donc jamais touchés).
+    if (current.muscle_group.trim() === lib.groups) continue
     const { error } = await supabase
       .from('perso_muscu_exercises')
       .update({ muscle_group: lib.groups, updated_at: new Date().toISOString() })
