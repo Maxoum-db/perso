@@ -7,9 +7,12 @@ import { listWeighins } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { GroupPicker } from '../components/GroupPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
+import { NeglectedMuscles } from '../components/NeglectedMuscles'
+import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
   MUSCLE_GROUPS_DEFAULT,
+  exerciseProgress,
   groupLoads,
   fmtTonnage,
   isBodyweightExercise,
@@ -113,7 +116,7 @@ function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
 
 export function Musculation() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'journal' | 'types' | 'poids'>('journal')
+  const [tab, setTab] = useState<'journal' | 'types' | 'progression' | 'poids'>('journal')
   const [templates, setTemplates] = useState<MuscuTemplate[] | null>(null)
   const [sessions, setSessions] = useState<MuscuSession[] | null>(null)
   const [catalog, setCatalog] = useState<CatalogExercise[]>([])
@@ -161,6 +164,7 @@ export function Musculation() {
         tabs={[
           { id: 'journal', label: '📒 Journal' },
           { id: 'types', label: '📋 Séances types' },
+          { id: 'progression', label: '📈 Progression' },
           { id: 'poids', label: '⚖️ Poids' },
         ]}
         active={tab}
@@ -171,6 +175,8 @@ export function Musculation() {
         <Poids />
       ) : templates === null || sessions === null ? (
         <div className="animate-pulse text-sm text-muted">Chargement…</div>
+      ) : tab === 'progression' ? (
+        <ProgressTab progress={exerciseProgress(sessions)} />
       ) : tab === 'journal' ? (
         <Journal
           userId={user?.id ?? ''}
@@ -352,6 +358,8 @@ function Journal({
         </p>
         <MuscleBodyDiagram loads={groupLoads(sessions)} />
       </section>
+
+      <NeglectedMuscles loads={groupLoads(sessions)} />
 
       <div className="grid grid-cols-3 gap-2">
         <StatCard label="Ce mois-ci" value={String(monthSessions.length)} sub="séances" />
