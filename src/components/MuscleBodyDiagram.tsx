@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { GroupLoad } from '../lib/muscu'
 
 // Mannequin de récupération, façon planche anatomique : chaque muscle est un
@@ -43,6 +44,42 @@ export type MuscleRegion =
   | 'gastroc'
   | 'soleus'
   | 'tibialis'
+
+/** Nom affiché quand on touche un muscle sur le schéma. */
+const MUSCLE_LABELS: Record<MuscleRegion, string> = {
+  neck: 'Cou (sterno-cléido-mastoïdien)',
+  trapsUpper: 'Trapèze supérieur',
+  trapsMid: 'Trapèze moyen',
+  trapsLow: 'Trapèze inférieur',
+  deltAnt: 'Deltoïde antérieur',
+  deltLat: 'Deltoïde latéral',
+  deltPost: 'Deltoïde postérieur',
+  pecUpper: 'Pectoral supérieur (faisceau claviculaire)',
+  pecLower: 'Grand pectoral',
+  serratus: 'Dentelé antérieur',
+  lats: 'Grand dorsal',
+  teres: 'Grand rond',
+  erectors: 'Érecteurs du rachis',
+  biceps: 'Biceps brachial',
+  brachialis: 'Brachial antérieur',
+  tricepsLong: 'Triceps — longue portion',
+  tricepsLat: 'Triceps — portion latérale',
+  forearmFlex: 'Fléchisseurs de l’avant-bras',
+  forearmExt: 'Extenseurs de l’avant-bras',
+  rectus: 'Grand droit de l’abdomen',
+  obliques: 'Obliques',
+  gluteMax: 'Grand fessier',
+  gluteMed: 'Moyen fessier',
+  rectusFemoris: 'Droit fémoral',
+  vastusLat: 'Vaste latéral',
+  vastusMed: 'Vaste médial',
+  adductors: 'Adducteurs',
+  bicepsFemoris: 'Biceps fémoral',
+  hamsInner: 'Ischios internes',
+  gastroc: 'Gastrocnémiens (jumeaux)',
+  soleus: 'Soléaire',
+  tibialis: 'Tibial antérieur',
+}
 
 const RED = '#EF4444'
 const ORANGE = '#F59E0B'
@@ -213,16 +250,20 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
 ]
 
 export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> }) {
-  // Chaque muscle prend la sollicitation la plus fraîche parmi les libellés qui le couvrent.
-  const byRegion: Partial<Record<MuscleRegion, number>> = {}
+  const [selected, setSelected] = useState<MuscleRegion | null>(null)
+
+  // Chaque muscle prend la sollicitation la plus fraîche parmi les libellés qui
+  // le couvrent ; on garde le libellé d'origine pour la fiche au clic.
+  const byRegion: Partial<Record<MuscleRegion, { label: string; load: GroupLoad }>> = {}
   for (const [group, load] of Object.entries(loads)) {
     for (const region of regionsForGroup(group)) {
       const cur = byRegion[region]
-      if (cur === undefined || load.effectiveDays < cur) byRegion[region] = load.effectiveDays
+      if (!cur || load.effectiveDays < cur.load.effectiveDays) byRegion[region] = { label: group, load }
     }
   }
 
-  const fill = (r: MuscleRegion | 'neutral') => (r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]))
+  const fill = (r: MuscleRegion | 'neutral') =>
+    r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.load.effectiveDays)
   const tracked = Object.entries(loads).sort((a, b) => a[1].effectiveDays - b[1].effectiveDays)
 
   return (
@@ -235,8 +276,8 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
         strokeLinejoin="round"
         aria-label="Récupération musculaire"
       >
-        <Figure cx={75} half={FRONT_HALF} fill={fill} back={false} />
-        <Figure cx={225} half={BACK_HALF} fill={fill} back />
+        <Figure cx={75} half={FRONT_HALF} fill={fill} back={false} onPick={setSelected} />
+        <Figure cx={225} half={BACK_HALF} fill={fill} back onPick={setSelected} />
         <text x="75" y="236" textAnchor="middle" fill="#a8a29e" fontSize="9" stroke="none">
           Face
         </text>
@@ -279,6 +320,73 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
           Enregistre des séances avec un groupe visé : le mannequin se colorera tout seul.
         </p>
       )}
+
+      {selected ? (
+        <MuscleSheet region={selected} info={byRegion[selected]} onClose={() => setSelected(null)} />
+      ) : null}
+    </div>
+  )
+}
+
+/** Fiche affichée au clic sur un muscle du schéma. */
+function MuscleSheet({
+  region,
+  info,
+  onClose,
+}: {
+  region: MuscleRegion
+  info?: { label: string; load: GroupLoad }
+  onClose: () => void
+}) {
+  const color = recoveryColor(info?.load.effectiveDays)
+  const etat = !info
+    ? 'Prêt — jamais travaillé sur les séances chargées'
+    : info.load.effectiveDays <= 2
+      ? 'En récupération'
+      : info.load.effectiveDays <= 4
+        ? 'Bientôt prêt'
+        : 'Prêt'
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-sm rounded-b-none p-5 sm:rounded-xl2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h2 className="text-base font-extrabold text-ink">{MUSCLE_LABELS[region]}</h2>
+          <button onClick={onClose} className="shrink-0 text-muted hover:text-ink">
+            ✕
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 text-sm">
+          <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
+          <span className="font-semibold" style={{ color }}>
+            {etat}
+          </span>
+        </div>
+
+        {info ? (
+          <p className="mt-2 text-xs text-muted">
+            Dernière sollicitation :{' '}
+            <b className="text-ink">
+              {info.load.days === 0 ? "aujourd'hui" : info.load.days === 1 ? 'hier' : `il y a ${info.load.days} jours`}
+            </b>{' '}
+            via <b className="text-ink">{info.label}</b>
+            {info.load.intensity < 1
+              ? ` — en secondaire (${Math.round(info.load.intensity * 100)} %), donc récupération plus rapide.`
+              : ' — en moteur principal.'}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-muted">
+            Aucun exercice récent ne vise ce muscle. C'est peut-être l'occasion.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -288,13 +396,24 @@ function Figure({
   half,
   fill,
   back,
+  onPick,
 }: {
   cx: number
   half: Array<[MuscleRegion | 'neutral', string]>
   fill: (r: MuscleRegion | 'neutral') => string
   back: boolean
+  onPick: (r: MuscleRegion) => void
 }) {
-  const side = half.map(([region, d], i) => <path key={i} d={d} fill={fill(region)} />)
+  // Les zones non suivies (mains, genoux, pieds) ne sont pas cliquables.
+  const side = half.map(([region, d], i) => (
+    <path
+      key={i}
+      d={d}
+      fill={fill(region)}
+      onClick={region === 'neutral' ? undefined : () => onPick(region)}
+      style={region === 'neutral' ? undefined : { cursor: 'pointer' }}
+    />
+  ))
   const base = BASE_HALF.map((d, i) => <path key={i} d={d} fill={NEUTRAL} stroke="none" />)
   return (
     <g transform={`translate(${cx},0)`}>
@@ -307,7 +426,12 @@ function Figure({
       {/* Grand droit : uniquement de face */}
       {back ? null : (
         <>
-          <path d="M-9,74 L9,74 L8,107 C4,111 -4,111 -8,107 Z" fill={fill('rectus')} />
+          <path
+            d="M-9,74 L9,74 L8,107 C4,111 -4,111 -8,107 Z"
+            fill={fill('rectus')}
+            onClick={() => onPick('rectus')}
+            style={{ cursor: 'pointer' }}
+          />
           <path d="M-8,85 L8,85 M-8,96 L8,96 M0,75 L0,106" strokeWidth="0.7" fill="none" />
         </>
       )}
