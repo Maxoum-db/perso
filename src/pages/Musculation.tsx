@@ -10,6 +10,7 @@ import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
 import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
+import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -17,7 +18,6 @@ import {
   exerciseProgress,
   groupLoads,
   fmtTonnage,
-  isBodyweightExercise,
   sessionTonnage,
   deleteCatalogExercise,
   deleteSession,
@@ -103,6 +103,9 @@ interface ExoDraft {
   reps: string
   weight: string
   notes: string
+  /** Justification de la charge proposée (« 10 reps la dernière fois : +2,5 kg »). */
+  hint?: string
+  hintTon?: TonCharge
 }
 
 function emptyExo(group = ''): ExoDraft {
@@ -133,19 +136,20 @@ function draftToInput(d: ExoDraft): ExoInput {
 }
 
 /**
- * Pas de charge pré-remplie depuis le catalogue — sauf pour les exercices au
- * poids du corps, où la charge est la dernière pesée de l'utilisateur connecté
- * (donc différente pour chacun).
+ * La charge n'est jamais figée au catalogue : elle est déduite de tes séances
+ * précédentes (double progression), ou laissée vide si l'exercice est neuf.
  */
-function catalogToDraft(c: CatalogExercise, bodyWeight?: number | null): ExoDraft {
-  const bw = bodyWeight && isBodyweightExercise(c.name) ? String(bodyWeight) : ''
+function catalogToDraft(c: CatalogExercise, sessions: MuscuSession[], bodyWeight?: number | null): ExoDraft {
+  const charge = suggererCharge(sessions, { name: c.name, default_reps: c.default_reps }, bodyWeight ?? null)
   return {
     name: c.name,
     muscle_group: c.muscle_group,
     sets: String(c.default_sets),
     reps: c.default_reps,
-    weight: bw,
+    weight: charge.weight === null ? '' : String(charge.weight),
     notes: '',
+    hint: charge.raison || undefined,
+    hintTon: charge.ton,
   }
 }
 
@@ -306,10 +310,17 @@ function Journal({
       duration: tpl.duration_min ? String(tpl.duration_min) : '',
       notes: '',
       template_id: tpl.id,
-      // Charges et reps pré-remplies depuis la dernière séance où l'exercice apparaît.
+      // Reps reprises de la dernière fois, charge conseillée par la progression.
       exos: tpl.exercises.map((e) => {
         const last = lastExo(sessions, e.name)
-        return exoToDraft(last ? { ...e, weight_kg: last.weight_kg, reps: last.reps || e.reps } : e)
+        const charge = suggererCharge(sessions, { name: e.name, default_reps: e.reps }, bodyWeight)
+        const base = exoToDraft(last ? { ...e, reps: last.reps || e.reps } : e)
+        return {
+          ...base,
+          weight: charge.weight === null ? base.weight : String(charge.weight),
+          hint: charge.raison || undefined,
+          hintTon: charge.ton,
+        }
       }),
     })
   }
@@ -324,12 +335,14 @@ function Journal({
       notes: '',
       exos: (tpl?.exercises ?? []).map((e) => {
         const last = lastExo(sessions, e.name)
-        const weight = last?.weight_kg ?? e.weight_kg
+        const charge = suggererCharge(sessions, { name: e.name, default_reps: e.reps }, bodyWeight)
+        const weight = charge.weight ?? e.weight_kg
         return {
           name: e.name,
           muscle_group: e.muscle_group,
           reps: last?.reps || e.reps,
           weight: weight === null ? '' : String(weight),
+          hint: charge.raison || undefined,
           notes: '',
           done: Array(Math.max(1, e.sets)).fill(false),
         }
@@ -343,34 +356,46 @@ function Journal({
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, groupLoads(sessions), { exclude }), exclude })
+    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight }), exclude })
   }
 
   function regenerer() {
     if (!suggest) return
     const next = new Set(suggest.exclude)
     for (const e of suggest.session?.exercises ?? []) next.add(e.exo.id)
-    const session = buildSession(catalog, groupLoads(sessions), { exclude: next })
+    const session = buildSession(catalog, sessions, { exclude: next, bodyWeight })
     // Plus rien de neuf à proposer : on repart du catalogue complet.
     if (!session) suggerer(new Set())
     else setSuggest({ session, exclude: next })
   }
 
-  /** Charges et reps reprises de la dernière fois, comme pour une séance type. */
-  function rappel(c: CatalogExercise) {
-    const last = lastExo(sessions, c.name)
-    const base = catalogToDraft(c, bodyWeight)
-    if (!last) return base
-    return { ...base, reps: last.reps || base.reps, weight: last.weight_kg === null ? base.weight : String(last.weight_kg) }
-  }
-
   function lancerSuggestion(live: boolean) {
     const s = suggest?.session
     if (!s) return
-    const drafts = s.exercises.map((x) => rappel(x.exo))
+    // Les reps de la dernière fois si l'exercice est connu, sinon le format du
+    // catalogue ; la charge vient de la progression calculée par le générateur.
+    const lignes = s.exercises.map((x) => {
+      const last = lastExo(sessions, x.exo.name)
+      return {
+        name: x.exo.name,
+        muscle_group: x.exo.muscle_group,
+        sets: Math.max(1, x.exo.default_sets),
+        reps: last?.reps || x.exo.default_reps,
+        weight: x.charge.weight === null ? '' : String(x.charge.weight),
+        hint: x.charge.raison || undefined,
+        hintTon: x.charge.ton,
+      }
+    })
     setSuggest(null)
     if (!live) {
-      setDraft({ date: today(), name: s.name, duration: '', notes: '', template_id: null, exos: drafts })
+      setDraft({
+        date: today(),
+        name: s.name,
+        duration: '',
+        notes: '',
+        template_id: null,
+        exos: lignes.map((l) => ({ ...l, sets: String(l.sets), notes: '' })),
+      })
       return
     }
     const state: LiveState = {
@@ -379,13 +404,14 @@ function Journal({
       template_id: null,
       restSec: 90,
       notes: '',
-      exos: s.exercises.map((x, i) => ({
-        name: drafts[i].name,
-        muscle_group: drafts[i].muscle_group,
-        reps: drafts[i].reps,
-        weight: drafts[i].weight,
+      exos: lignes.map((l) => ({
+        name: l.name,
+        muscle_group: l.muscle_group,
+        reps: l.reps,
+        weight: l.weight,
+        hint: l.hint,
         notes: '',
-        done: Array(Math.max(1, x.exo.default_sets)).fill(false),
+        done: Array(l.sets).fill(false),
       })),
     }
     storeLive(state)
@@ -411,6 +437,7 @@ function Journal({
         initial={live}
         catalog={catalog}
         groups={groups}
+        sessions={sessions}
         bodyWeight={bodyWeight}
         onFinish={() => {
           setLive(null)
@@ -430,6 +457,7 @@ function Journal({
         draft={draft}
         groups={groups}
         catalog={catalog}
+        sessions={sessions}
         bodyWeight={bodyWeight}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
@@ -602,6 +630,7 @@ function SessionEditor({
   draft,
   groups,
   catalog,
+  sessions,
   bodyWeight,
   onCancel,
   onSave,
@@ -609,6 +638,7 @@ function SessionEditor({
   draft: SessionDraft
   groups: string[]
   catalog: CatalogExercise[]
+  sessions: MuscuSession[]
   bodyWeight: number | null
   onCancel: () => void
   onSave: (d: SessionDraft) => Promise<void>
@@ -668,6 +698,7 @@ function SessionEditor({
         exos={d.exos}
         groups={groups}
         catalog={catalog}
+        sessions={sessions}
         bodyWeight={bodyWeight}
         onChange={(exos) => setD({ ...d, exos })}
       />
@@ -692,12 +723,15 @@ function ExoListEditor({
   exos,
   groups,
   catalog,
+  sessions = [],
   bodyWeight,
   onChange,
 }: {
   exos: ExoDraft[]
   groups: string[]
   catalog: CatalogExercise[]
+  /** Historique, pour proposer la charge. Vide dans l'éditeur de séance type. */
+  sessions?: MuscuSession[]
   bodyWeight?: number | null
   onChange: (exos: ExoDraft[]) => void
 }) {
@@ -771,6 +805,11 @@ function ExoListEditor({
               />
               kg
             </label>
+            {e.hint ? (
+              <span className={`text-[11px] font-semibold ${TON_STYLE[e.hintTon ?? 'maintien'].classe}`}>
+                {TON_STYLE[e.hintTon ?? 'maintien'].icone} {e.hint}
+              </span>
+            ) : null}
           </div>
           <input
             className="field text-xs"
@@ -782,7 +821,7 @@ function ExoListEditor({
       ))}
       <ExercisePicker
         catalog={catalog}
-        onPick={(c) => onChange([...exos, catalogToDraft(c, bodyWeight)])}
+        onPick={(c) => onChange([...exos, catalogToDraft(c, sessions, bodyWeight)])}
         onBlank={() => onChange([...exos, emptyExo()])}
       />
     </div>

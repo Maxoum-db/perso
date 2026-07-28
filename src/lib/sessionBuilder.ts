@@ -1,7 +1,8 @@
 import { EXERCISE_LIBRARY } from '../data/exercises'
 import { PRIORITE_BEHOURD, poidsBehourd } from '../data/behourdPriority'
 import { regionsForGroup, type MuscleRegion } from '../components/MuscleBodyDiagram'
-import { parseGroupEntries, type CatalogExercise, type GroupLoad } from './muscu'
+import { groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
+import { suggererCharge, type ChargeSuggestion } from './charge'
 
 // Générateur de séance : compose une séance à partir de ce que le corps a déjà
 // encaissé. Le principe est celui du mannequin, appliqué à l'envers — au lieu
@@ -62,6 +63,8 @@ export interface SuggestedExercise {
   /** Jours de repos du muscle moteur le plus frais — sert d'argument à l'écran. */
   reposMin: number
   score: number
+  /** Charge conseillée, déduite des séances précédentes. */
+  charge: ChargeSuggestion
 }
 
 export interface SuggestedSession {
@@ -111,19 +114,23 @@ export interface BuildOptions {
   count?: number
   /** Exercices à ne pas reproposer — sert au bouton « autre proposition ». */
   exclude?: Set<string>
+  /** Poids de corps, pour les exercices qui s'y chargent. */
+  bodyWeight?: number | null
 }
 
 /**
- * Compose une séance à partir du catalogue et de l'état de récupération.
+ * Compose une séance à partir du catalogue et de l'état de récupération, avec
+ * la charge conseillée sur chaque exercice.
  * Retourne null si le catalogue ne contient aucun exercice exploitable.
  */
 export function buildSession(
   catalog: CatalogExercise[],
-  loads: Record<string, GroupLoad>,
+  sessions: MuscuSession[],
   options: BuildOptions = {},
 ): SuggestedSession | null {
   const count = options.count ?? 6
   const exclude = options.exclude ?? new Set<string>()
+  const loads: Record<string, GroupLoad> = groupLoads(sessions)
   const repos = reposParMuscle(loads)
   const reposDe = (r: MuscleRegion) => repos[r] ?? JAMAIS
 
@@ -160,7 +167,17 @@ export function buildSession(
   const prendre = (c: (typeof classes)[number]) => {
     pris.add(c.exo.id)
     for (const r of c.moteurs) usage.set(r, (usage.get(r) ?? 0) + 1)
-    choisis.push({ exo: c.exo, moteurs: c.moteurs, reposMin: c.reposMin, score: c.score })
+    choisis.push({
+      exo: c.exo,
+      moteurs: c.moteurs,
+      reposMin: c.reposMin,
+      score: c.score,
+      charge: suggererCharge(
+        sessions,
+        { name: c.exo.name, default_reps: c.exo.default_reps },
+        options.bodyWeight ?? null,
+      ),
+    })
   }
 
   // Réserve béhourd : le cou et la préhension se travaillent en isolation, donc

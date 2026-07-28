@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import {
   exoTonnage,
   fmtTonnage,
-  isBodyweightExercise,
   saveSession,
   type CatalogExercise,
+  type MuscuSession,
 } from '../lib/muscu'
+import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
 import { GroupPicker } from '../components/GroupPicker'
 
@@ -22,6 +23,8 @@ export interface LiveExo {
   muscle_group: string
   reps: string
   weight: string // charge en kg (texte input, vide = poids du corps)
+  /** Pourquoi cette charge est proposée (« 10 reps la dernière fois : +2,5 kg »). */
+  hint?: string
   notes: string
   done: boolean[] // une case par série
 }
@@ -103,6 +106,7 @@ export function LiveSession({
   initial,
   catalog,
   groups,
+  sessions,
   bodyWeight,
   onFinish,
   onQuit,
@@ -111,6 +115,8 @@ export function LiveSession({
   initial: LiveState
   catalog: CatalogExercise[]
   groups: string[]
+  /** Historique, pour conseiller la charge d'un exercice ajouté en cours de route. */
+  sessions: MuscuSession[]
   bodyWeight: number | null
   onFinish: () => void
   onQuit: () => void
@@ -187,6 +193,8 @@ export function LiveSession({
   function addFromCatalog(id: string) {
     const c = catalog.find((x) => x.id === id)
     if (!c) return
+    // Charge conseillée à partir des séances précédentes, comme partout ailleurs.
+    const charge = suggererCharge(sessions, { name: c.name, default_reps: c.default_reps }, bodyWeight)
     setS((prev) => ({
       ...prev,
       exos: [
@@ -195,9 +203,8 @@ export function LiveSession({
           name: c.name,
           muscle_group: c.muscle_group,
           reps: c.default_reps,
-          // Charge saisie en séance — sauf au poids du corps : on part de la
-          // dernière pesée de l'utilisateur connecté.
-          weight: bodyWeight && isBodyweightExercise(c.name) ? String(bodyWeight) : '',
+          weight: charge.weight === null ? '' : String(charge.weight),
+          hint: charge.raison || undefined,
           notes: '',
           done: Array(Math.max(1, c.default_sets)).fill(false),
         },
@@ -379,6 +386,7 @@ export function LiveSession({
                   />
                   kg
                 </label>
+                {e.hint ? <span className="text-[11px] font-semibold text-copper">💡 {e.hint}</span> : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
