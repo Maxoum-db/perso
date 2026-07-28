@@ -283,6 +283,7 @@ function Journal({
         userId={userId}
         initial={live}
         catalog={catalog}
+        groups={groups}
         onFinish={() => {
           setLive(null)
           onChange()

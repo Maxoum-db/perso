@@ -100,12 +100,14 @@ export function LiveSession({
   userId,
   initial,
   catalog,
+  groups,
   onFinish,
   onQuit,
 }: {
   userId: string
   initial: LiveState
   catalog: CatalogExercise[]
+  groups: string[]
   onFinish: () => void
   onQuit: () => void
 }) {
@@ -324,7 +326,6 @@ export function LiveSession({
                   value={e.name}
                   onChange={(ev) => updateExo(j, { name: ev.target.value })}
                 />
-                {e.muscle_group ? <span className="chip shrink-0 bg-copper/10 text-[10px] text-copper">{e.muscle_group}</span> : null}
                 <button
                   onClick={() => moveExo(j, -1)}
                   disabled={j === 0}
@@ -347,6 +348,18 @@ export function LiveSession({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                <select
+                  className="field w-auto min-w-24 flex-1"
+                  value={e.muscle_group}
+                  onChange={(ev) => updateExo(j, { muscle_group: ev.target.value })}
+                >
+                  <option value="">Groupe visé…</option>
+                  {(groups.includes(e.muscle_group) || !e.muscle_group ? groups : [e.muscle_group, ...groups]).map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="field w-20"
                   placeholder="reps ou 45s"
