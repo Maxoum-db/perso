@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { OUTDOOR_ACTIVITIES } from '../data/activities'
+import { EXERCISE_LIBRARY } from '../data/exercises'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -74,17 +75,42 @@ export function fmtTonnage(kg: number): string {
 
 // ── Groupes musculaires d'un exercice : un ou plusieurs, séparés par des virgules ──
 
-/** « Pectoraux, Triceps » → ['Pectoraux', 'Triceps'] */
-export function parseGroups(value: string): string[] {
-  return value
-    .split(',')
-    .map((g) => g.trim())
-    .filter(Boolean)
+export interface GroupEntry {
+  name: string
+  /** 1 = moteur principal, 0.5 = secondaire, 0.3 = stabilisateur. */
+  intensity: number
 }
 
-/** ['Pectoraux', 'Triceps'] → « Pectoraux, Triceps » */
-export function joinGroups(groups: string[]): string {
-  return groups.map((g) => g.trim()).filter(Boolean).join(', ')
+/**
+ * « Pectoraux, Triceps:0.5 » → [{Pectoraux, 1}, {Triceps, 0.5}]
+ * Un groupe sans coefficient vaut 1 : les valeurs saisies avant l'arrivée des
+ * intensités restent donc valides.
+ */
+export function parseGroupEntries(value: string): GroupEntry[] {
+  return value
+    .split(',')
+    .map((part) => {
+      const [rawName, rawIntensity] = part.split(':')
+      const name = (rawName ?? '').trim()
+      if (!name) return null
+      const n = parseFloat((rawIntensity ?? '').trim())
+      const intensity = Number.isFinite(n) && n > 0 ? Math.min(1, n) : 1
+      return { name, intensity }
+    })
+    .filter((e): e is GroupEntry => e !== null)
+}
+
+/** Les seuls noms des groupes, sans les coefficients. */
+export function parseGroups(value: string): string[] {
+  return parseGroupEntries(value).map((e) => e.name)
+}
+
+/** Sérialise en omettant le coefficient quand il vaut 1 (valeur par défaut). */
+export function serializeGroups(entries: GroupEntry[]): string {
+  return entries
+    .filter((e) => e.name.trim())
+    .map((e) => (e.intensity >= 1 ? e.name.trim() : `${e.name.trim()}:${e.intensity}`))
+    .join(', ')
 }
 
 // ── Récupération : depuis combien de jours chaque groupe a-t-il été travaillé ──
@@ -94,17 +120,34 @@ export function joinGroups(groups: string[]): string {
  * séance qui l'a travaillé (0 = aujourd'hui). Un groupe absent n'a jamais été
  * travaillé sur la période chargée.
  */
-export function daysSinceByGroup(sessions: MuscuSession[]): Record<string, number> {
+export interface GroupLoad {
+  /** Jours écoulés depuis la dernière sollicitation. */
+  days: number
+  /** Intensité de cette sollicitation (1 = principal). */
+  intensity: number
+  /**
+   * Jours « ressentis » : un muscle sollicité en secondaire récupère plus vite,
+   * donc 1 jour à 0.5 d'intensité pèse autant que 2 jours à pleine intensité.
+   */
+  effectiveDays: number
+}
+
+export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const out: Record<string, number> = {}
+  const out: Record<string, GroupLoad> = {}
   for (const s of sessions) {
     const days = Math.round((today.getTime() - new Date(s.date + 'T00:00:00').getTime()) / 86400000)
     if (days < 0) continue // séance datée dans le futur : ignorée
-    // Un exercice peut viser plusieurs groupes : chacun compte séparément.
+    // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
-      for (const g of parseGroups(e.muscle_group)) {
-        if (out[g] === undefined || days < out[g]) out[g] = days
+      for (const g of parseGroupEntries(e.muscle_group)) {
+        const effectiveDays = days / g.intensity
+        const cur = out[g.name]
+        // On garde la sollicitation la plus « fraîche » au sens ressenti.
+        if (!cur || effectiveDays < cur.effectiveDays) {
+          out[g.name] = { days, intensity: g.intensity, effectiveDays }
+        }
       }
     }
   }
@@ -122,6 +165,10 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Quadriceps',
   'Ischios',
   'Fessiers',
+  'Trapèzes',
+  'Lombaires',
+  'Avant-bras',
+  'Adducteurs',
   'Mollets',
   'Abdos/Core',
   // Groupes « parapluie » pour les activités qui sollicitent tout un bloc
@@ -163,6 +210,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
+const LIBRARY_SEED_KEY = 'muscu_library_v1'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -504,5 +552,56 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
     didSeed = true
   }
 
+  if (await ensureLibrary(userId)) didSeed = true
+
   return didSeed
+}
+
+/**
+ * Aligne le catalogue sur la bibliothèque de référence :
+ *  - complète les groupes musculaires des exercices qui n'en avaient qu'un,
+ *    avec leurs coefficients d'intensité ;
+ *  - ajoute les exercices absents.
+ * Les exercices dont l'utilisateur a lui-même défini plusieurs groupes ne sont
+ * jamais réécrits.
+ */
+async function ensureLibrary(userId: string): Promise<boolean> {
+  const done = await fetchKv<boolean>(userId, LIBRARY_SEED_KEY, false)
+  if (done) return false
+
+  const existing = await listCatalog(userId)
+  const byName = new Map(existing.map((e) => [e.name.trim().toLowerCase(), e]))
+
+  const toAdd: Array<Record<string, unknown>> = []
+  let position = 300
+  for (const lib of EXERCISE_LIBRARY) {
+    const current = byName.get(lib.name.trim().toLowerCase())
+    if (!current) {
+      toAdd.push({
+        user_id: userId,
+        name: lib.name,
+        muscle_group: lib.groups,
+        default_sets: lib.sets,
+        default_reps: lib.reps,
+        default_weight_kg: null,
+        notes: lib.notes ?? '',
+        position: position++,
+      })
+      continue
+    }
+    // Déjà multi-groupes : c'est un choix de l'utilisateur, on n'y touche pas.
+    if (parseGroupEntries(current.muscle_group).length > 1) continue
+    const { error } = await supabase
+      .from('perso_muscu_exercises')
+      .update({ muscle_group: lib.groups, updated_at: new Date().toISOString() })
+      .eq('id', current.id)
+    if (error) throw new Error(error.message)
+  }
+
+  if (toAdd.length) {
+    const { error } = await supabase.from('perso_muscu_exercises').insert(toAdd)
+    if (error) throw new Error(error.message)
+  }
+  await saveKv(userId, LIBRARY_SEED_KEY, true)
+  return true
 }
