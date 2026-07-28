@@ -82,7 +82,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
 
   // ── Jambes ────────────────────────────────────────────────────────────────
   { name: 'Squat barre arrière', groups: 'Quadriceps:1, Grand fessier:0.8, Érecteurs du rachis:0.5, Ischios:0.4, Grand droit:0.4', sets: 4, reps: '6-8' },
-  { name: 'Squat guidé', groups: 'Quadriceps:1, Grand fessier:0.7', sets: 4, reps: '8' },
+  { name: 'Squat à la barre guidée', groups: 'Quadriceps:1, Grand fessier:0.7', sets: 4, reps: '8' },
   { name: 'Squat sur box (ou squat gobelet)', groups: 'Quadriceps:1, Grand fessier:0.8, Ischios:0.4', sets: 3, reps: '10' },
   { name: 'Squat gobelet en tempo', groups: 'Quadriceps:1, Grand fessier:0.6, Grand droit:0.4', sets: 3, reps: '10' },
   { name: 'Squat barre devant', groups: 'Droit fémoral:1, Vaste latéral:0.8, Vaste médial:0.8, Grand droit:0.5, Grand fessier:0.5', sets: 3, reps: '8' },
@@ -92,7 +92,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Fentes bulgares', groups: 'Quadriceps:1, Grand fessier:0.9, Moyen fessier:0.5', sets: 3, reps: '10/jambe' },
   { name: 'Montée sur banc', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.4', sets: 3, reps: '12/jambe' },
   { name: 'Extension des jambes à la machine', groups: 'Droit fémoral:1, Vaste latéral:0.8, Vaste médial:0.8', sets: 3, reps: '15' },
-  { name: 'Flexion des ischios à la machine', groups: 'Biceps fémoral:1, Ischios internes:0.9, Gastrocnémiens:0.3', sets: 3, reps: '12' },
+  { name: 'Flexion des ischios allongé (machine)', groups: 'Biceps fémoral:1, Ischios internes:0.9, Gastrocnémiens:0.3', sets: 3, reps: '12' },
   { name: 'Flexion du buste barre au dos', groups: 'Ischios:1, Érecteurs du rachis:0.8, Grand fessier:0.6', sets: 3, reps: '10' },
   { name: 'Poussée de hanches (barre ou machine)', groups: 'Grand fessier:1, Ischios:0.5', sets: 4, reps: '10-12' },
   { name: 'Abducteurs (machine)', groups: 'Moyen fessier:1', sets: 3, reps: '15' },
@@ -206,6 +206,66 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Tirage élastique horizontal', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.4', sets: 3, reps: '15', notes: 'Alternative maison ou échauffement du dos.' },
   { name: 'Gainage latéral dynamique (hanche)', groups: 'Obliques:1, Moyen fessier:0.6', sets: 3, reps: '12/côté' },
   { name: 'Étirement pectoraux au mur', groups: 'Grand pectoral:0.3, Deltoïde antérieur:0.3', sets: 2, reps: '30 s/côté', notes: 'Ouvre la cage — compense l’épaule tombante. Sans forcer sur l’AC droite.' },
+
+  // ── 🏢 Basic Fit — parc machines, poulies et barre guidée ─────────────────
+  // Balayage du matériel présent en club : cardio, barre guidée (Smith),
+  // machines guidées, poulies, zone haltères et cross-training. Les noms
+  // reprennent l'appellation française usuelle en salle.
+
+  // Cardio
+  { name: 'Vélo elliptique', groups: 'Cardio:1, Quadriceps:0.6, Grand fessier:0.5, Grand dorsal:0.4, Ischios:0.4, Triceps:0.3', sets: 1, reps: '20 min', notes: 'Sans impact : le cardio le plus tolérant pour les rotules.' },
+  { name: 'Course sur tapis', groups: 'Cardio:1, Gastrocnémiens:0.9, Quadriceps:0.7, Ischios:0.6, Soléaire:0.6, Grand fessier:0.5', sets: 1, reps: '25 min' },
+  { name: 'Vélo semi-allongé', groups: 'Cardio:0.9, Quadriceps:0.8, Ischios:0.4, Grand fessier:0.4', sets: 1, reps: '25 min', notes: 'Dossier : ménage les lombaires, parfait en récupération active le lendemain du béhourd.' },
+  { name: 'Vélo de biking (RPM)', groups: 'Cardio:1, Quadriceps:0.9, Grand fessier:0.6, Gastrocnémiens:0.4, Ischios:0.4', sets: 1, reps: '30 min' },
+
+  // Barre guidée (Smith machine)
+  { name: 'Développé couché à la barre guidée', groups: 'Grand pectoral:1, Triceps:0.5, Deltoïde antérieur:0.5', sets: 4, reps: '8-10', notes: '⚠️ AC droite : trajectoire imposée — garder les coudes à 45°, ne pas écarter.' },
+  { name: 'Développé incliné à la barre guidée', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.6, Triceps:0.4', sets: 4, reps: '10' },
+  { name: 'Développé militaire à la barre guidée', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.6, Triceps:0.6, Grand droit:0.3', sets: 3, reps: '8-10' },
+  { name: 'Tirage buste penché à la barre guidée', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.6, Biceps:0.5, Érecteurs du rachis:0.3', sets: 4, reps: '10' },
+  { name: 'Fentes à la barre guidée', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.4, Ischios:0.4', sets: 3, reps: '10/jambe' },
+  { name: 'Poussée de hanches à la barre guidée', groups: 'Grand fessier:1, Ischios:0.5, Grand droit:0.3', sets: 4, reps: '12' },
+  { name: 'Haussements d’épaules à la barre guidée', groups: 'Trapèze supérieur:1, Fléchisseurs avant-bras:0.4, Cou:0.4', sets: 4, reps: '12-15', notes: 'Charge lourde possible sans lâcher la barre : idéal pour les trapèzes du harnois.' },
+  { name: 'Mollets debout à la barre guidée', groups: 'Gastrocnémiens:1, Soléaire:0.5', sets: 4, reps: '15-20' },
+
+  // Machines guidées
+  { name: 'Développé pectoraux convergent (machine)', groups: 'Grand pectoral:1, Triceps:0.5, Deltoïde antérieur:0.4', sets: 4, reps: '10' },
+  { name: 'Rowing à la machine convergente', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.5', sets: 4, reps: '10' },
+  { name: 'Élévations latérales à la machine', groups: 'Deltoïde latéral:1, Trapèze supérieur:0.3', sets: 3, reps: '12-15', notes: 'Bras bloqués : moins de triche que les haltères en fin de série.' },
+  { name: 'Curl biceps à la machine', groups: 'Biceps:1, Brachial:0.6', sets: 3, reps: '12' },
+  { name: 'Extension triceps à la machine', groups: 'Triceps latéral:1, Triceps longue portion:0.6', sets: 3, reps: '12' },
+  { name: 'Extension lombaire à la machine', groups: 'Érecteurs du rachis:1, Grand fessier:0.4', sets: 3, reps: '12-15', notes: 'Assis dossier réglé : charge progressive sur les érecteurs, sans à-coup.' },
+  { name: 'Presse à cuisses horizontale', groups: 'Vaste latéral:1, Vaste médial:0.9, Droit fémoral:0.6, Grand fessier:0.6', sets: 4, reps: '12' },
+  { name: 'Presse à cuisses unilatérale', groups: 'Vaste latéral:1, Vaste médial:0.9, Grand fessier:0.6, Droit fémoral:0.6, Moyen fessier:0.4', sets: 3, reps: '10/jambe', notes: 'Corrige le déséquilibre gauche/droite — utile avec la dysplasie rotulienne.' },
+  { name: 'Flexion des ischios assis (machine)', groups: 'Biceps fémoral:1, Ischios internes:0.9, Gastrocnémiens:0.4', sets: 3, reps: '12', notes: 'Hanche fléchie : ischios plus étirés qu’allongé, meilleur recrutement.' },
+  { name: 'Machine à fessiers (glute drive)', groups: 'Grand fessier:1, Ischios:0.5', sets: 4, reps: '12-15' },
+  { name: 'Chaise romaine — relevés de jambes', groups: 'Grand droit:1, Obliques:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '12-15', notes: 'Appui sur les avant-bras : pas de fatigue de préhension, contrairement à la barre.' },
+  { name: 'Crunch sur banc incliné', groups: 'Grand droit:1, Obliques:0.4', sets: 3, reps: '15' },
+
+  // Poulies
+  { name: 'Tirage vertical prise large', groups: 'Grand dorsal:1, Grand rond:0.7, Trapèze moyen:0.4, Biceps:0.4', sets: 4, reps: '10' },
+  { name: 'Tirage vertical prise supination', groups: 'Grand dorsal:1, Biceps:0.8, Grand rond:0.5', sets: 3, reps: '10-12' },
+  { name: 'Tirage horizontal poulie prise large', groups: 'Trapèze moyen:1, Rhomboïdes:0.8, Deltoïde postérieur:0.6, Grand dorsal:0.6, Biceps:0.4', sets: 3, reps: '12', notes: 'Coudes hauts : cible le haut du dos — antidote de l’épaule tombante.' },
+  { name: 'Extension de hanche à la poulie', groups: 'Grand fessier:1, Ischios:0.5, Érecteurs du rachis:0.3', sets: 3, reps: '12/jambe' },
+  { name: 'Abduction de hanche à la poulie', groups: 'Moyen fessier:1, Grand fessier:0.4', sets: 3, reps: '15/jambe', notes: 'Stabilité latérale du genou : directement utile en déplacement sous armure.' },
+  { name: 'Crunch à la poulie haute (à genoux)', groups: 'Grand droit:1, Obliques:0.5', sets: 3, reps: '12-15' },
+  { name: 'Curl marteau à la corde (poulie)', groups: 'Brachio-radial:1, Biceps:0.7, Brachial:0.7', sets: 3, reps: '12' },
+  { name: 'Extensions triceps poulie prise inversée', groups: 'Triceps latéral:1, Triceps longue portion:0.4', sets: 3, reps: '12-15' },
+
+  // Haltères et barre libre
+  { name: 'Développé Arnold', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.8, Triceps:0.5', sets: 3, reps: '10', notes: '⚠️ AC droite : la rotation peut tirer — réduire l’amplitude ou rester en prise neutre.' },
+  { name: 'Développé haltères au sol (floor press)', groups: 'Grand pectoral:1, Triceps:0.7, Deltoïde antérieur:0.4', sets: 4, reps: '8-10', notes: '⚠️ AC droite : le sol bloque la descente — la variante de développé la plus sûre pour l’épaule.' },
+  { name: 'Tirage buste penché aux haltères', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.5, Deltoïde postérieur:0.4', sets: 4, reps: '10' },
+  { name: 'Soulevé de terre jambes tendues aux haltères', groups: 'Ischios:1, Grand fessier:0.8, Érecteurs du rachis:0.6', sets: 3, reps: '10-12' },
+  { name: 'Squat sumo à l’haltère', groups: 'Adducteurs:1, Quadriceps:0.8, Grand fessier:0.8, Moyen fessier:0.3', sets: 3, reps: '12' },
+  { name: 'Curl incliné aux haltères', groups: 'Biceps:1, Brachial:0.5', sets: 3, reps: '10-12', notes: 'Bras en arrière du buste : étirement maximal de la longue portion.' },
+  { name: 'Extension triceps haltère à deux mains', groups: 'Triceps longue portion:1, Triceps latéral:0.5', sets: 3, reps: '12' },
+  { name: 'Haussements d’épaules à la barre', groups: 'Trapèze supérieur:1, Fléchisseurs avant-bras:0.4, Cou:0.3', sets: 4, reps: '12' },
+
+  // Zone cross-training
+  { name: 'Sangles de suspension — tirage', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Biceps:0.5, Grand droit:0.5, Deltoïde postérieur:0.4', sets: 3, reps: '12' },
+  { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Triceps:0.6, Deltoïde antérieur:0.5, Grand droit:0.5', sets: 3, reps: '12' },
+  { name: 'Marche latérale élastique (mini-band)', groups: 'Moyen fessier:1, Grand fessier:0.4', sets: 3, reps: '15/côté', notes: 'Échauffement de hanche : réveille le moyen fessier avant le travail lourd de jambes.' },
 ]
 
 /**
@@ -244,7 +304,9 @@ export const EXERCISE_RENAMES: Record<string, string> = {
   'goblet squat tempo': 'Squat gobelet en tempo',
   'step-up sur banc': 'Montée sur banc',
   'leg extension (machine)': 'Extension des jambes à la machine',
-  'leg curl allongé ou assis': 'Flexion des ischios à la machine',
+  'leg curl allongé ou assis': 'Flexion des ischios allongé (machine)',
+  'flexion des ischios à la machine': 'Flexion des ischios allongé (machine)',
+  'squat guidé': 'Squat à la barre guidée',
   'hip thrust (barre ou machine)': 'Poussée de hanches (barre ou machine)',
   'terminal knee extensions (élastique)': 'Extension terminale du genou (élastique)',
   'deadbug': 'Deadbug (gainage bras-jambes alternés)',

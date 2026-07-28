@@ -40,7 +40,52 @@ import {
 // charge, groupe visé, durée, notes) + séances types éditables (pré-remplies
 // depuis le programme Basic Fit à la première visite).
 
-const TPL_ICONS = ['🏋️', '💪', '🦾', '🦵', '🧱', '🔥', '⚡', '🏃', '🧘']
+// Emojis de séance, rangés par thème : une séance se reconnaît d'un coup d'œil
+// dans la liste sans avoir à lire son nom.
+const TPL_ICON_THEMES: Array<{ theme: string; icons: string[] }> = [
+  { theme: 'Force', icons: ['🏋️', '💪', '🦾', '🧱', '⚙️', '🏆'] },
+  { theme: 'Zones', icons: ['🦵', '🫁', '🫀', '🦴', '🖐️', '🌀'] },
+  { theme: 'Cardio', icons: ['🏃', '🚴', '🚣', '🪜', '⚡', '⏱️'] },
+  { theme: 'Eau', icons: ['💧', '🏊', '🌊', '🐬', '🥽'] },
+  { theme: 'Combat', icons: ['⚔️', '🛡️', '🥊', '🪖', '🤺', '🏹'] },
+  { theme: 'Extérieur', icons: ['🌲', '🪓', '🥾', '⛰️', '🧗', '🚵'] },
+  { theme: 'Récup', icons: ['🧘', '🍃', '🧊', '😴', '🩹', '🔥'] },
+]
+
+// Mots-clés → emoji, pour illustrer une séance qui n'en a pas. Les motifs sont
+// écrits SANS accent : le texte comparé est désaccentué avant le test.
+const ICON_KEYWORDS: Array<[RegExp, string]> = [
+  [/nage|natation|crawl|brasse|papillon|piscine|aquagym/, '💧'],
+  [/behourd|harnois|armure|melee|bouclier|heaume|duel/, '⚔️'],
+  [/boxe|boxing|thai|frappe|sparring|pao|shadow/, '🥊'],
+  [/course|running|footing|fractionn|trail|sprint|tapis/, '🏃'],
+  [/velo|bike|elliptique|biking/, '🚴'],
+  [/rameur|kayak|aviron/, '🚣'],
+  [/escalier|stairmaster/, '🪜'],
+  [/bois|hache|buch|troncon|jardin|elagage|debrouss/, '🪓'],
+  [/rando|marche|hike/, '🥾'],
+  [/escalade|bloc|grimpe/, '🧗'],
+  [/jambe|leg|squat|cuisse|fessier|mollet|presse a cuisses/, '🦵'],
+  [/tirage|traction|rowing|\bdos\b|pull/, '🦾'],
+  [/gainage|abdo|core|ceinture|planche/, '🌀'],
+  [/mobilit|etirement|yoga|souplesse|recup|repos/, '🧘'],
+  [/hiit|circuit|cardio|metcon/, '⚡'],
+  [/full body|corps entier|general/, '🧱'],
+  [/pec|poitrine|push|pouss|epaule|bras|biceps|triceps|develop/, '💪'],
+]
+
+/** Emoji d'une séance du journal : celui de sa séance type, sinon déduit du nom. */
+function sessionEmoji(s: MuscuSession, templates: MuscuTemplate[]): string {
+  const tpl = s.template_id ? templates.find((t) => t.id === s.template_id) : null
+  if (tpl?.icon) return tpl.icon
+  const haystack = [s.name, ...s.exercises.map((e) => e.name)]
+    .join(' ')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+  for (const [re, icon] of ICON_KEYWORDS) if (re.test(haystack)) return icon
+  return '🏋️'
+}
 
 const today = () => new Date().toISOString().slice(0, 10)
 function frDate(d: string): string {
@@ -351,16 +396,6 @@ function Journal({
 
   return (
     <div className="space-y-3">
-      <section className="card space-y-2 p-3">
-        <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
-        <p className="text-[11px] text-muted">
-          En rouge ce que tu viens de travailler, en vert ce qui est reposé — pour varier les groupes.
-        </p>
-        <MuscleBodyDiagram loads={groupLoads(sessions)} />
-      </section>
-
-      <NeglectedMuscles loads={groupLoads(sessions)} />
-
       <div className="grid grid-cols-3 gap-2">
         <StatCard label="Ce mois-ci" value={String(monthSessions.length)} sub="séances" />
         <StatCard label="Temps ce mois" value={monthMin ? `${Math.floor(monthMin / 60)}h${String(monthMin % 60).padStart(2, '0')}` : '—'} sub="cumulé" />
@@ -405,6 +440,16 @@ function Journal({
         </div>
       )}
 
+      <section className="card space-y-2 p-3">
+        <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
+        <p className="text-[11px] text-muted">
+          En rouge ce que tu viens de travailler, en vert ce qui est reposé — pour varier les groupes.
+        </p>
+        <MuscleBodyDiagram loads={groupLoads(sessions)} />
+      </section>
+
+      <NeglectedMuscles loads={groupLoads(sessions)} />
+
       {sessions.length === 0 ? (
         <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>
       ) : (
@@ -413,7 +458,8 @@ function Journal({
             <li key={s.id} className="card overflow-hidden">
               <button onClick={() => setOpenId(openId === s.id ? null : s.id)} className="flex w-full items-center gap-3 p-3 text-left">
                 <div className="w-16 shrink-0 text-center">
-                  <div className="text-xs font-bold text-copper">{frDate(s.date)}</div>
+                  <div className="text-xl leading-none">{sessionEmoji(s, templates)}</div>
+                  <div className="mt-0.5 text-xs font-bold text-copper">{frDate(s.date)}</div>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-bold text-ink">{s.name}</div>
@@ -853,15 +899,22 @@ function TemplateEditor({
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
 
       <div className="card space-y-2 p-3">
-        <div className="flex flex-wrap gap-1.5">
-          {TPL_ICONS.map((ic) => (
-            <button
-              key={ic}
-              onClick={() => setD({ ...d, icon: ic })}
-              className={`rounded-lg px-2 py-1 text-lg ${d.icon === ic ? 'bg-copper/20 ring-1 ring-copper' : 'bg-bg'}`}
-            >
-              {ic}
-            </button>
+        <div className="space-y-1.5">
+          {TPL_ICON_THEMES.map((grp) => (
+            <div key={grp.theme} className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wide text-muted">{grp.theme}</span>
+              <div className="flex flex-wrap gap-1">
+                {grp.icons.map((ic) => (
+                  <button
+                    key={ic}
+                    onClick={() => setD({ ...d, icon: ic })}
+                    className={`rounded-lg px-2 py-1 text-lg ${d.icon === ic ? 'bg-copper/20 ring-1 ring-copper' : 'bg-bg'}`}
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <input className="field" placeholder="Nom (ex: Push, Full body…)" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} />
