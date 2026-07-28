@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
+import { OUTDOOR_ACTIVITIES } from '../data/activities'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -107,13 +108,45 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Fessiers',
   'Mollets',
   'Abdos/Core',
+  // Groupes « parapluie » pour les activités qui sollicitent tout un bloc
+  // (course, natation…) : ils colorent plusieurs zones du mannequin.
+  'Jambes (global)',
+  'Haut du corps (global)',
   'Cardio',
   'Full body',
 ]
 
+/**
+ * Exercices dont la charge est le poids du corps : à l'ajout, le champ kg est
+ * pré-rempli avec la dernière pesée de l'utilisateur connecté (chacun le sien).
+ * Les versions assistées en sont exclues : la machine retire une partie du poids.
+ */
+const BODYWEIGHT_KEYWORDS = [
+  'traction',
+  'pompe',
+  'dips',
+  'burpee',
+  'escalade',
+  'sprint',
+  'corde à sauter',
+  'box jump',
+  'hanging knee',
+  'mountain climber',
+  'rucking',
+  'course à pied',
+  'trail',
+]
+
+export function isBodyweightExercise(name: string): boolean {
+  const n = name.toLowerCase()
+  if (n.includes('assist')) return false
+  return BODYWEIGHT_KEYWORDS.some((k) => n.includes(k))
+}
+
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
+const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -428,6 +461,30 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
       if (error) throw new Error(error.message)
     }
     await saveKv(userId, CATALOG_SEED_KEY, true)
+    didSeed = true
+  }
+
+  // Activités hors salle (natation, course, bois, extérieur) : ajoutées une
+  // fois au catalogue, sans toucher aux exercices déjà présents.
+  const actSeeded = await fetchKv<boolean>(userId, ACTIVITIES_SEED_KEY, false)
+  if (!actSeeded) {
+    const existing = await listCatalog(userId)
+    const have = new Set(existing.map((e) => e.name.trim().toLowerCase()))
+    const rows = OUTDOOR_ACTIVITIES.filter((a) => !have.has(a.name.trim().toLowerCase())).map((a, i) => ({
+      user_id: userId,
+      name: a.name,
+      muscle_group: a.muscle_group,
+      default_sets: a.sets,
+      default_reps: a.reps,
+      default_weight_kg: null,
+      notes: a.notes,
+      position: 200 + i,
+    }))
+    if (rows.length) {
+      const { error } = await supabase.from('perso_muscu_exercises').insert(rows)
+      if (error) throw new Error(error.message)
+    }
+    await saveKv(userId, ACTIVITIES_SEED_KEY, true)
     didSeed = true
   }
 

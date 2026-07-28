@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import { InfoBox } from '../components/training-ui'
 import { Poids } from './Carnet'
+import { listWeighins } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
@@ -10,6 +11,7 @@ import {
   MUSCLE_GROUPS_DEFAULT,
   daysSinceByGroup,
   fmtTonnage,
+  isBodyweightExercise,
   sessionTonnage,
   deleteCatalogExercise,
   deleteSession,
@@ -79,14 +81,19 @@ function draftToInput(d: ExoDraft): ExoInput {
   }
 }
 
-function catalogToDraft(c: CatalogExercise): ExoDraft {
-  // Pas de charge pré-remplie : on saisit le poids réellement soulevé.
+/**
+ * Pas de charge pré-remplie depuis le catalogue — sauf pour les exercices au
+ * poids du corps, où la charge est la dernière pesée de l'utilisateur connecté
+ * (donc différente pour chacun).
+ */
+function catalogToDraft(c: CatalogExercise, bodyWeight?: number | null): ExoDraft {
+  const bw = bodyWeight && isBodyweightExercise(c.name) ? String(bodyWeight) : ''
   return {
     name: c.name,
     muscle_group: c.muscle_group,
     sets: String(c.default_sets),
     reps: c.default_reps,
-    weight: '',
+    weight: bw,
     notes: '',
   }
 }
@@ -110,22 +117,27 @@ export function Musculation() {
   const [sessions, setSessions] = useState<MuscuSession[] | null>(null)
   const [catalog, setCatalog] = useState<CatalogExercise[]>([])
   const [groups, setGroups] = useState<string[]>(MUSCLE_GROUPS_DEFAULT)
+  // Poids de corps de l'utilisateur connecté : sert de charge aux exercices
+  // au poids du corps (chacun le sien).
+  const [bodyWeight, setBodyWeight] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g] = await Promise.all([
+      const [t, s, c, g, w] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
         loadMuscleGroups(user.id),
+        listWeighins(user.id).catch(() => []),
       ])
       setTemplates(t)
       setSessions(s)
       setCatalog(c)
       setGroups(g)
+      setBodyWeight(w[0]?.weight_kg ?? null)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -164,6 +176,7 @@ export function Musculation() {
           sessions={sessions}
           templates={templates}
           catalog={catalog}
+          bodyWeight={bodyWeight}
           groups={groups}
           onChange={reload}
         />
@@ -199,6 +212,7 @@ function Journal({
   templates,
   catalog,
   groups,
+  bodyWeight,
   onChange,
 }: {
   userId: string
@@ -206,6 +220,7 @@ function Journal({
   templates: MuscuTemplate[]
   catalog: CatalogExercise[]
   groups: string[]
+  bodyWeight: number | null
   onChange: () => void
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
@@ -286,6 +301,7 @@ function Journal({
         initial={live}
         catalog={catalog}
         groups={groups}
+        bodyWeight={bodyWeight}
         onFinish={() => {
           setLive(null)
           onChange()
@@ -304,6 +320,7 @@ function Journal({
         draft={draft}
         groups={groups}
         catalog={catalog}
+        bodyWeight={bodyWeight}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
           await saveSession(
@@ -459,12 +476,14 @@ function SessionEditor({
   draft,
   groups,
   catalog,
+  bodyWeight,
   onCancel,
   onSave,
 }: {
   draft: SessionDraft
   groups: string[]
   catalog: CatalogExercise[]
+  bodyWeight: number | null
   onCancel: () => void
   onSave: (d: SessionDraft) => Promise<void>
 }) {
@@ -519,7 +538,13 @@ function SessionEditor({
         />
       </div>
 
-      <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
+      <ExoListEditor
+        exos={d.exos}
+        groups={groups}
+        catalog={catalog}
+        bodyWeight={bodyWeight}
+        onChange={(exos) => setD({ ...d, exos })}
+      />
 
       {(() => {
         const t = sessionTonnage(d.exos.map(draftToInput))
@@ -541,11 +566,13 @@ function ExoListEditor({
   exos,
   groups,
   catalog,
+  bodyWeight,
   onChange,
 }: {
   exos: ExoDraft[]
   groups: string[]
   catalog: CatalogExercise[]
+  bodyWeight?: number | null
   onChange: (exos: ExoDraft[]) => void
 }) {
   const update = (i: number, patch: Partial<ExoDraft>) =>
@@ -636,7 +663,7 @@ function ExoListEditor({
       ))}
       <ExercisePicker
         catalog={catalog}
-        onPick={(c) => onChange([...exos, catalogToDraft(c)])}
+        onPick={(c) => onChange([...exos, catalogToDraft(c, bodyWeight)])}
         onBlank={() => onChange([...exos, emptyExo()])}
       />
     </div>
