@@ -46,7 +46,7 @@ export type MuscleRegion =
   | 'tibialis'
 
 /** Nom affiché quand on touche un muscle sur le schéma. */
-const MUSCLE_LABELS: Record<MuscleRegion, string> = {
+export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   neck: 'Cou (sterno-cléido-mastoïdien)',
   trapsUpper: 'Trapèze supérieur',
   trapsMid: 'Trapèze moyen',

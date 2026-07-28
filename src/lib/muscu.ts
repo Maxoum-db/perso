@@ -161,6 +161,71 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
   return out
 }
 
+// ── Progression par exercice ────────────────────────────────────────────────
+
+export interface ProgressPoint {
+  date: string
+  /** Charge maximale utilisée ce jour-là (null = poids du corps / sans charge). */
+  weight: number | null
+  sets: number
+  reps: string
+  tonnage: number
+}
+
+export interface ExerciseProgress {
+  name: string
+  /** Un point par jour où l'exercice a été fait, du plus ancien au plus récent. */
+  points: ProgressPoint[]
+  /** Record de charge, et le jour où il a été établi. */
+  best: { weight: number; date: string } | null
+  /** Record de tonnage sur une séance. */
+  bestTonnage: { value: number; date: string } | null
+  lastDate: string
+}
+
+/**
+ * Agrège le journal par exercice : une courbe de charge, les records, et le
+ * nombre de séances. Plusieurs lignes du même exercice le même jour sont
+ * fusionnées (charge maximale, tonnage cumulé).
+ */
+export function exerciseProgress(sessions: MuscuSession[]): ExerciseProgress[] {
+  const byName = new Map<string, { display: string; byDate: Map<string, ProgressPoint> }>()
+
+  for (const s of [...sessions].sort((a, b) => a.date.localeCompare(b.date))) {
+    for (const e of s.exercises) {
+      const key = e.name.trim().toLowerCase()
+      if (!key) continue
+      const entry = byName.get(key) ?? { display: e.name.trim(), byDate: new Map<string, ProgressPoint>() }
+      entry.display = e.name.trim() // le libellé le plus récent fait foi
+      const cur = entry.byDate.get(s.date)
+      const weight =
+        e.weight_kg === null ? (cur?.weight ?? null) : Math.max(cur?.weight ?? Number.NEGATIVE_INFINITY, e.weight_kg)
+      entry.byDate.set(s.date, {
+        date: s.date,
+        weight: weight === Number.NEGATIVE_INFINITY ? null : weight,
+        sets: (cur?.sets ?? 0) + e.sets,
+        reps: e.reps,
+        tonnage: (cur?.tonnage ?? 0) + exoTonnage(e),
+      })
+      byName.set(key, entry)
+    }
+  }
+
+  const out: ExerciseProgress[] = []
+  for (const { display, byDate } of byName.values()) {
+    const points = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+    let best: { weight: number; date: string } | null = null
+    let bestTonnage: { value: number; date: string } | null = null
+    for (const p of points) {
+      if (p.weight !== null && (!best || p.weight > best.weight)) best = { weight: p.weight, date: p.date }
+      if (p.tonnage > 0 && (!bestTonnage || p.tonnage > bestTonnage.value))
+        bestTonnage = { value: p.tonnage, date: p.date }
+    }
+    out.push({ name: display, points, best, bestTonnage, lastDate: points[points.length - 1].date })
+  }
+  return out.sort((a, b) => b.lastDate.localeCompare(a.lastDate))
+}
+
 // ── Groupes musculaires : prédéfinis mais modifiables (stockés en perso_kv) ──
 
 export const MUSCLE_GROUPS_DEFAULT = [
