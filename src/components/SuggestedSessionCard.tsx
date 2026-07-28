@@ -1,4 +1,5 @@
 import { MUSCLE_LABELS } from './MuscleBodyDiagram'
+import { TON_STYLE } from '../lib/charge'
 import type { SuggestedSession } from '../lib/sessionBuilder'
 
 // Aperçu de la séance composée automatiquement : on montre POURQUOI chaque
@@ -65,11 +66,21 @@ export function SuggestedSessionCard({
           <li key={s.exo.id} className="flex items-start gap-2 border-b border-line/40 pb-1.5 last:border-0">
             <span className="w-4 shrink-0 text-xs font-bold text-copper">{i + 1}</span>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-ink">{s.exo.name}</div>
+              <div className="text-sm font-semibold text-ink">
+                {s.exo.name}
+                {s.charge.weight !== null ? (
+                  <span className="ml-1.5 font-extrabold text-copper">{s.charge.weight} kg</span>
+                ) : null}
+              </div>
               <div className="text-[11px] text-muted">
                 {s.exo.default_sets}×{s.exo.default_reps} ·{' '}
                 {s.moteurs.slice(0, 3).map((r) => MUSCLE_LABELS[r].split(' (')[0]).join(', ')}
               </div>
+              {s.charge.raison ? (
+                <div className={`text-[11px] font-semibold ${TON_STYLE[s.charge.ton].classe}`}>
+                  {TON_STYLE[s.charge.ton].icone} {s.charge.raison}
+                </div>
+              ) : null}
             </div>
             <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-[10px] font-semibold text-sage-dark">
               {repos(s.reposMin)}
