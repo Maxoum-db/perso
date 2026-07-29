@@ -208,7 +208,13 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // micro-corrections continues. Ce sont les érecteurs et les stabilisateurs
   // frontaux de hanche qui encaissent ça, en isométrie — pas seulement les
   // chevilles et la sangle abdominale.
-  { name: 'Slackline (travail d’équilibre)', groups: 'Érecteurs du rachis:1, Grand droit:0.9, Fibulaires:0.9, Moyen fessier:0.8, Obliques:0.8, Tenseur du fascia lata:0.6, Soléaire:0.6, Tibial antérieur:0.6, Psoas-iliaque:0.5, Quadriceps:0.5, Adducteurs:0.4', sets: 3, reps: '5 min', notes: 'Le bas du dos travaille en continu : compter la séance comme un vrai volume lombaire, pas comme un jeu.', kind: 'activite' },
+  // Les coefficients disent QUELS muscles portent le mouvement — et sur une
+  // sangle, c'est bien la chaîne lombaire et les stabilisateurs de cheville.
+  // Mais ils servent aussi à estimer la FATIGUE, et là il faut rester mesuré :
+  // stabiliser à vide n'est pas un soulevé de terre. Tagués à 1, les érecteurs
+  // coûtaient plus de récupération après une slackline qu'après 150 kg au sol,
+  // et deux séances par semaine suffisaient à ne plus jamais les voir verts.
+  { name: 'Slackline (travail d’équilibre)', groups: 'Érecteurs du rachis:0.7, Fibulaires:0.7, Moyen fessier:0.6, Grand droit:0.6, Obliques:0.6, Tenseur du fascia lata:0.5, Soléaire:0.5, Tibial antérieur:0.5, Psoas-iliaque:0.4, Quadriceps:0.4, Adducteurs:0.3', sets: 3, reps: '5 min', notes: 'Le bas du dos travaille en continu, mais sans charge : ça compte comme du volume lombaire léger, pas comme une séance de soulevé.', kind: 'activite' },
   { name: 'Étirement fléchisseurs de hanche (fente basse)', groups: 'Psoas-iliaque:1, Droit fémoral:0.6, Grand fessier:0.4', sets: 2, reps: '45 s/côté', kind: 'recuperation', notes: 'Bassin en rétroversion, on pousse la hanche vers l’avant. Indispensable avec l’antéversion du bassin.' },
   // ── ⚔️ Béhourd ────────────────────────────────────────────────────────────
   // Discipline de combat en armure : le cou encaisse les frappes sous heaume,
