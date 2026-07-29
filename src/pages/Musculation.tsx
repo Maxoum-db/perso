@@ -29,6 +29,8 @@ import {
   groupLoads,
   fmtTonnage,
   sessionTonnage,
+  distanceEnMetres,
+  METRES_PAR_REP,
   deleteCatalogExercise,
   deleteSession,
   deleteTemplate,
@@ -656,6 +658,9 @@ function Journal({
                   {sessionTonnage(s.exercises) > 0 ? (
                     <p className="text-xs font-semibold text-copper">
                       🏋️ Tonnage total : {fmtTonnage(sessionTonnage(s.exercises))} (séries × reps × charge)
+                      {s.exercises.some((e) => distanceEnMetres(e.reps) !== null)
+                        ? ` · ${METRES_PAR_REP} m = 1 rép.`
+                        : ''}
                     </p>
                   ) : null}
                   {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
@@ -771,8 +776,12 @@ function SessionEditor({
 
       {(() => {
         const t = sessionTonnage(d.exos.map(draftToInput))
+        const distance = d.exos.some((e) => distanceEnMetres(e.reps) !== null)
         return t > 0 ? (
-          <p className="text-center text-xs font-semibold text-copper">🏋️ Tonnage de la séance : {fmtTonnage(t)}</p>
+          <p className="text-center text-xs font-semibold text-copper">
+            🏋️ Tonnage de la séance : {fmtTonnage(t)}
+            {distance ? ` · ${METRES_PAR_REP} m = 1 rép.` : ''}
+          </p>
         ) : null
       })()}
 

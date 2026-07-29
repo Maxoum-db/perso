@@ -56,12 +56,37 @@ export interface CatalogExercise {
 
 // ── Tonnage : séries × reps × charge (exos au temps ou sans charge ignorés) ──
 
+/**
+ * Équivalence distance → répétitions. Un traîneau poussé sur 20 m compté comme
+ * 20 répétitions gonfle le tonnage d'un facteur 10 et écrase tout le reste de
+ * la séance. 10 m ≈ une répétition remet les portages et le traîneau à leur
+ * juste poids face à une série de squats.
+ */
+export const METRES_PAR_REP = 10
+
+/** Distance d'un format de reps (« 20 m », « 30 m/côté », « 1 km »), en mètres. */
+export function distanceEnMetres(reps: string): number | null {
+  const m = reps.match(/(\d+(?:[.,]\d+)?)\s*(km|m)\b/i)
+  if (!m) return null
+  const val = parseFloat(m[1].replace(',', '.'))
+  if (!Number.isFinite(val)) return null
+  return m[2].toLowerCase() === 'km' ? val * 1000 : val
+}
+
+/** Répétitions retenues pour le tonnage : distance convertie, sinon le nombre saisi. */
+export function repsPourTonnage(reps: string): number | null {
+  if (/\d\s*(s|sec|min)\b/i.test(reps)) return null // temps (gainage) : pas de tonnage
+  const metres = distanceEnMetres(reps)
+  if (metres !== null) return Math.max(1, Math.round(metres / METRES_PAR_REP))
+  const m = reps.match(/\d+/)
+  return m ? parseInt(m[0], 10) : null
+}
+
 export function exoTonnage(e: { sets: number; reps: string; weight_kg: number | null }): number {
   if (e.weight_kg === null || e.weight_kg <= 0) return 0
-  if (/\d\s*(s|sec|min)\b/i.test(e.reps)) return 0 // temps (gainage) : pas de tonnage
-  const m = e.reps.match(/\d+/)
-  if (!m) return 0
-  return e.sets * parseInt(m[0], 10) * e.weight_kg
+  const reps = repsPourTonnage(e.reps)
+  if (reps === null) return 0
+  return e.sets * reps * e.weight_kg
 }
 
 export function sessionTonnage(exos: Array<{ sets: number; reps: string; weight_kg: number | null }>): number {
