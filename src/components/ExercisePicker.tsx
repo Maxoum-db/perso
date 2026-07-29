@@ -42,6 +42,9 @@ export function ExercisePicker({
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+  // Une quarantaine de groupes : déplié, le filtre pousse les résultats hors
+  // de l'écran. Il reste donc fermé tant qu'on ne le demande pas.
+  const [groupsOpen, setGroupsOpen] = useState(false)
 
   // Groupes réellement présents au catalogue, avec le nombre d'exercices.
   const groupCounts = useMemo(() => {
@@ -65,6 +68,7 @@ export function ExercisePicker({
     onPick(c)
     setQuery('')
     setGroup(null)
+    setGroupsOpen(false)
     setOpen(false)
   }
 
@@ -91,28 +95,59 @@ export function ExercisePicker({
 
       {open ? (
         <div className="card space-y-2 p-2">
-          {/* Filtre par groupe musculaire */}
+          {/* Filtre par groupe musculaire, replié par défaut */}
           {groupCounts.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => setGroup(null)}
-                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
-                  group === null ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
-                }`}
-              >
-                Tous
-              </button>
-              {groupCounts.map(([g, n]) => (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
                 <button
-                  key={g}
-                  onClick={() => setGroup(group === g ? null : g)}
-                  className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
-                    group === g ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
-                  }`}
+                  onClick={() => setGroupsOpen((o) => !o)}
+                  className="flex items-center gap-1 rounded-lg bg-bg px-2 py-1 text-[11px] font-semibold text-muted transition hover:text-ink"
                 >
-                  {g} <span className="opacity-60">{n}</span>
+                  <span className="text-[9px]">{groupsOpen ? '▾' : '▸'}</span>
+                  🎯 Muscle visé
                 </button>
-              ))}
+                {group ? (
+                  <button
+                    onClick={() => setGroup(null)}
+                    className="flex items-center gap-1 rounded-lg bg-copper px-2 py-1 text-[11px] font-semibold text-white"
+                    title="Retirer le filtre"
+                  >
+                    {group} ✕
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-muted">tous les muscles</span>
+                )}
+              </div>
+
+              {groupsOpen ? (
+                <div className="flex max-h-40 flex-wrap gap-1 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setGroup(null)
+                      setGroupsOpen(false)
+                    }}
+                    className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                      group === null ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
+                    }`}
+                  >
+                    Tous
+                  </button>
+                  {groupCounts.map(([g, n]) => (
+                    <button
+                      key={g}
+                      onClick={() => {
+                        setGroup(group === g ? null : g)
+                        setGroupsOpen(false)
+                      }}
+                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                        group === g ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
+                      }`}
+                    >
+                      {g} <span className="opacity-60">{n}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -127,6 +162,7 @@ export function ExercisePicker({
                   onClick={() => {
                     setQuery('')
                     setGroup(null)
+                    setGroupsOpen(false)
                   }}
                   className="hover:text-ink"
                 >
