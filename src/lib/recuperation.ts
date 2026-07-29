@@ -1,76 +1,117 @@
 import { regionsForGroup, type MuscleRegion } from './muscles'
 import type { GroupLoad } from './muscu'
 
-// Tous les muscles ne récupèrent pas au même rythme.
+// Tous les muscles ne récupèrent pas au même rythme, et trois paliers pour
+// trente-huit muscles ne suffisaient pas : le palier moyen à lui seul en
+// contenait vingt — plus de la moitié du corps rendait la même réponse.
 //
-// Les petits muscles très vascularisés et sollicités toute la journée (nuque,
-// avant-bras, mollets, ceinture) encaissent une séance en 24-48 h. Les grosses
-// masses (grand dorsal, pectoraux, quadriceps, ischios) demandent 48-72 h. Et
-// les érecteurs du rachis, sollicités en isométrie lourde sur presque tous les
-// mouvements, sont les plus lents à revenir.
+// Quatre déterminants séparent réellement un muscle d'un autre :
 //
-// Le coefficient multiplie les jours « ressentis » : au-dessus de 1 le muscle
-// est prêt plus vite, en dessous il traîne.
+//   • la part de fibres lentes — un muscle oxydatif encaisse et revient vite ;
+//   • la masse — plus il y a de tissu, plus il y a à réparer ;
+//   • l'usage quotidien — un muscle qui tient la posture ou marche toute la
+//     journée est déjà adapté à une charge continue ;
+//   • l'exposition à l'excentrique — c'est le mode qui abîme le plus, et il
+//     frappe surtout les muscles bi-articulaires.
+//
+// Sept paliers, de 2,5 à 7,5 jours avant le vert. Le coefficient multiplie les
+// jours « ressentis » : au-dessus de 1 le muscle est prêt plus tôt.
 
-const RAPIDE = 1.6
+/** ~2,5 j — minuscules, posturaux, en service du matin au soir. */
+const TRES_RAPIDE = 1.8
+/** ~3,1 j — petits et endurants, forte proportion de fibres lentes. */
+const RAPIDE = 1.45
+/** ~3,8 j — taille moyenne, usage quotidien réel, excentrique modéré. */
+const PLUTOT_RAPIDE = 1.2
+/** ~4,5 j — la référence : grosse masse, mais bien vascularisée et très utilisée. */
 const MOYEN = 1
-const LENT = 0.75
+/** ~5,3 j — grosses masses qui ne servent à rien entre deux séances. */
+const PLUTOT_LENT = 0.85
+/** ~6,4 j — bi-articulaires très chargés en excentrique, ou en isométrie permanente. */
+const LENT = 0.7
+/** ~7,5 j — petit mais très tendineux et mal vascularisé. */
+const TRES_LENT = 0.6
 
 export const VITESSE_RECUP: Record<MuscleRegion, number> = {
-  // Rapides — petits, endurants, sollicités en continu
-  neck: RAPIDE,
-  forearmFlex: RAPIDE,
-  forearmExt: RAPIDE,
-  gastroc: RAPIDE,
+  // ── Très rapides ────────────────────────────────────────────────────────
+  // Quelques dizaines de grammes, posturaux, sollicités en permanence : la
+  // main tient quelque chose toute la journée, le tibial et les fibulaires
+  // stabilisent chaque pas, le tenseur du fascia lata aussi.
+  forearmFlex: TRES_RAPIDE,
+  forearmExt: TRES_RAPIDE,
+  tibialis: TRES_RAPIDE,
+  fibularis: TRES_RAPIDE,
+  tfl: TRES_RAPIDE,
+
+  // ── Rapides ─────────────────────────────────────────────────────────────
+  // Petits, très oxydatifs, en service continu. Le soléaire est ici et non
+  // avec les jumeaux : c'est le muscle le plus riche en fibres lentes du
+  // corps, et il tient debout toute la journée.
   soleus: RAPIDE,
-  tibialis: RAPIDE,
   rectus: RAPIDE,
   obliques: RAPIDE,
   serratus: RAPIDE,
   deltLat: RAPIDE,
-  tfl: RAPIDE, //        petit, postural, sollicité à chaque pas
-  fibularis: RAPIDE, //  stabilisateur de cheville, en service toute la journée
+  gluteMed: RAPIDE,
+  brachioradialis: RAPIDE,
+  // Le cou est minuscule et postural, mais sous le heaume il prend cher :
+  // on ne le pousse pas au palier au-dessus.
+  neck: RAPIDE,
 
-  // Moyens
-  //
-  // Quadriceps et grand fessier ont longtemps été classés lents parce qu'ils
-  // sont gros. C'est le mauvais critère : ce sont aussi les muscles les plus
-  // vascularisés du corps et les seuls à travailler à chaque pas, chaque
-  // escalier, chaque relevé de chaise. Ils reviennent en 48-72 h, pas en six
-  // jours — un pectoral, lui, ne sert à rien entre deux séances.
+  // ── Plutôt rapides ──────────────────────────────────────────────────────
+  // Taille moyenne, usage quotidien réel, peu d'excentrique lourd.
+  biceps: PLUTOT_RAPIDE,
+  brachialis: PLUTOT_RAPIDE,
+  tricepsLat: PLUTOT_RAPIDE,
+  deltAnt: PLUTOT_RAPIDE,
+  deltPost: PLUTOT_RAPIDE,
+  pecUpper: PLUTOT_RAPIDE,
+  teres: PLUTOT_RAPIDE,
+  rhomboids: PLUTOT_RAPIDE,
+  trapsMid: PLUTOT_RAPIDE,
+  trapsLow: PLUTOT_RAPIDE,
+  hipFlexors: PLUTOT_RAPIDE,
+  // Bi-articulaires : les jumeaux prennent de l'excentrique à chaque foulée,
+  // et ils sont bien plus riches en fibres rapides que le soléaire.
+  gastroc: PLUTOT_RAPIDE,
+
+  // ── Moyens ──────────────────────────────────────────────────────────────
+  // Grosses masses, mais parmi les mieux vascularisées et les plus utilisées
+  // du corps : le quadriceps et le fessier travaillent à chaque pas.
   rectusFemoris: MOYEN,
   vastusLat: MOYEN,
-  gluteMax: MOYEN,
-  biceps: MOYEN,
-  brachialis: MOYEN,
-  brachioradialis: MOYEN,
-  tricepsLong: MOYEN,
-  tricepsLat: MOYEN,
-  deltAnt: MOYEN,
-  deltPost: MOYEN,
-  trapsUpper: MOYEN,
-  trapsMid: MOYEN,
-  trapsLow: MOYEN,
-  teres: MOYEN,
-  rhomboids: MOYEN,
-  hipFlexors: MOYEN,
-  pecUpper: MOYEN,
-  adductors: MOYEN,
-  gluteMed: MOYEN,
   vastusMed: MOYEN,
+  gluteMax: MOYEN,
+  adductors: MOYEN,
+  // La longue portion du triceps est bi-articulaire, contrairement à la
+  // latérale : elle encaisse davantage.
+  tricepsLong: MOYEN,
+  // Le trapèze supérieur tient la tête toute la journée — et le heaume par-dessus.
+  trapsUpper: MOYEN,
 
-  // Lents — ce qui traîne vraiment : la chaîne postérieure, très sollicitée en
-  // excentrique (le mode qui abîme le plus), les grosses masses du haut qui ne
-  // servent à rien entre deux séances, plus la coiffe : petite, mais
-  // très tendineuse et peu vascularisée, elle est longue à revenir. La traiter
-  // comme un petit muscle rapide serait exactement la mauvaise consigne sur une
-  // épaule qui a déjà lâché.
-  rotatorCuff: LENT,
-  pecLower: LENT,
-  lats: LENT,
+  // ── Plutôt lents ────────────────────────────────────────────────────────
+  // Grosses masses qui, elles, ne servent à rien entre deux séances : rien
+  // dans une journée ordinaire ne fait travailler un grand dorsal.
+  pecLower: PLUTOT_LENT,
+  lats: PLUTOT_LENT,
+
+  // Les ischios sont bi-articulaires et prennent l'essentiel de l'excentrique
+  // — soulevé roumain, freinage de course —, le mode qui abîme le plus. Ils
+  // restent les derniers à revenir après une séance de jambes, d'un palier.
+  bicepsFemoris: PLUTOT_LENT,
+  hamsInner: PLUTOT_LENT,
+
+  // ── Lents ───────────────────────────────────────────────────────────────
+  // Cas à part : les érecteurs travaillent en isométrie sur presque tous les
+  // mouvements — squat, soulevé, tirage, portage. Ils sont donc rechargés
+  // avant d'avoir fini de récupérer, ce qu'aucun autre muscle ne subit.
   erectors: LENT,
-  bicepsFemoris: LENT,
-  hamsInner: LENT,
+
+  // ── Très lents ──────────────────────────────────────────────────────────
+  // Petite, mais très tendineuse et mal vascularisée : le tendon met beaucoup
+  // plus longtemps que le muscle. Sur une épaule qui a déjà lâché, se tromper
+  // dans ce sens-là ne coûte rien ; dans l'autre, si.
+  rotatorCuff: TRES_LENT,
 }
 
 export interface ReposMuscle {
