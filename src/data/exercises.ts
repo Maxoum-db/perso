@@ -204,7 +204,11 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Kayak / aviron sur l’eau', groups: 'Grand dorsal:1, Grand droit:0.7, Deltoïde postérieur:0.7, Cardio:0.7, Obliques:0.6, Biceps:0.6, Fléchisseurs avant-bras:0.5', sets: 1, reps: '40 min', kind: 'activite' },
   { name: 'Escalade / bloc', groups: 'Grand dorsal:1, Fléchisseurs avant-bras:1, Biceps:0.7, Grand droit:0.6, Brachial:0.5, Deltoïde postérieur:0.4', sets: 1, reps: '60 min', kind: 'activite' },
   { name: 'Jardinage (bêchage)', groups: 'Érecteurs du rachis:0.7, Grand dorsal:0.6, Grand fessier:0.6, Fléchisseurs avant-bras:0.5, Grand droit:0.4', sets: 1, reps: '45 min', kind: 'activite' },
-  { name: 'Slackline (travail d’équilibre)', groups: 'Grand droit:1, Fibulaires:0.8, Obliques:0.7, Soléaire:0.6, Tibial antérieur:0.5, Quadriceps:0.5', sets: 3, reps: '5 min', kind: 'activite' },
+  // Slackline : la sangle oscille en permanence, le corps répond par des
+  // micro-corrections continues. Ce sont les érecteurs et les stabilisateurs
+  // frontaux de hanche qui encaissent ça, en isométrie — pas seulement les
+  // chevilles et la sangle abdominale.
+  { name: 'Slackline (travail d’équilibre)', groups: 'Érecteurs du rachis:1, Grand droit:0.9, Fibulaires:0.9, Moyen fessier:0.8, Obliques:0.8, Tenseur du fascia lata:0.6, Soléaire:0.6, Tibial antérieur:0.6, Psoas-iliaque:0.5, Quadriceps:0.5, Adducteurs:0.4', sets: 3, reps: '5 min', notes: 'Le bas du dos travaille en continu : compter la séance comme un vrai volume lombaire, pas comme un jeu.', kind: 'activite' },
   { name: 'Étirement fléchisseurs de hanche (fente basse)', groups: 'Psoas-iliaque:1, Droit fémoral:0.6, Grand fessier:0.4', sets: 2, reps: '45 s/côté', kind: 'recuperation', notes: 'Bassin en rétroversion, on pousse la hanche vers l’avant. Indispensable avec l’antéversion du bassin.' },
   // ── ⚔️ Béhourd ────────────────────────────────────────────────────────────
   // Discipline de combat en armure : le cou encaisse les frappes sous heaume,
@@ -390,6 +394,11 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
 ]
 
 /** Exercices qui retirent de la fatigue au lieu d'en ajouter. */
+/** Activités à part entière : elles ont leur intensité dans leur MET. */
+export const ACTIVITE_NAMES = new Set(
+  EXERCISE_LIBRARY.filter((e) => e.kind === 'activite').map((e) => e.name.trim().toLowerCase()),
+)
+
 export const RECUPERATION_NAMES = new Set(
   EXERCISE_LIBRARY.filter((e) => e.kind === 'recuperation').map((e) => e.name.trim().toLowerCase()),
 )
