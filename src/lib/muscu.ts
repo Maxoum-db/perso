@@ -290,7 +290,18 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     }
     if (dates.size === 0) continue
     const bonus = Math.min(2, dates.size)
-    out[group] = { ...load, effectiveDays: load.effectiveDays + bonus, recupBonus: bonus }
+    // Le plafond orange est REPOSÉ après le bonus. Ajouté par-dessus un plafond
+    // déjà atteint, il le faisait sauter : une sollicitation légère de la veille
+    // suivie d'une marche passait directement au vert, alors que le plafond
+    // existe précisément pour interdire ce saut. Une récup active raccourcit le
+    // délai, elle n'efface pas la journée qui vient de se passer.
+    const joursPlafonnes = load.intensity >= 0.5 ? 2 : 1
+    const cumul = load.effectiveDays + bonus
+    out[group] = {
+      ...load,
+      effectiveDays: load.days <= joursPlafonnes ? Math.min(cumul, 4) : cumul,
+      recupBonus: bonus,
+    }
   }
   return out
 }
