@@ -118,21 +118,34 @@ export const SOLLICITATION_MARQUEUR: Record<Sollicitation, string> = {
   leger: '○',
 }
 
-/** Saturation appliquée à la couleur : pleine en moteur, atténuée en appoint. */
+/** Saturation appliquée au rouge et à l'orange : pleine en moteur, atténuée en appoint. */
 function saturation(intensity: number): number {
   return Math.max(0.45, Math.min(1, 0.45 + 0.55 * intensity))
 }
 
 /**
+ * Saturation du vert : elle ne dit pas l'intensité passée mais la disponibilité.
+ * Un muscle qui vient de passer au vert est pâle, un muscle au repos depuis
+ * longtemps devient franc — c'est lui qui réclame du travail.
+ */
+function disponibilite(effectiveDays: number): number {
+  return Math.max(0.4, Math.min(1, 0.4 + (effectiveDays - 5) / 8))
+}
+
+/**
  * Seuils : rouge jusqu'à 2 j, orange à 3-4 j, vert à partir de 5 j.
- * L'intensité module la franchise de la couleur — même état de récupération,
- * mais on voit d'un coup d'œil si le muscle a mené l'exercice ou seulement
- * accompagné. Un muscle jamais travaillé reste d'un vert très pâle.
+ *
+ * La nuance se lit dans les deux sens selon la teinte :
+ *   • rouge et orange → franchise = intensité du dernier travail (a-t-il mené
+ *     l'exercice ou seulement accompagné) ;
+ *   • vert → franchise = disponibilité (depuis combien de temps il attend).
+ * Un muscle jamais travaillé est donc du vert le plus franc.
  */
 export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
-  if (effectiveDays === undefined) return melanger(GREEN, 0.35)
-  const base = effectiveDays <= 2 ? RED : effectiveDays <= 4 ? ORANGE : GREEN
-  return melanger(base, saturation(intensity))
+  if (effectiveDays === undefined) return GREEN
+  if (effectiveDays <= 2) return melanger(RED, saturation(intensity))
+  if (effectiveDays <= 4) return melanger(ORANGE, saturation(intensity))
+  return melanger(GREEN, disponibilite(effectiveDays))
 }
 
 function norm(s: string): string {
@@ -342,9 +355,9 @@ export function MuscleBodyDiagram({
         <Legend color={GREEN} label="≥ 5 j — prêt" />
       </div>
 
-      {/* La teinte dit l'état, sa franchise dit le rôle du muscle dans l'exercice. */}
+      {/* La teinte dit l'état ; sa franchise se lit dans les deux sens. */}
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
-        <span>Intensité :</span>
+        <span className="font-semibold">🔴🟠 intensité :</span>
         {(['principal', 'secondaire', 'leger'] as Sollicitation[]).map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
             <span
@@ -352,6 +365,16 @@ export function MuscleBodyDiagram({
               style={{ background: recoveryColor(0, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
             />
             {SOLLICITATION_MARQUEUR[s]} {s === 'leger' ? 'appoint' : s}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
+        <span className="font-semibold">🟢 disponibilité :</span>
+        {[5, 8, 12].map((j) => (
+          <span key={j} className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded" style={{ background: recoveryColor(j) }} />
+            {j === 5 ? 'tout juste prêt' : j === 8 ? `${j} j` : 'en attente'}
           </span>
         ))}
       </div>
