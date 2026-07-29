@@ -356,6 +356,12 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Récupération — mobilité hanches et jambes', groups: 'Jambes:1, Fessiers:1, Adducteurs:1, Ischios:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'Fentes basses, ouverture de hanche, chaîne postérieure. Essentiel avec l’antéversion du bassin.' },
   { name: 'Récupération — rouleau de massage', groups: 'Jambes:1, Dos:1, Fessiers:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'Lent, en s’arrêtant sur les points sensibles. Respiration ample.' },
   { name: 'Récupération — nage souple', groups: 'Haut du corps:1, Dos:1, Épaules:1', sets: 1, reps: '20 min', kind: 'recuperation', notes: 'Sans forcer, en portage. L’eau décharge les articulations : idéal au lendemain du béhourd.' },
+  // Godille : le geste qui déplace l'EAU au lieu de déplacer le corps. Debout
+  // ou en suspension, on balaie l'eau autour de soi façon brasse. La résistance
+  // est proportionnelle à la vitesse — impossible de forcer par accident, et
+  // aucune charge sur l'articulation : la ceinture scapulaire se remet en route
+  // sans rien encaisser. Le meilleur rapport mobilité/risque pour une AC fragile.
+  { name: 'Récupération — brasse sur place (godille)', groups: 'Épaules:1, Dos:1, Coiffe des rotateurs:0.8, Pectoraux:0.7, Dentelé antérieur:0.6, Avant-bras:0.5, Abdos/Core:0.4', sets: 1, reps: '10 min', notes: 'Eau à hauteur d’épaules. Balayages lents et larges, paumes qui « prennent » l’eau. Chercher l’amplitude, jamais la vitesse.', kind: 'recuperation' },
   { name: 'Récupération — marche', groups: 'Jambes:1, Mollets:1, Fessiers:1', sets: 1, reps: '30 min', kind: 'recuperation', notes: 'Le moyen le plus simple de relancer la circulation sans coûter d’énergie.' },
   { name: 'Récupération — étirements complets', groups: 'Haut du corps:1, Jambes:1, Lombaires:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'À froid jamais : toujours après un échauffement ou en fin de journée active.' },
   // Étirements, un par chaîne. Chacun ne « décharge » que les zones qu'il vise :
