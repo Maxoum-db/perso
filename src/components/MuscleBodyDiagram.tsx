@@ -9,6 +9,7 @@ import {
   type Sollicitation,
 } from '../lib/muscles'
 import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
+import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 
 export { MUSCLE_LABELS, regionsForGroup, sollicitation, SOLLICITATION_MARQUEUR } from '../lib/muscles'
 export type { MuscleRegion, Sollicitation } from '../lib/muscles'
@@ -164,10 +165,13 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
 export function MuscleBodyDiagram({
   loads,
   onSoreness,
+  onExercice,
 }: {
   loads: Record<string, GroupLoad>
   /** Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler). */
   onSoreness?: (group: string, extra: number) => void
+  /** Ouvre une séance sur un exercice proposé depuis la fiche d'un muscle. */
+  onExercice?: (name: string) => void
 }) {
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
   const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
@@ -260,7 +264,12 @@ export function MuscleBodyDiagram({
       )}
 
       {selected ? (
-        <MuscleSheet region={selected} info={byRegion[selected]} onClose={() => setSelected(null)} />
+        <MuscleSheet
+          region={selected}
+          info={byRegion[selected]}
+          onExercice={onExercice}
+          onClose={() => setSelected(null)}
+        />
       ) : null}
 
       {groupOuvert && loads[groupOuvert] ? (
@@ -351,12 +360,16 @@ function SorenessSheet({
 function MuscleSheet({
   region,
   info,
+  onExercice,
   onClose,
 }: {
   region: MuscleRegion
   info?: ReposMuscle
+  /** Ouvre une séance sur cet exercice, quand la page sait le faire. */
+  onExercice?: (name: string) => void
   onClose: () => void
 }) {
+  const propositions = exercicesPourMuscle(region, 8)
   const color = recoveryColor(info?.jours, info?.intensite)
   const etat = !info
     ? 'Prêt — jamais travaillé sur les séances chargées'
@@ -410,6 +423,51 @@ function MuscleSheet({
             Aucun exercice récent ne vise ce muscle. C'est peut-être l'occasion.
           </p>
         )}
+
+        {propositions.length > 0 ? (
+          <div className="mt-3 border-t border-line/60 pt-3">
+            <div className="mb-1.5 text-xs font-bold text-ink">💡 Pour le travailler</div>
+            <ul className="max-h-52 space-y-0.5 overflow-y-auto">
+              {propositions.map((e) => {
+                const ligne = (
+                  <>
+                    <span className="min-w-0 flex-1 truncate text-ink">{e.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted">
+                      {e.sets}×{e.reps}
+                    </span>
+                    <span
+                      className="w-9 shrink-0 text-right text-[10px] font-bold"
+                      style={{ color: recoveryColor(0, e.intensite) }}
+                      title={`${Math.round(e.intensite * 100)} % de l'exercice pour ce muscle`}
+                    >
+                      {Math.round(e.intensite * 100)} %
+                    </span>
+                  </>
+                )
+                return (
+                  <li key={e.name}>
+                    {onExercice ? (
+                      <button
+                        onClick={() => {
+                          onExercice(e.name)
+                          onClose()
+                        }}
+                        className="flex w-full items-baseline gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-copper/10"
+                      >
+                        {ligne}
+                      </button>
+                    ) : (
+                      <div className="flex items-baseline gap-2 px-1.5 py-1 text-xs">{ligne}</div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {onExercice ? (
+              <p className="mt-1 text-[10px] text-muted">Touche un exercice pour ouvrir une séance dessus.</p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   )

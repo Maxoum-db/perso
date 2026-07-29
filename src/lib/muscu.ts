@@ -400,7 +400,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v11'
+const LIBRARY_SEED_KEY = 'muscu_library_v12'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v1'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {

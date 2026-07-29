@@ -1,6 +1,6 @@
-import { EXERCISE_LIBRARY } from '../data/exercises'
 import { PRIORITE_BEHOURD, type Priorite } from '../data/behourdPriority'
-import { parseGroupEntries, type GroupLoad } from '../lib/muscu'
+import type { GroupLoad } from '../lib/muscu'
+import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { FOCUS, type FocusId } from '../lib/focus'
 import { MUSCLE_LABELS, regionsForGroup, type MuscleRegion } from '../lib/muscles'
 
@@ -14,14 +14,9 @@ const SEUIL_JOURS = 10
 /** Sur le point faible déclaré, on alerte deux fois plus tôt. */
 const SEUIL_FOCUS = 5
 
-/** Premier exercice de la bibliothèque qui vise ce muscle en moteur principal. */
+/** Le meilleur exercice pour ce muscle, même classement que la fiche du mannequin. */
 function exerciceSuggere(region: MuscleRegion): string | null {
-  for (const exo of EXERCISE_LIBRARY) {
-    for (const g of parseGroupEntries(exo.groups)) {
-      if (g.intensity >= 1 && regionsForGroup(g.name).includes(region)) return exo.name
-    }
-  }
-  return null
+  return exercicesPourMuscle(region, 1)[0]?.name ?? null
 }
 
 export function NeglectedMuscles({

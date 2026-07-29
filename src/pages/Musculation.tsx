@@ -394,6 +394,30 @@ function Journal({
   // C'est lui qui dicte le volume et les charges de la séance proposée.
   const forme = evaluerForme(sessions, weighins)
 
+  /**
+   * Ouvre une séance vierge sur un exercice choisi depuis la fiche d'un muscle.
+   * Le catalogue fait foi : c'est lui qui porte le format et les groupes de
+   * l'utilisateur, éventuellement modifiés.
+   */
+  function ouvrirSurExercice(name: string) {
+    const c = catalog.find((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase())
+    setDraft({
+      date: today(),
+      name: 'Séance',
+      duration: '',
+      notes: '',
+      template_id: null,
+      exos: [c ? rappelDraft(c) : { ...emptyExo(), name }],
+    })
+  }
+
+  /** Charge et reps conseillées pour un exercice du catalogue. */
+  function rappelDraft(c: CatalogExercise): ExoDraft {
+    const last = lastExo(sessions, c.name)
+    const base = catalogToDraft(c, sessions, bodyWeight)
+    return last ? { ...base, reps: last.reps || base.reps } : base
+  }
+
   /** Déclare (ou retire) des courbatures sur un groupe. */
   function declarerCourbatures(group: string, extra: number) {
     const base = groupLoads(sessions)[group]
@@ -665,7 +689,11 @@ function Journal({
 
       <section className="card space-y-2 p-3">
         <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
-        <MuscleBodyDiagram loads={loads} onSoreness={declarerCourbatures} />
+        <MuscleBodyDiagram
+          loads={loads}
+          onSoreness={declarerCourbatures}
+          onExercice={ouvrirSurExercice}
+        />
       </section>
 
       {sessions.length === 0 ? (
