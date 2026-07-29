@@ -1,4 +1,8 @@
 import { estRessenti, sessionTonnage, type MuscuSession } from './muscu'
+import { ACTIVITE_NAMES } from '../data/exercises'
+
+/** Course, nage, béhourd, slackline… : pas un exercice de salle. */
+const estActivite = (nom: string) => ACTIVITE_NAMES.has(nom.trim().toLowerCase())
 
 // Estimation de la dépense énergétique d'une séance par la méthode MET :
 //
@@ -122,6 +126,18 @@ export function densiteSeance(s: MuscuSession, bodyWeight: number | null): Densi
   // la règle avec elle-même. On s'abstient plutôt que de produire un chiffre
   // qui a l'air informé.
   if (s.duration_min === null || s.duration_min <= 0 || series === 0) {
+    return { coef: 1, tonnageParMin: null, seriesParMin: null, applique: false }
+  }
+
+  // Une activité continue — course, nage, béhourd, slackline — n'a ni tonnage
+  // ni rythme de séries à mesurer : son intensité EST déjà dans son MET. Lui
+  // appliquer le barème de la salle la pénalisait mécaniquement, une course de
+  // 45 min comptant pour « une série » et perdant un quart de ses calories.
+  //
+  // Il suffit d'UNE activité pour fausser le calcul : elle occupe de la durée
+  // sans produire de séries, donc elle écrase le rapport séries/minute de tout
+  // ce qui l'accompagne. Dans ce cas on s'abstient plutôt que de sous-estimer.
+  if (exos.some((e) => estActivite(e.name))) {
     return { coef: 1, tonnageParMin: null, seriesParMin: null, applique: false }
   }
 
