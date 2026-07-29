@@ -1,5 +1,5 @@
 import { PRIORITE_BEHOURD, type Priorite } from '../data/behourdPriority'
-import type { GroupLoad } from '../lib/muscu'
+import { fmtAnciennete, type GroupLoad } from '../lib/muscu'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { FOCUS, type FocusId } from '../lib/focus'
 import { MUSCLE_LABELS, regionsForGroup, type MuscleRegion } from '../lib/muscles'
@@ -69,7 +69,7 @@ export function NeglectedMuscles({
                   {MUSCLE_LABELS[region]}
                 </span>
                 <span className="shrink-0 text-[11px] font-semibold text-clay">
-                  {jours === undefined ? 'jamais' : `il y a ${jours} j`}
+                  {jours === undefined ? 'jamais' : fmtAnciennete(jours)}
                 </span>
               </div>
               <p className="text-[11px] text-muted">{prio.pourquoi}</p>
