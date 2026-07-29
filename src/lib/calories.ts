@@ -1,4 +1,4 @@
-import type { MuscuSession } from './muscu'
+import { estRessenti, type MuscuSession } from './muscu'
 
 // Estimation de la dépense énergétique d'une séance par la méthode MET :
 //
@@ -95,14 +95,18 @@ export interface SessionCalories {
  * Exportée pour que la charge d'entraînement estime exactement pareil.
  */
 export function dureeEstimee(s: MuscuSession): number {
-  const series = s.exercises.reduce((n, e) => n + Math.max(1, e.sets), 0)
+  const series = s.exercises.filter((e) => !estRessenti(e.name)).reduce((n, e) => n + Math.max(1, e.sets), 0)
   return Math.min(150, Math.max(15, Math.round(series * 2.5)))
 }
 
 export function sessionCalories(s: MuscuSession, bodyWeight: number | null): SessionCalories {
   const minutes = dureeSeance(s)
-  const mets = s.exercises.map((e) => metPourExercice(e.name))
-  const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : MET_MUSCU
+  // La ligne de ressenti décrit des zones, pas un effort : l'inclure dans la
+  // moyenne tirerait le MET d'un sparring vers celui d'une séance de muscu.
+  // Et quand il n'y a QUE du ressenti — béhourd, kickboxing —, c'est le nom de
+  // la séance qui porte l'intensité, pas sa liste d'exercices.
+  const mets = s.exercises.filter((e) => !estRessenti(e.name)).map((e) => metPourExercice(e.name))
+  const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : metPourExercice(s.name)
   const poids = bodyWeight ?? 75
   return {
     kcal: Math.round(met * poids * (minutes / 60)),

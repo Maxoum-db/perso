@@ -3,9 +3,11 @@ import {
   exoTonnage,
   fmtTonnage,
   saveSession,
+  RESSENTI_NAME,
   type CatalogExercise,
   type MuscuSession,
 } from '../lib/muscu'
+import { RessentiPicker } from '../components/RessentiPicker'
 import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
 import { GroupPicker } from '../components/GroupPicker'
@@ -35,6 +37,8 @@ export interface LiveState {
   template_id: string | null
   restSec: number
   notes: string
+  /** Zones sollicitées déclarées à la main (séance sans exercices chiffrés). */
+  ressenti?: string
   exos: LiveExo[]
 }
 
@@ -237,7 +241,9 @@ export function LiveSession({
     const kept = s.exos
       .map((e) => ({ ...e, doneCount: e.done.filter(Boolean).length }))
       .filter((e) => e.doneCount > 0 && e.name.trim())
-    if (!kept.length) {
+    // Une séance sans série cochée reste valable si le ressenti est renseigné :
+    // c'est exactement le cas du béhourd ou du kickboxing.
+    if (!kept.length && !s.ressenti?.trim()) {
       if (confirm('Aucune série cochée — abandonner la séance sans rien enregistrer ?')) {
         clearLive()
         onQuit()
@@ -256,14 +262,19 @@ export function LiveSession({
           notes: s.notes,
           template_id: s.template_id,
         },
-        kept.map((e) => ({
-          name: e.name,
-          muscle_group: e.muscle_group,
-          sets: e.doneCount,
-          reps: e.reps,
-          weight_kg: parseW(e.weight),
-          notes: e.notes,
-        })),
+        [
+          ...kept.map((e) => ({
+            name: e.name,
+            muscle_group: e.muscle_group,
+            sets: e.doneCount,
+            reps: e.reps,
+            weight_kg: parseW(e.weight),
+            notes: e.notes,
+          })),
+          ...(s.ressenti?.trim()
+            ? [{ name: RESSENTI_NAME, muscle_group: s.ressenti, sets: 1, reps: '—', weight_kg: null, notes: '' }]
+            : []),
+        ],
       )
       clearLive()
       onFinish()
@@ -425,6 +436,14 @@ export function LiveSession({
 
       {/* ── Ajouter un exo en cours de route ── */}
       <ExercisePicker catalog={catalog} onPick={(c) => addFromCatalog(c.id)} onBlank={addBlank} />
+
+      <div className="card space-y-2 p-3">
+        <h3 className="text-sm font-bold text-ink">🤕 Zones sollicitées</h3>
+        <p className="text-[11px] text-muted">
+          Utile quand la séance n'a ni série ni charge — béhourd, kickboxing, grappling.
+        </p>
+        <RessentiPicker value={s.ressenti ?? ''} onChange={(g) => setS({ ...s, ressenti: g })} />
+      </div>
 
       <textarea
         className="field"

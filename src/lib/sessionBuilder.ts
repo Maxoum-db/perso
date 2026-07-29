@@ -1,7 +1,8 @@
 import { EXERCISE_LIBRARY } from '../data/exercises'
 import { PRIORITE_BEHOURD, poidsBehourd } from '../data/behourdPriority'
-import { regionsForGroup, type MuscleRegion } from '../components/MuscleBodyDiagram'
-import { groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
+import { regionsForGroup, type MuscleRegion } from './muscles'
+import { reposParMuscle } from './recuperation'
+import { estRessenti, groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
 import { FOCUS, POIDS_FOCUS, type FocusId } from './focus'
 
@@ -77,18 +78,6 @@ export interface SuggestedSession {
   degrade: boolean
 }
 
-/** Repos « ressenti » de chaque muscle : le plus frais des libellés qui le couvrent. */
-function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record<MuscleRegion, number>> {
-  const out: Partial<Record<MuscleRegion, number>> = {}
-  for (const [group, load] of Object.entries(loads)) {
-    for (const region of regionsForGroup(group)) {
-      const cur = out[region]
-      if (cur === undefined || load.effectiveDays < cur) out[region] = load.effectiveDays
-    }
-  }
-  return out
-}
-
 /** Un muscle en récupération pénalise, un muscle prêt rapporte. */
 function poidsRepos(jours: number): number {
   if (jours <= 2) return -3
@@ -150,10 +139,10 @@ export function buildSession(
   // « ? kg » — la charge conseillée devient inutile là où elle sert le plus.
   const dejaFaits = new Set<string>()
   for (const s of sessions) for (const e of s.exercises) dejaFaits.add(e.name.trim().toLowerCase())
-  const reposDe = (r: MuscleRegion) => repos[r] ?? JAMAIS
+  const reposDe = (r: MuscleRegion) => repos[r]?.jours ?? JAMAIS
 
   const candidats = catalog
-    .filter((c) => !exclude.has(c.id) && !ACTIVITES.has(c.name.trim().toLowerCase()))
+    .filter((c) => !exclude.has(c.id) && !estRessenti(c.name) && !ACTIVITES.has(c.name.trim().toLowerCase()))
     .map((c) => {
       const muscles = musclesDeLExercice(c.muscle_group)
       const moteurs = [...muscles.entries()].filter(([, i]) => i >= 0.8).map(([r]) => r)

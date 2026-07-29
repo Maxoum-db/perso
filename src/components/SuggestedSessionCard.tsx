@@ -1,4 +1,4 @@
-import { MUSCLE_LABELS } from './MuscleBodyDiagram'
+import { MUSCLE_LABELS } from '../lib/muscles'
 import { TON_STYLE } from '../lib/charge'
 import { FormeCard } from './FormeCard'
 import type { Forme } from '../lib/forme'

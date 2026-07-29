@@ -2,7 +2,7 @@ import { EXERCISE_LIBRARY } from '../data/exercises'
 import { PRIORITE_BEHOURD, type Priorite } from '../data/behourdPriority'
 import { parseGroupEntries, type GroupLoad } from '../lib/muscu'
 import { FOCUS, type FocusId } from '../lib/focus'
-import { MUSCLE_LABELS, regionsForGroup, type MuscleRegion } from './MuscleBodyDiagram'
+import { MUSCLE_LABELS, regionsForGroup, type MuscleRegion } from '../lib/muscles'
 
 // Le mannequin dit ce qui est FRAIS. Cette carte dit ce qui est OUBLIÉ —
 // l'autre moitié de l'information, et celle qui coûte cher en béhourd.
