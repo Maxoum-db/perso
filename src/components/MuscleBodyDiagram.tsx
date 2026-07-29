@@ -86,35 +86,40 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
 const NEUTRAL = '#C9C4BD'
 
 /**
- * Rampe de teintes du mannequin : un vrai spectre plutôt que trois couleurs.
- * Le rouge dit « viens de travailler », le turquoise « disponible depuis
- * longtemps », et tout le dégradé entre les deux se lit sans avoir à comparer
- * deux nuances côte à côte.
+ * Rampe de couleurs du mannequin, lue comme une échelle de température :
+ * marron brûlant pour ce qui vient d'être martelé, puis rouge, orange, ambre,
+ * lime, vert, turquoise, et bleu froid pour ce qui n'a plus servi depuis
+ * longtemps. Un vrai spectre plutôt que trois pastilles à comparer.
  *
- * Les paliers historiques restent lisibles : rouge jusqu'à 2 j, ambre à 3-4 j,
- * bascule franche dans les verts à partir de 5 j.
+ * Les paliers validés restent lisibles : chaud jusqu'à 2 j, ambre à 3-4 j,
+ * bascule dans les froides à partir de 5 j.
  */
-const RAMPE: Array<[jours: number, teinte: number]> = [
-  [0, 0], //   rouge
-  [1, 10], //  rouge chaud
-  [2, 22], //  rouge orangé — dernier cran « en récup »
-  [3, 34], //  orange
-  [4, 46], //  ambre — dernier cran « bientôt prêt »
-  [5, 74], //  jaune-vert : bascule sur « prêt »
-  [7, 108], // vert clair
-  [10, 145], // vert
-  [14, 168], // turquoise : en attente depuis longtemps
+const RAMPE: Array<[jours: number, h: number, s: number, l: number]> = [
+  [0, 20, 52, 30], //   marron — encore brûlant, séance du jour
+  [1, 4, 76, 47], //    rouge
+  [2, 20, 84, 50], //   rouge orangé — dernier cran « en récup »
+  [3, 34, 88, 50], //   orange
+  [4, 46, 90, 50], //   ambre — dernier cran « bientôt prêt »
+  [5, 74, 62, 44], //   lime : bascule sur « prêt »
+  [7, 112, 55, 42], //  vert
+  [10, 158, 55, 41], // turquoise
+  [14, 192, 58, 44], // cyan
+  [21, 212, 56, 46], // bleu franc — froid, oublié
 ]
 
-/** Teinte interpolée sur la rampe. */
-function teinte(jours: number): number {
-  if (jours <= RAMPE[0][0]) return RAMPE[0][1]
-  for (let i = 1; i < RAMPE.length; i++) {
-    const [j0, h0] = RAMPE[i - 1]
-    const [j1, h1] = RAMPE[i]
-    if (jours <= j1) return h0 + ((jours - j0) / (j1 - j0)) * (h1 - h0)
+/** Couleur interpolée sur la rampe, teinte, saturation et clarté comprises. */
+function surLaRampe(jours: number): [number, number, number] {
+  if (jours <= RAMPE[0][0]) return [RAMPE[0][1], RAMPE[0][2], RAMPE[0][3]]
+  for (let k = 1; k < RAMPE.length; k++) {
+    const [j0, h0, s0, l0] = RAMPE[k - 1]
+    const [j1, h1, s1, l1] = RAMPE[k]
+    if (jours <= j1) {
+      const t = (jours - j0) / (j1 - j0)
+      return [h0 + (h1 - h0) * t, s0 + (s1 - s0) * t, l0 + (l1 - l0) * t]
+    }
   }
-  return RAMPE[RAMPE.length - 1][1]
+  const last = RAMPE[RAMPE.length - 1]
+  return [last[1], last[2], last[3]]
 }
 
 function hsl(h: number, s: number, l: number): string {
@@ -137,20 +142,25 @@ export const SOLLICITATION_MARQUEUR: Record<Sollicitation, string> = {
 }
 
 /**
- * Couleur d'un muscle. La TEINTE porte l'état de récupération, du rouge au
- * turquoise. Sur la partie chaude (encore en récup), l'intensité du dernier
- * travail module la densité : un moteur principal est soutenu, un
- * stabilisateur reste clair — mais tous deux franchement colorés.
+ * Couleur d'un muscle. La position sur la rampe porte l'état de récupération.
  *
- * Passé le seuil de disponibilité, la teinte suffit : plus le muscle attend,
- * plus il tire vers le turquoise.
+ * Sur la partie chaude (encore en récup), l'intensité du dernier travail
+ * éclaircit la teinte : un moteur principal reste dense, un stabilisateur
+ * tire vers le clair — mais tous deux gardent leur couleur.
+ *
+ * Sur la partie froide, la position suffit : plus le muscle attend, plus il
+ * descend vers le bleu.
  */
 export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
-  // Jamais travaillé sur la période : disponibilité maximale.
-  if (effectiveDays === undefined) return hsl(168, 58, 44)
-  const h = teinte(effectiveDays)
-  if (effectiveDays > 4) return hsl(h, 58, 44)
-  return hsl(h, 62 + 20 * intensity, 66 - 16 * intensity)
+  // Jamais travaillé sur la période : le plus froid de l'échelle.
+  if (effectiveDays === undefined) {
+    const [h, s, l] = surLaRampe(21)
+    return hsl(h, s, l)
+  }
+  const [h, s, l] = surLaRampe(effectiveDays)
+  if (effectiveDays > 4) return hsl(h, s, l)
+  const appoint = 1 - Math.max(0, Math.min(1, intensity))
+  return hsl(h, s - 14 * appoint, l + 14 * appoint)
 }
 
 function norm(s: string): string {
@@ -359,16 +369,17 @@ export function MuscleBodyDiagram({
         <div
           className="h-2.5 w-full rounded-full"
           style={{
-            background: `linear-gradient(to right, ${[0, 1, 2, 3, 4, 5, 7, 10, 14]
+            background: `linear-gradient(to right, ${[0, 1, 2, 3, 4, 5, 7, 10, 14, 21]
               .map((j) => recoveryColor(j))
               .join(', ')})`,
           }}
         />
         <div className="mt-0.5 flex justify-between text-[10px] text-muted">
+          <span>brûlant</span>
           <span>en récup</span>
           <span>bientôt prêt</span>
           <span>prêt</span>
-          <span>en attente</span>
+          <span>froid</span>
         </div>
       </div>
 
