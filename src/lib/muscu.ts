@@ -4,6 +4,7 @@ import { MUSCU_PROGRAM } from '../data/behourd'
 import { OUTDOOR_ACTIVITIES } from '../data/activities'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
 import { regionsForGroup } from './muscles'
+import { loadIntensites, type IntensiteId, type Intensites } from './intensite'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -44,6 +45,13 @@ export interface MuscuSession {
   exercises: MuscuExo[]
   /** Horodatage d'enregistrement — sert à situer la séance dans la journée. */
   created_at?: string
+  /**
+   * Intensité déclarée à la main. Absente = non déclarée, et c'est le calcul
+   * automatique qui s'applique. Elle vit dans le KV faute de colonne dédiée,
+   * mais elle est recollée ici pour que tout le reste du module la voie comme
+   * une propriété ordinaire de la séance.
+   */
+  intensite?: IntensiteId
 }
 
 export interface CatalogExercise {
@@ -655,10 +663,12 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
       bySession.set(raw.session_id as string, list)
     }
   }
+  const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
   return (sessions ?? []).map((s) => ({
     ...s,
     notes: s.notes ?? '',
     exercises: bySession.get(s.id) ?? [],
+    intensite: intensites[s.id],
   })) as MuscuSession[]
 }
 

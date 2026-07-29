@@ -1,5 +1,6 @@
 import { estRessenti, sessionTonnage, type MuscuSession } from './muscu'
 import { ACTIVITE_NAMES } from '../data/exercises'
+import { coefIntensite } from './intensite'
 
 /** Course, nage, béhourd, slackline… : pas un exercice de salle. */
 const estActivite = (nom: string) => ACTIVITE_NAMES.has(nom.trim().toLowerCase())
@@ -159,6 +160,8 @@ export function densiteSeance(s: MuscuSession, bodyWeight: number | null): Densi
 
 export interface SessionCalories {
   kcal: number
+  /** Vrai quand le coefficient vient d'une intensité déclarée, pas du calcul. */
+  declaree: boolean
   /** MET moyen de la séance, densité comprise. */
   met: number
   /** MET des exercices seuls, avant modulation. */
@@ -187,7 +190,12 @@ export function sessionCalories(s: MuscuSession, bodyWeight: number | null): Ses
   // la séance qui porte l'intensité, pas sa liste d'exercices.
   const mets = s.exercises.filter((e) => !estRessenti(e.name)).map((e) => metPourExercice(e.name))
   const metBrut = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : metPourExercice(s.name)
-  const densite = densiteSeance(s, bodyWeight)
+  // Une intensité déclarée REMPLACE le calcul : tu étais là, pas le barème.
+  // Les additionner reviendrait à compter deux fois le même jugement.
+  const auto = densiteSeance(s, bodyWeight)
+  const densite: Densite = s.intensite
+    ? { coef: coefIntensite(s.intensite), tonnageParMin: null, seriesParMin: null, applique: false }
+    : auto
   const met = metBrut * densite.coef
   const poids = bodyWeight ?? 75
   return {
@@ -196,6 +204,7 @@ export function sessionCalories(s: MuscuSession, bodyWeight: number | null): Ses
     metBrut: Math.round(metBrut * 10) / 10,
     minutes,
     dureeEstimee: s.duration_min === null,
+    declaree: Boolean(s.intensite),
     densite,
   }
 }
