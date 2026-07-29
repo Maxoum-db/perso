@@ -8,6 +8,8 @@ import { EnergieCard } from '../components/EnergieCard'
 import { PoidsCourbe } from '../components/PoidsCourbe'
 import { TourDeTaille } from '../components/TourDeTaille'
 import { ChargeHebdo, ObjectifKcal } from '../components/ChargeEtObjectif'
+import { FormeCard } from '../components/FormeCard'
+import { evaluerForme } from '../lib/forme'
 import { PROFIL_DEFAUT, loadProfil, saveProfil, type Profil } from '../lib/profil'
 import { loadMensurations, saveMensurations, type Mensuration } from '../lib/mensurations'
 import { OBJECTIF_DEFAUT, loadObjectif, saveObjectif } from '../lib/trainingLoad'
@@ -100,6 +102,10 @@ export function Poids() {
         </>
       ) : (
         <>
+          <FormeCard forme={evaluerForme(sessions, weighins)} />
+          <p className="text-center text-[11px] text-muted">
+            👆 C'est cet état qui règle le volume et les charges de « 🧠 Composer une séance selon ma récup ».
+          </p>
           <ChargeHebdo sessions={sessions} />
           <ObjectifKcal sessions={sessions} bodyWeight={poids} objectif={objectif} onObjectif={majObjectif} />
         </>
