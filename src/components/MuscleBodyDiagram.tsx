@@ -3,11 +3,12 @@ import type { GroupLoad } from '../lib/muscu'
 import { PALIERS } from '../lib/soreness'
 
 // Mannequin de récupération, façon planche anatomique : chaque muscle est un
-// tracé distinct (une trentaine), coloré selon l'ancienneté de son dernier
-// travail pondérée par l'intensité :
-//   0-2 j  → rouge  (en récupération)
-//   3-4 j  → orange (bientôt prêt)
-//   ≥ 5 j  → vert   (prêt / jamais travaillé)
+// tracé distinct (une trentaine), coloré sur un spectre continu selon
+// l'ancienneté de son dernier travail pondérée par l'intensité :
+//   0-2 j  → rouge          (en récupération)
+//   3-4 j  → orange, ambre  (bientôt prêt)
+//   5-7 j  → lime, vert     (prêt)
+//   ≥ 10 j → turquoise      (en attente / jamais travaillé)
 //
 // Les tracés sont exprimés dans un repère centré (x = 0 au milieu du corps) :
 // on ne décrit qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)).
@@ -82,25 +83,42 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   tibialis: 'Tibial antérieur',
 }
 
-const RED = '#EF4444'
-const ORANGE = '#F59E0B'
-const GREEN = '#10B981'
 const NEUTRAL = '#C9C4BD'
 
 /**
- * Mélange une couleur avec le gris de la silhouette. Sert à nuancer selon
- * l'intensité : un muscle moteur ressort en couleur franche, un stabilisateur
- * reste proche du gris du corps.
+ * Rampe de teintes du mannequin : un vrai spectre plutôt que trois couleurs.
+ * Le rouge dit « viens de travailler », le turquoise « disponible depuis
+ * longtemps », et tout le dégradé entre les deux se lit sans avoir à comparer
+ * deux nuances côte à côte.
+ *
+ * Les paliers historiques restent lisibles : rouge jusqu'à 2 j, ambre à 3-4 j,
+ * bascule franche dans les verts à partir de 5 j.
  */
-function melanger(hex: string, t: number): string {
-  const neutre = [0xc9, 0xc4, 0xbd]
-  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
-  return (
-    '#' +
-    c
-      .map((v, i) => Math.round(neutre[i] + (v - neutre[i]) * t).toString(16).padStart(2, '0'))
-      .join('')
-  )
+const RAMPE: Array<[jours: number, teinte: number]> = [
+  [0, 0], //   rouge
+  [1, 10], //  rouge chaud
+  [2, 22], //  rouge orangé — dernier cran « en récup »
+  [3, 34], //  orange
+  [4, 46], //  ambre — dernier cran « bientôt prêt »
+  [5, 74], //  jaune-vert : bascule sur « prêt »
+  [7, 108], // vert clair
+  [10, 145], // vert
+  [14, 168], // turquoise : en attente depuis longtemps
+]
+
+/** Teinte interpolée sur la rampe. */
+function teinte(jours: number): number {
+  if (jours <= RAMPE[0][0]) return RAMPE[0][1]
+  for (let i = 1; i < RAMPE.length; i++) {
+    const [j0, h0] = RAMPE[i - 1]
+    const [j1, h1] = RAMPE[i]
+    if (jours <= j1) return h0 + ((jours - j0) / (j1 - j0)) * (h1 - h0)
+  }
+  return RAMPE[RAMPE.length - 1][1]
+}
+
+function hsl(h: number, s: number, l: number): string {
+  return `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${l.toFixed(0)}%)`
 }
 
 /** Trois degrés de sollicitation, pour la légende et les pastilles. */
@@ -118,34 +136,21 @@ export const SOLLICITATION_MARQUEUR: Record<Sollicitation, string> = {
   leger: '○',
 }
 
-/** Saturation appliquée au rouge et à l'orange : pleine en moteur, atténuée en appoint. */
-function saturation(intensity: number): number {
-  return Math.max(0.45, Math.min(1, 0.45 + 0.55 * intensity))
-}
-
 /**
- * Saturation du vert : elle ne dit pas l'intensité passée mais la disponibilité.
- * Un muscle qui vient de passer au vert est pâle, un muscle au repos depuis
- * longtemps devient franc — c'est lui qui réclame du travail.
- */
-function disponibilite(effectiveDays: number): number {
-  return Math.max(0.4, Math.min(1, 0.4 + (effectiveDays - 5) / 8))
-}
-
-/**
- * Seuils : rouge jusqu'à 2 j, orange à 3-4 j, vert à partir de 5 j.
+ * Couleur d'un muscle. La TEINTE porte l'état de récupération, du rouge au
+ * turquoise. Sur la partie chaude (encore en récup), l'intensité du dernier
+ * travail module la densité : un moteur principal est soutenu, un
+ * stabilisateur reste clair — mais tous deux franchement colorés.
  *
- * La nuance se lit dans les deux sens selon la teinte :
- *   • rouge et orange → franchise = intensité du dernier travail (a-t-il mené
- *     l'exercice ou seulement accompagné) ;
- *   • vert → franchise = disponibilité (depuis combien de temps il attend).
- * Un muscle jamais travaillé est donc du vert le plus franc.
+ * Passé le seuil de disponibilité, la teinte suffit : plus le muscle attend,
+ * plus il tire vers le turquoise.
  */
 export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
-  if (effectiveDays === undefined) return GREEN
-  if (effectiveDays <= 2) return melanger(RED, saturation(intensity))
-  if (effectiveDays <= 4) return melanger(ORANGE, saturation(intensity))
-  return melanger(GREEN, disponibilite(effectiveDays))
+  // Jamais travaillé sur la période : disponibilité maximale.
+  if (effectiveDays === undefined) return hsl(168, 58, 44)
+  const h = teinte(effectiveDays)
+  if (effectiveDays > 4) return hsl(h, 58, 44)
+  return hsl(h, 62 + 20 * intensity, 66 - 16 * intensity)
 }
 
 function norm(s: string): string {
@@ -349,32 +354,33 @@ export function MuscleBodyDiagram({
         </text>
       </svg>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted">
-        <Legend color={RED} label="0-2 j — en récup" />
-        <Legend color={ORANGE} label="3-4 j — bientôt prêt" />
-        <Legend color={GREEN} label="≥ 5 j — prêt" />
+      {/* Spectre : une barre continue vaut mieux que trois pastilles isolées. */}
+      <div className="px-1">
+        <div
+          className="h-2.5 w-full rounded-full"
+          style={{
+            background: `linear-gradient(to right, ${[0, 1, 2, 3, 4, 5, 7, 10, 14]
+              .map((j) => recoveryColor(j))
+              .join(', ')})`,
+          }}
+        />
+        <div className="mt-0.5 flex justify-between text-[10px] text-muted">
+          <span>en récup</span>
+          <span>bientôt prêt</span>
+          <span>prêt</span>
+          <span>en attente</span>
+        </div>
       </div>
 
-      {/* La teinte dit l'état ; sa franchise se lit dans les deux sens. */}
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
-        <span className="font-semibold">🔴🟠 intensité :</span>
+        <span className="font-semibold">Intensité du dernier travail :</span>
         {(['principal', 'secondaire', 'leger'] as Sollicitation[]).map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 rounded"
-              style={{ background: recoveryColor(0, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
+              style={{ background: recoveryColor(1, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
             />
             {SOLLICITATION_MARQUEUR[s]} {s === 'leger' ? 'appoint' : s}
-          </span>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
-        <span className="font-semibold">🟢 disponibilité :</span>
-        {[5, 8, 12].map((j) => (
-          <span key={j} className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded" style={{ background: recoveryColor(j) }} />
-            {j === 5 ? 'tout juste prêt' : j === 8 ? `${j} j` : 'en attente'}
           </span>
         ))}
       </div>
@@ -612,11 +618,3 @@ function Figure({
   )
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="inline-block h-2.5 w-2.5 rounded" style={{ background: color }} />
-      {label}
-    </span>
-  )
-}
