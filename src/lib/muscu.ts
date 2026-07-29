@@ -400,8 +400,8 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v12'
-const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v1'
+const LIBRARY_SEED_KEY = 'muscu_library_v14'
+const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -768,6 +768,52 @@ const RECUP_TEMPLATES: Array<{ name: string; icon: string; duration: number; not
     duration: 30,
     notes: 'Après une grosse séance de jambes ou beaucoup de déplacement en armure.',
     exos: ['Récupération — marche', 'Récupération — mobilité hanches et jambes', 'Récupération — rouleau de massage'],
+  },
+  {
+    name: 'Récup — étirements complets',
+    icon: '🧊',
+    duration: 25,
+    notes: 'Une chaîne après l’autre, 45 s par côté, en respirant. Jamais à froid : après une séance ou en fin de journée active.',
+    exos: [
+      'Étirement des ischios (jambe tendue)',
+      'Étirement des quadriceps debout',
+      'Étirement des fessiers (figure 4)',
+      'Étirement fléchisseurs de hanche (fente basse)',
+      'Étirement des adducteurs (papillon)',
+      'Étirement des mollets au mur',
+      'Étirement du grand dorsal',
+      'Étirement pectoraux au mur',
+      'Étirement des trapèzes et de la nuque',
+      'Étirement des avant-bras',
+    ],
+  },
+  {
+    name: 'Récup — poids du corps',
+    icon: '🍃',
+    duration: 25,
+    notes: 'Amplitude et circulation, jamais l’échec. À placer le lendemain d’une séance lourde.',
+    exos: [
+      'Salutation au soleil (enchaînement)',
+      'Chat-vache (mobilité du rachis)',
+      'Squat profond en tenue',
+      'Pont fessier au sol',
+      'Marche en fente lente',
+      'Rotations d’épaules à vide',
+      '90/90 hanches (rotation assise)',
+    ],
+  },
+  {
+    name: 'Récup — nuque et épaules',
+    icon: '🩹',
+    duration: 15,
+    notes: 'Après le port du heaume ou une séance de poussée. Cible l’épaule AC et les cervicales.',
+    exos: [
+      'Étirement des trapèzes et de la nuque',
+      'Étirement pectoraux au mur',
+      'Rotation thoracique couché',
+      'Rotations d’épaules à vide',
+      'Étirement du grand dorsal',
+    ],
   },
 ]
 
