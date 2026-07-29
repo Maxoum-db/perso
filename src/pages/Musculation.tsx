@@ -22,6 +22,7 @@ import {
   type Courbatures,
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
+import { PROFIL_DEFAUT, loadProfil, type Profil } from '../lib/profil'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -244,13 +245,15 @@ export function Musculation() {
   const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
   // Courbatures déclarées à la main, en plus du calcul automatique.
   const [courbatures, setCourbatures] = useState<Courbatures>({})
+  // Profil morphologique : seul le sexe sert ici, pour la silhouette du mannequin.
+  const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -258,6 +261,7 @@ export function Musculation() {
         listWeighins(user.id).catch(() => []),
         loadFocus(user.id).catch(() => FOCUS_PAR_DEFAUT),
         loadCourbatures(user.id).catch(() => ({})),
+        loadProfil(user.id).catch(() => PROFIL_DEFAUT),
       ])
       setTemplates(t)
       setSessions(s)
@@ -267,6 +271,7 @@ export function Musculation() {
       setWeighins(w)
       setFocus(f)
       setCourbatures(cb)
+      setProfil(pr)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -316,6 +321,7 @@ export function Musculation() {
           groups={groups}
           focus={focus}
           courbatures={courbatures}
+          sexe={profil.sex}
           onCourbatures={(next) => {
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
@@ -364,6 +370,7 @@ function Journal({
   onFocus,
   courbatures,
   onCourbatures,
+  sexe,
   onChange,
 }: {
   userId: string
@@ -377,6 +384,8 @@ function Journal({
   onFocus: (id: FocusId) => void
   courbatures: Courbatures
   onCourbatures: (c: Courbatures) => void
+  /** Silhouette du mannequin — déclarée dans Poids › profil. */
+  sexe: Profil['sex']
   onChange: () => void
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
@@ -693,6 +702,7 @@ function Journal({
         <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
         <MuscleBodyDiagram
           loads={loads}
+          sexe={sexe}
           onSoreness={declarerCourbatures}
           onExercice={ouvrirSurExercice}
         />
