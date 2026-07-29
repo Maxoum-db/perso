@@ -172,11 +172,13 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       for (const g of parseGroupEntries(e.muscle_group)) {
-        // Pondération quadratique, mais un muscle travaillé la veille ne peut
-        // pas repasser au vert : il garde au minimum un palier orange, même
-        // pour une sollicitation légère (0.3-0.4).
+        // Pondération quadratique, plafonnée les deux premiers jours au palier
+        // orange. Sans ce plafond, une sollicitation légère saute du rouge au
+        // vert sans transition (0.5 à 2 jours donnait 8 jours ressentis) : le
+        // mannequin annonçait « prêt » un muscle travaillé l'avant-veille.
+        // Avec, toute sollicitation passe par au moins une journée orange.
         const raw = days / (g.intensity * g.intensity)
-        const effectiveDays = days <= 1 ? Math.min(raw, 4) : raw
+        const effectiveDays = days <= 2 ? Math.min(raw, 4) : raw
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
         if (!cur || effectiveDays < cur.effectiveDays) {

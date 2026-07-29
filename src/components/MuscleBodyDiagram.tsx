@@ -192,62 +192,63 @@ export function regionsForGroup(label: string): MuscleRegion[] {
 // ── Tracés (repère centré, moitié gauche du corps) ──────────────────────────
 
 // Silhouette de base sous les muscles : sans elle, le fond apparaît entre les
-// tracés et le corps semble fragmenté.
+// tracés et le corps semble fragmenté. Les bras descendent jusqu'aux mains,
+// sinon celles-ci flottent à côté du corps.
 const BASE_CENTER =
-  'M-25,44 C-27,62 -22,92 -19,109 L19,109 C22,92 27,62 25,44 C22,37 12,32 6,30 L-6,30 C-12,32 -22,37 -25,44 Z'
+  'M-30,54 C-33,74 -30,104 -26,124 C-24,136 -24,148 -24,158 L24,158 C24,148 24,136 26,124 C30,104 33,74 30,54 C27,47 14,42 7,40 L-7,40 C-14,42 -27,47 -30,54 Z'
 const BASE_HALF: string[] = [
   // bras : de l'épaule à la main
-  'M-24,44 C-34,48 -40,62 -37,78 C-35,95 -41,112 -39,129 C-38,137 -31,139 -30,130 C-28,112 -30,96 -28,80 C-26,64 -20,52 -19,46 Z',
+  'M-30,55 C-42,60 -47,80 -44,101 C-42,120 -48,144 -46,169 C-45,185 -34,187 -33,170 C-31,146 -35,121 -33,102 C-31,82 -24,65 -23,57 Z',
   // jambe : de la hanche au pied
-  'M-20,106 C-24,128 -22,160 -18,182 C-17,197 -18,209 -17,217 L-4,217 C-3,200 -4,186 -4,176 C-4,150 -2,128 0,107 Z',
+  'M-26,152 C-32,182 -30,220 -24,250 C-23,264 -24,276 -23,284 L-5,284 C-4,264 -5,246 -5,234 C-5,200 -3,178 0,153 Z',
 ]
 
 const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
-  ['neck', 'M-4,26 C-7,30 -8,34 -8,37 L-3,37 C-3,33 -3,29 -3,26 Z'],
-  ['trapsUpper', 'M-7,31 C-13,33 -19,39 -24,46 L-14,49 C-11,42 -8,36 -7,31 Z'],
-  ['deltLat', 'M-26,47 C-34,50 -38,60 -36,70 C-32,71 -29,64 -28,55 Z'],
-  ['deltAnt', 'M-23,49 C-28,52 -31,60 -30,68 C-26,69 -23,62 -22,55 Z'],
-  ['pecUpper', 'M-21,50 C-13,47 -4,48 -2,52 L-2,58 L-20,58 C-21,55 -21,52 -21,50 Z'],
-  ['pecLower', 'M-20,59 L-2,59 L-2,70 C-9,75 -18,72 -22,65 C-23,62 -21,60 -20,59 Z'],
-  ['serratus', 'M-19,63 C-17,67 -16,71 -16,74 L-12,73 C-13,69 -15,65 -16,62 Z'],
-  ['obliques', 'M-16,76 C-13,86 -11,96 -10,105 L-16,101 C-18,92 -18,84 -16,76 Z'],
-  ['biceps', 'M-31,71 C-36,77 -36,88 -32,95 C-28,93 -27,80 -28,72 Z'],
-  ['brachialis', 'M-27,84 C-29,89 -29,94 -28,97 L-24,95 C-25,90 -25,86 -25,83 Z'],
-  ['forearmFlex', 'M-34,97 C-39,105 -40,117 -37,126 L-31,124 C-30,113 -30,104 -31,98 Z'],
-  ['neutral', 'M-36,128 C-40,131 -40,138 -36,140 C-32,138 -32,131 -36,128 Z'], // main
-  ['vastusLat', 'M-19,126 C-22,140 -21,154 -18,167 L-13,167 C-13,150 -13,136 -14,127 Z'],
-  ['rectusFemoris', 'M-12,127 C-14,142 -13,158 -11,172 L-6,172 C-5,156 -6,140 -7,128 Z'],
-  ['vastusMed', 'M-18,159 C-18,167 -16,173 -12,175 L-7,173 C-9,167 -12,163 -13,158 Z'],
-  ['adductors', 'M-5,129 C-7,141 -7,153 -6,162 L0,162 L0,129 Z'],
-  ['neutral', 'M-18,176 C-14,180 -7,180 -4,176 L-4,182 C-8,185 -14,185 -18,182 Z'], // genou
-  ['gastroc', 'M-16,183 C-17,193 -16,203 -14,209 L-11,209 C-11,199 -12,190 -13,183 Z'],
-  ['tibialis', 'M-12,183 C-13,194 -12,204 -10,211 L-5,211 C-4,199 -5,190 -7,183 Z'],
-  ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
+  ['neck', 'M-6,38 C-10,44 -11,49 -11,54 L-4,54 C-4,48 -4,43 -4,38 Z'],
+  ['trapsUpper', 'M-9,44 C-17,47 -25,54 -31,62 L-19,67 C-15,58 -11,50 -9,44 Z'],
+  ['deltLat', 'M-33,63 C-45,68 -49,84 -46,98 C-41,99 -37,87 -36,74 Z'],
+  ['deltAnt', 'M-29,65 C-36,70 -40,82 -38,94 C-33,95 -29,84 -28,73 Z'],
+  ['pecUpper', 'M-27,66 C-17,62 -4,63 -2,68 L-2,78 L-26,78 C-27,73 -27,69 -27,66 Z'],
+  ['pecLower', 'M-26,79 L-2,79 L-2,95 C-11,102 -23,98 -28,88 C-29,83 -27,80 -26,79 Z'],
+  ['serratus', 'M-25,86 C-22,92 -21,98 -21,102 L-16,101 C-17,94 -20,89 -21,85 Z'],
+  ['obliques', 'M-22,105 C-18,119 -15,133 -14,146 L-22,140 C-25,126 -25,116 -22,105 Z'],
+  ['biceps', 'M-40,99 C-47,108 -47,124 -41,134 C-36,132 -35,113 -36,100 Z'],
+  ['brachialis', 'M-35,118 C-37,125 -37,132 -36,137 L-31,135 C-32,127 -32,122 -32,117 Z'],
+  ['forearmFlex', 'M-43,137 C-50,149 -51,163 -47,173 L-39,171 C-38,157 -38,146 -39,138 Z'],
+  ['neutral', 'M-44,173 C-50,178 -50,188 -44,192 C-38,188 -38,178 -44,173 Z'],
+  ['vastusLat', 'M-25,160 C-30,184 -29,204 -25,222 L-17,222 C-17,199 -18,179 -19,165 Z'],
+  ['rectusFemoris', 'M-16,161 C-19,186 -18,208 -15,226 L-8,226 C-7,204 -8,182 -9,166 Z'],
+  ['vastusMed', 'M-24,210 C-24,221 -21,229 -15,231 L-9,229 C-11,221 -16,216 -17,209 Z'],
+  ['adductors', 'M-7,163 C-9,185 -9,202 -8,214 L0,214 L0,167 Z'],
+  ['neutral', 'M-24,233 C-18,239 -8,239 -3,233 L-3,242 C-9,247 -18,247 -24,242 Z'],
+  ['gastroc', 'M-22,244 C-23,258 -22,272 -19,280 L-14,280 C-14,266 -15,254 -16,244 Z'],
+  ['tibialis', 'M-15,244 C-16,260 -15,274 -13,283 L-5,283 C-4,266 -5,254 -9,244 Z'],
+  ['neutral', 'M-23,286 L-3,286 L-3,296 L-26,296 Z'],
 ]
 
 const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
-  ['neck', 'M-5,26 C-7,30 -7,34 -7,37 L-2,37 C-2,33 -2,29 -2,26 Z'],
-  ['deltLat', 'M-27,46 C-35,49 -38,59 -36,69 C-33,70 -30,63 -29,54 Z'],
-  ['deltPost', 'M-24,48 C-30,51 -33,58 -32,66 C-28,67 -25,60 -24,53 Z'],
-  ['trapsUpper', 'M0,32 L-7,32 C-14,35 -20,41 -25,47 L-16,52 C-11,44 -5,38 0,36 Z'],
-  ['trapsMid', 'M0,38 L-15,53 L-13,66 L0,60 Z'],
-  ['trapsLow', 'M0,61 L-12,67 L-6,86 L0,84 Z'],
-  ['teres', 'M-22,57 C-18,59 -15,62 -13,66 L-18,70 C-20,65 -22,61 -22,57 Z'],
-  ['lats', 'M-24,63 C-25,75 -21,89 -12,100 L-3,100 L-5,85 L-14,71 Z'],
-  ['erectors', 'M-7,87 L-1,87 L-1,116 L-6,116 Z'],
-  ['tricepsLong', 'M-29,72 C-31,80 -31,90 -30,96 L-26,94 C-26,86 -26,78 -26,73 Z'],
-  ['tricepsLat', 'M-34,74 C-37,80 -37,90 -34,96 L-31,95 C-31,87 -31,80 -32,74 Z'],
-  ['forearmExt', 'M-35,97 C-40,105 -41,117 -38,126 L-31,124 C-30,113 -30,104 -32,98 Z'],
-  ['neutral', 'M-36,128 C-40,131 -40,138 -36,140 C-32,138 -32,131 -36,128 Z'], // main
-  ['gluteMed', 'M-19,113 C-21,117 -21,123 -19,127 L-14,124 C-15,120 -16,116 -16,112 Z'],
-  ['gluteMax', 'M-16,119 C-19,126 -18,135 -13,140 C-6,141 -2,134 -2,126 L-2,119 Z'],
-  ['bicepsFemoris', 'M-17,142 C-19,155 -18,168 -15,177 L-11,177 C-11,163 -12,150 -13,143 Z'],
-  ['hamsInner', 'M-10,143 C-11,156 -10,168 -9,177 L-5,177 C-4,164 -5,151 -6,143 Z'],
-  ['neutral', 'M-18,178 C-14,182 -7,182 -4,178 L-4,184 C-8,187 -14,187 -18,184 Z'], // genou
-  ['gastroc', 'M-16,185 C-19,193 -18,202 -15,206 L-11,206 C-11,198 -12,191 -13,185 Z'],
-  ['gastroc', 'M-10,185 C-10,194 -9,202 -8,206 L-5,206 C-4,198 -5,191 -6,185 Z'],
-  ['soleus', 'M-15,206 C-16,210 -15,212 -13,213 L-6,213 C-5,210 -5,207 -6,206 Z'],
-  ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
+  ['neck', 'M-7,38 C-10,44 -10,49 -10,54 L-3,54 C-3,48 -3,43 -3,38 Z'],
+  ['deltLat', 'M-34,62 C-46,67 -49,83 -46,97 C-42,98 -38,86 -37,73 Z'],
+  ['deltPost', 'M-30,64 C-38,69 -42,80 -40,92 C-35,93 -31,82 -30,71 Z'],
+  ['trapsUpper', 'M0,41 L-9,42 C-19,47 -27,55 -33,63 L-21,70 C-15,59 -6,50 0,48 Z'],
+  ['trapsMid', 'M0,53 L-20,72 L-18,92 L0,83 Z'],
+  ['trapsLow', 'M0,85 L-17,94 L-8,120 L0,117 Z'],
+  ['teres', 'M-29,78 C-24,81 -20,86 -18,92 L-25,97 C-28,89 -29,83 -29,78 Z'],
+  ['lats', 'M-32,87 C-33,105 -28,124 -16,139 L-4,139 L-6,118 L-19,97 Z'],
+  ['erectors', 'M-9,121 L-1,121 L-1,158 L-8,158 Z'],
+  ['tricepsLong', 'M-38,100 C-40,111 -40,126 -39,135 L-33,132 C-33,121 -33,109 -33,101 Z'],
+  ['tricepsLat', 'M-44,102 C-48,111 -48,126 -44,135 L-40,133 C-40,122 -40,112 -41,102 Z'],
+  ['forearmExt', 'M-45,136 C-52,148 -53,163 -48,173 L-40,171 C-39,157 -39,146 -41,137 Z'],
+  ['neutral', 'M-44,173 C-50,178 -50,188 -44,192 C-38,188 -38,178 -44,173 Z'],
+  ['gluteMed', 'M-25,148 C-28,158 -28,167 -25,173 L-18,169 C-19,163 -20,157 -20,151 Z'],
+  ['gluteMax', 'M-21,157 C-25,171 -24,185 -17,192 C-7,193 -2,183 -2,172 L-2,161 Z'],
+  ['bicepsFemoris', 'M-23,194 C-26,212 -25,230 -21,243 L-15,243 C-15,224 -16,206 -18,195 Z'],
+  ['hamsInner', 'M-14,195 C-15,213 -14,230 -13,243 L-6,243 C-5,225 -6,207 -8,195 Z'],
+  ['neutral', 'M-24,245 C-18,251 -8,251 -3,245 L-3,254 C-9,259 -18,259 -24,254 Z'],
+  ['gastroc', 'M-22,256 C-25,268 -24,280 -20,286 L-15,286 C-15,274 -16,264 -17,256 Z'],
+  ['gastroc', 'M-14,256 C-14,270 -13,281 -12,286 L-6,286 C-5,274 -6,264 -7,256 Z'],
+  ['soleus', 'M-21,287 C-22,292 -21,295 -18,296 L-8,296 C-6,292 -6,288 -7,287 Z'],
+  ['neutral', 'M-23,298 L-3,298 L-3,308 L-26,308 Z'],
 ]
 
 export function MuscleBodyDiagram({
@@ -278,19 +279,19 @@ export function MuscleBodyDiagram({
   return (
     <div className="space-y-2">
       <svg
-        viewBox="0 0 300 240"
-        className="mx-auto w-full max-w-sm"
+        viewBox="0 0 400 330"
+        className="mx-auto w-full max-w-md"
         stroke="#ffffff"
-        strokeWidth="0.9"
+        strokeWidth="1"
         strokeLinejoin="round"
         aria-label="Récupération musculaire"
       >
-        <Figure cx={75} half={FRONT_HALF} fill={fill} back={false} onPick={setSelected} />
-        <Figure cx={225} half={BACK_HALF} fill={fill} back onPick={setSelected} />
-        <text x="75" y="236" textAnchor="middle" fill="#a8a29e" fontSize="9" stroke="none">
+        <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} onPick={setSelected} />
+        <Figure cx={295} half={BACK_HALF} fill={fill} back onPick={setSelected} />
+        <text x="105" y="324" textAnchor="middle" fill="#a8a29e" fontSize="11" stroke="none">
           Face
         </text>
-        <text x="225" y="236" textAnchor="middle" fill="#a8a29e" fontSize="9" stroke="none">
+        <text x="295" y="324" textAnchor="middle" fill="#a8a29e" fontSize="11" stroke="none">
           Dos
         </text>
       </svg>
@@ -510,22 +511,25 @@ function Figure({
       <path d={BASE_CENTER} fill={NEUTRAL} stroke="none" />
       {base}
       <g transform="scale(-1,1)">{base}</g>
-      <ellipse cx="0" cy="16" rx="10" ry="12" fill={NEUTRAL} />
-      <path d="M-6,24 L6,24 L7,38 L-7,38 Z" fill={NEUTRAL} stroke="none" />
-      {/* Grand droit : uniquement de face */}
+      <ellipse cx="0" cy="22" rx="12" ry="15" fill={NEUTRAL} />
+      <path d="M-8,34 L8,34 L9,56 L-9,56 Z" fill={NEUTRAL} stroke="none" />
+      {/* Grand droit : uniquement de face, avec ses intersections tendineuses */}
       {back ? null : (
         <>
           <path
-            d="M-9,74 L9,74 L8,107 C4,111 -4,111 -8,107 Z"
+            d="M-12,100 L12,100 L11,146 C5,152 -5,152 -11,146 Z"
             fill={fill('rectus')}
             onClick={() => onPick('rectus')}
             style={{ cursor: 'pointer' }}
           />
-          <path d="M-8,85 L8,85 M-8,96 L8,96 M0,75 L0,106" strokeWidth="0.7" fill="none" />
+          <path d="M-11,114 L11,114 M-11,130 L11,130 M0,101 L0,145" strokeWidth="0.8" fill="none" />
         </>
       )}
       {/* Bassin */}
-      <path d={back ? 'M-10,108 L10,108 L11,120 L-11,120 Z' : 'M-10,108 L10,108 L12,125 L-12,125 Z'} fill={NEUTRAL} />
+      <path
+        d={back ? 'M-14,152 L14,152 L15,172 L-15,172 Z' : 'M-14,152 L14,152 L16,176 L-16,176 Z'}
+        fill={NEUTRAL}
+      />
       {side}
       <g transform="scale(-1,1)">{side}</g>
     </g>
