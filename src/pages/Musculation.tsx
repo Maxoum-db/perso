@@ -13,6 +13,13 @@ import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
 import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
 import { FocusPicker } from '../components/FocusPicker'
 import { FOCUS_PAR_DEFAUT, loadFocus, saveFocus, type FocusId } from '../lib/focus'
+import {
+  applyCourbatures,
+  dateDeLaSeance,
+  loadCourbatures,
+  saveCourbatures,
+  type Courbatures,
+} from '../lib/soreness'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -179,19 +186,22 @@ export function Musculation() {
   const [bodyWeight, setBodyWeight] = useState<number | null>(null)
   // Point faible à rattraper : pèse sur le générateur et sur l'alerte des négligés.
   const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
+  // Courbatures déclarées à la main, en plus du calcul automatique.
+  const [courbatures, setCourbatures] = useState<Courbatures>({})
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f] = await Promise.all([
+      const [t, s, c, g, w, f, cb] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
         loadMuscleGroups(user.id),
         listWeighins(user.id).catch(() => []),
         loadFocus(user.id).catch(() => FOCUS_PAR_DEFAUT),
+        loadCourbatures(user.id).catch(() => ({})),
       ])
       setTemplates(t)
       setSessions(s)
@@ -199,6 +209,7 @@ export function Musculation() {
       setGroups(g)
       setBodyWeight(w[0]?.weight_kg ?? null)
       setFocus(f)
+      setCourbatures(cb)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -235,7 +246,7 @@ export function Musculation() {
       ) : tab === 'progression' ? (
         <div className="space-y-3">
           <ProgressTab progress={exerciseProgress(sessions)} />
-          <NeglectedMuscles loads={groupLoads(sessions)} focus={focus} />
+          <NeglectedMuscles loads={applyCourbatures(groupLoads(sessions), courbatures)} focus={focus} />
         </div>
       ) : tab === 'journal' ? (
         <Journal
@@ -246,6 +257,11 @@ export function Musculation() {
           bodyWeight={bodyWeight}
           groups={groups}
           focus={focus}
+          courbatures={courbatures}
+          onCourbatures={(next) => {
+            setCourbatures(next)
+            if (user) saveCourbatures(user.id, next).catch(() => {})
+          }}
           onFocus={(id) => {
             setFocus(id)
             if (user) saveFocus(user.id, id).catch(() => {})
@@ -287,6 +303,8 @@ function Journal({
   bodyWeight,
   focus,
   onFocus,
+  courbatures,
+  onCourbatures,
   onChange,
 }: {
   userId: string
@@ -297,6 +315,8 @@ function Journal({
   bodyWeight: number | null
   focus: FocusId
   onFocus: (id: FocusId) => void
+  courbatures: Courbatures
+  onCourbatures: (c: Courbatures) => void
   onChange: () => void
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
@@ -307,6 +327,19 @@ function Journal({
   const [suggest, setSuggest] = useState<{ session: SuggestedSession | null; exclude: Set<string> } | null>(null)
   // Séance en direct : reprise automatique si une séance est en cours (localStorage).
   const [live, setLive] = useState<LiveState | null>(() => loadLive())
+
+  // Une seule source de vérité : la récup automatique corrigée des courbatures.
+  const loads = applyCourbatures(groupLoads(sessions), courbatures)
+
+  /** Déclare (ou retire) des courbatures sur un groupe. */
+  function declarerCourbatures(group: string, extra: number) {
+    const base = groupLoads(sessions)[group]
+    if (!base) return
+    const next = { ...courbatures }
+    if (extra <= 0) delete next[group]
+    else next[group] = { extra, lastWorked: dateDeLaSeance(base) }
+    onCourbatures(next)
+  }
 
   const month = today().slice(0, 7)
   const monthSessions = sessions.filter((s) => s.date.startsWith(month))
@@ -374,14 +407,14 @@ function Journal({
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus }), exclude })
+    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus, loads }), exclude })
   }
 
   function regenerer() {
     if (!suggest) return
     const next = new Set(suggest.exclude)
     for (const e of suggest.session?.exercises ?? []) next.add(e.exo.id)
-    const session = buildSession(catalog, sessions, { exclude: next, bodyWeight, focus })
+    const session = buildSession(catalog, sessions, { exclude: next, bodyWeight, focus, loads })
     // Plus rien de neuf à proposer : on repart du catalogue complet.
     if (!session) suggerer(new Set())
     else setSuggest({ session, exclude: next })
@@ -561,7 +594,7 @@ function Journal({
 
       <section className="card space-y-2 p-3">
         <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
-        <MuscleBodyDiagram loads={groupLoads(sessions)} />
+        <MuscleBodyDiagram loads={loads} onSoreness={declarerCourbatures} />
       </section>
 
       {sessions.length === 0 ? (

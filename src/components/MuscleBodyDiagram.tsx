@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { GroupLoad } from '../lib/muscu'
+import { PALIERS } from '../lib/soreness'
 
 // Mannequin de récupération, façon planche anatomique : chaque muscle est un
 // tracé distinct (une trentaine), coloré selon l'ancienneté de son dernier
@@ -249,8 +250,16 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['neutral', 'M-17,214 L-3,214 L-3,222 L-19,222 Z'], // pied
 ]
 
-export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> }) {
+export function MuscleBodyDiagram({
+  loads,
+  onSoreness,
+}: {
+  loads: Record<string, GroupLoad>
+  /** Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler). */
+  onSoreness?: (group: string, extra: number) => void
+}) {
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
+  const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
 
   // Chaque muscle prend la sollicitation la plus fraîche parmi les libellés qui
   // le couvrent ; on garde le libellé d'origine pour la fiche au clic.
@@ -297,21 +306,20 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
           {tracked.map(([group, load]) => {
             const color = recoveryColor(load.effectiveDays)
             return (
-              <span
+              <button
                 key={group}
+                onClick={() => setGroupOuvert(group)}
                 className="chip flex items-center gap-1 text-[10px]"
                 style={{ background: color + '22', color }}
-                title={
-                  load.intensity >= 1
-                    ? 'Sollicité comme moteur principal'
-                    : `Sollicité en secondaire (${Math.round(load.intensity * 100)} %) : récupère plus vite`
-                }
+                title="Toucher pour déclarer des courbatures"
               >
                 <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
                 {group}
                 {load.intensity < 1 ? ' ◐' : ''} ·{' '}
                 {load.days === 0 ? "aujourd'hui" : load.days === 1 ? 'hier' : `il y a ${load.days} j`}
-              </span>
+                {load.soreExtra ? ` · 😣 +${load.soreExtra} j` : ''}
+                <span className="ml-0.5 font-bold opacity-60">+</span>
+              </button>
             )
           })}
         </div>
@@ -324,6 +332,87 @@ export function MuscleBodyDiagram({ loads }: { loads: Record<string, GroupLoad> 
       {selected ? (
         <MuscleSheet region={selected} info={byRegion[selected]} onClose={() => setSelected(null)} />
       ) : null}
+
+      {groupOuvert && loads[groupOuvert] ? (
+        <SorenessSheet
+          group={groupOuvert}
+          load={loads[groupOuvert]}
+          onSoreness={onSoreness}
+          onClose={() => setGroupOuvert(null)}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/** Menu ouvert au clic sur une pastille de groupe : déclarer des courbatures. */
+function SorenessSheet({
+  group,
+  load,
+  onSoreness,
+  onClose,
+}: {
+  group: string
+  load: GroupLoad
+  onSoreness?: (group: string, extra: number) => void
+  onClose: () => void
+}) {
+  const actuel = load.soreExtra ?? 0
+  const choisir = (extra: number) => {
+    onSoreness?.(group, extra === actuel ? 0 : extra)
+    onClose()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div className="card w-full max-w-sm rounded-b-none p-5 sm:rounded-xl2" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h2 className="text-base font-extrabold text-ink">{group}</h2>
+          <button onClick={onClose} className="shrink-0 text-muted hover:text-ink">
+            ✕
+          </button>
+        </div>
+
+        <p className="text-xs text-muted">
+          Travaillé{' '}
+          <b className="text-ink">
+            {load.days === 0 ? "aujourd'hui" : load.days === 1 ? 'hier' : `il y a ${load.days} jours`}
+          </b>
+          {load.intensity < 1 ? ` en secondaire (${Math.round(load.intensity * 100)} %)` : ' en moteur principal'}.
+        </p>
+
+        <div className="mt-3 border-t border-line/60 pt-3">
+          <div className="text-sm font-bold text-ink">😣 Courbatures plus fortes que prévu ?</div>
+          <p className="mb-2 text-[11px] text-muted">
+            Ajoute du temps de récupération : le mannequin le garde en rouge plus longtemps, et le générateur de
+            séance évite ce groupe d'autant.
+          </p>
+          <div className="flex gap-1.5">
+            {PALIERS.map((n) => (
+              <button
+                key={n}
+                onClick={() => choisir(n)}
+                className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold transition ${
+                  actuel === n ? 'bg-clay text-white' : 'bg-white/5 text-muted hover:text-ink'
+                }`}
+              >
+                +{n} j
+              </button>
+            ))}
+          </div>
+          {actuel > 0 ? (
+            <button
+              onClick={() => choisir(0)}
+              className="mt-2 w-full rounded-lg bg-white/5 px-2 py-1.5 text-xs font-semibold text-muted hover:text-ink"
+            >
+              Retirer les {actuel} j déclarés
+            </button>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }

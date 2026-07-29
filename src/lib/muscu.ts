@@ -133,6 +133,8 @@ export interface GroupLoad {
    * séance, un muscle reste au minimum orange — jamais vert d'emblée.
    */
   effectiveDays: number
+  /** Jours de récupération ajoutés à la main (courbatures déclarées). */
+  soreExtra?: number
 }
 
 export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {

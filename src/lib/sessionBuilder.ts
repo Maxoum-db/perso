@@ -119,6 +119,11 @@ export interface BuildOptions {
   bodyWeight?: number | null
   /** Point faible à rattraper : ses muscles pèsent plus et ont une place réservée. */
   focus?: FocusId
+  /**
+   * Récupération déjà calculée (courbatures déclarées comprises). Sans elle,
+   * elle est recalculée depuis les séances — mais sans les courbatures.
+   */
+  loads?: Record<string, GroupLoad>
 }
 
 /**
@@ -133,7 +138,7 @@ export function buildSession(
 ): SuggestedSession | null {
   const count = options.count ?? 6
   const exclude = options.exclude ?? new Set<string>()
-  const loads: Record<string, GroupLoad> = groupLoads(sessions)
+  const loads: Record<string, GroupLoad> = options.loads ?? groupLoads(sessions)
   const repos = reposParMuscle(loads)
   const focusRegions = new Set(FOCUS[options.focus ?? 'aucun'].regions)
   const reposDe = (r: MuscleRegion) => repos[r] ?? JAMAIS
