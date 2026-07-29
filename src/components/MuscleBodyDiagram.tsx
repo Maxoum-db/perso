@@ -87,12 +87,52 @@ const ORANGE = '#F59E0B'
 const GREEN = '#10B981'
 const NEUTRAL = '#C9C4BD'
 
-/** Seuils : rouge jusqu'à 2 j, orange à 3-4 j, vert à partir de 5 j. */
-export function recoveryColor(effectiveDays: number | undefined): string {
-  if (effectiveDays === undefined) return GREEN
-  if (effectiveDays <= 2) return RED
-  if (effectiveDays <= 4) return ORANGE
-  return GREEN
+/**
+ * Mélange une couleur avec le gris de la silhouette. Sert à nuancer selon
+ * l'intensité : un muscle moteur ressort en couleur franche, un stabilisateur
+ * reste proche du gris du corps.
+ */
+function melanger(hex: string, t: number): string {
+  const neutre = [0xc9, 0xc4, 0xbd]
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  return (
+    '#' +
+    c
+      .map((v, i) => Math.round(neutre[i] + (v - neutre[i]) * t).toString(16).padStart(2, '0'))
+      .join('')
+  )
+}
+
+/** Trois degrés de sollicitation, pour la légende et les pastilles. */
+export type Sollicitation = 'principal' | 'secondaire' | 'leger'
+
+export function sollicitation(intensity: number): Sollicitation {
+  if (intensity >= 0.8) return 'principal'
+  if (intensity >= 0.5) return 'secondaire'
+  return 'leger'
+}
+
+export const SOLLICITATION_MARQUEUR: Record<Sollicitation, string> = {
+  principal: '●',
+  secondaire: '◐',
+  leger: '○',
+}
+
+/** Saturation appliquée à la couleur : pleine en moteur, atténuée en appoint. */
+function saturation(intensity: number): number {
+  return Math.max(0.45, Math.min(1, 0.45 + 0.55 * intensity))
+}
+
+/**
+ * Seuils : rouge jusqu'à 2 j, orange à 3-4 j, vert à partir de 5 j.
+ * L'intensité module la franchise de la couleur — même état de récupération,
+ * mais on voit d'un coup d'œil si le muscle a mené l'exercice ou seulement
+ * accompagné. Un muscle jamais travaillé reste d'un vert très pâle.
+ */
+export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
+  if (effectiveDays === undefined) return melanger(GREEN, 0.35)
+  const base = effectiveDays <= 2 ? RED : effectiveDays <= 4 ? ORANGE : GREEN
+  return melanger(base, saturation(intensity))
 }
 
 function norm(s: string): string {
@@ -273,7 +313,7 @@ export function MuscleBodyDiagram({
   }
 
   const fill = (r: MuscleRegion | 'neutral') =>
-    r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.load.effectiveDays)
+    r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.load.effectiveDays, byRegion[r]?.load.intensity)
   const tracked = Object.entries(loads).sort((a, b) => a[1].effectiveDays - b[1].effectiveDays)
 
   return (
@@ -302,10 +342,24 @@ export function MuscleBodyDiagram({
         <Legend color={GREEN} label="≥ 5 j — prêt" />
       </div>
 
+      {/* La teinte dit l'état, sa franchise dit le rôle du muscle dans l'exercice. */}
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
+        <span>Intensité :</span>
+        {(['principal', 'secondaire', 'leger'] as Sollicitation[]).map((s) => (
+          <span key={s} className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded"
+              style={{ background: recoveryColor(0, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
+            />
+            {SOLLICITATION_MARQUEUR[s]} {s === 'leger' ? 'appoint' : s}
+          </span>
+        ))}
+      </div>
+
       {tracked.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {tracked.map(([group, load]) => {
-            const color = recoveryColor(load.effectiveDays)
+            const color = recoveryColor(load.effectiveDays, load.intensity)
             return (
               <button
                 key={group}
@@ -315,8 +369,7 @@ export function MuscleBodyDiagram({
                 title="Toucher pour déclarer des courbatures"
               >
                 <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-                {group}
-                {load.intensity < 1 ? ' ◐' : ''} ·{' '}
+                {group} {SOLLICITATION_MARQUEUR[sollicitation(load.intensity)]} ·{' '}
                 {load.days === 0 ? "aujourd'hui" : load.days === 1 ? 'hier' : `il y a ${load.days} j`}
                 {load.soreExtra ? ` · 😣 +${load.soreExtra} j` : ''}
                 <span className="ml-0.5 font-bold opacity-60">+</span>
@@ -428,7 +481,7 @@ function MuscleSheet({
   info?: { label: string; load: GroupLoad }
   onClose: () => void
 }) {
-  const color = recoveryColor(info?.load.effectiveDays)
+  const color = recoveryColor(info?.load.effectiveDays, info?.load.intensity)
   const etat = !info
     ? 'Prêt — jamais travaillé sur les séances chargées'
     : info.load.effectiveDays <= 2
