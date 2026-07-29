@@ -4,6 +4,8 @@ import { useSpeech } from '../lib/useSpeech'
 import { SubTabs } from '../components/SubTabs'
 import { Humeur } from './Humeur'
 import { Drive } from './Drive'
+import { Listes } from './Listes'
+import { Tasks } from './Tasks'
 import {
   NOTE_CATEGORIES,
   backupNotesToDrive,
@@ -17,21 +19,37 @@ import {
 
 type EditorState = { note: Note | null } | null
 
-// Hub Notes : notes écrites + journal d'humeur (Psy) + synthèses Drive.
-export function Notes() {
-  const [tab, setTab] = useState<'notes' | 'humeur' | 'syntheses'>('notes')
+export type NotesTab = 'listes' | 'notes' | 'taches' | 'humeur' | 'syntheses'
+
+// Hub Notes : listes à cocher, notes écrites, tâches Google, journal d'humeur
+// et synthèses Drive. Les anciennes routes /listes et /taches ouvrent
+// directement l'onglet correspondant.
+export function Notes({ initial = 'listes' }: { initial?: NotesTab }) {
+  const [tab, setTab] = useState<NotesTab>(initial)
   return (
     <div className="space-y-4">
       <SubTabs
         tabs={[
+          { id: 'listes', label: '🛒 Listes' },
           { id: 'notes', label: '📝 Notes' },
+          { id: 'taches', label: '✅ Tâches' },
           { id: 'humeur', label: '😊 Humeur' },
           { id: 'syntheses', label: '📁 Synthèses' },
         ]}
         active={tab}
-        onChange={(id) => setTab(id as typeof tab)}
+        onChange={(id) => setTab(id as NotesTab)}
       />
-      {tab === 'notes' ? <NotesBoard /> : tab === 'humeur' ? <Humeur /> : <Drive />}
+      {tab === 'listes' ? (
+        <Listes />
+      ) : tab === 'notes' ? (
+        <NotesBoard />
+      ) : tab === 'taches' ? (
+        <Tasks />
+      ) : tab === 'humeur' ? (
+        <Humeur />
+      ) : (
+        <Drive />
+      )}
     </div>
   )
 }

@@ -12,17 +12,14 @@ const primaryTabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
-  { to: '/listes', label: 'Listes', icon: IconList },
+  { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
 ]
 // Le menu « Plus » liste toutes les sections (lanceur complet).
 const moreTabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
-  { to: '/listes', label: 'Listes', icon: IconList },
-  { to: '/taches', label: 'Tâches', icon: IconCheck },
   { to: '/partage', label: 'À deux', icon: IconHeart },
-  { to: '/mails', label: 'Mails', icon: IconMail },
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
@@ -170,29 +167,6 @@ function IconGear({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
-    </svg>
-  )
-}
-function IconMail({ active }: IconProps) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
-    </svg>
-  )
-}
-function IconCheck({ active }: IconProps) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12.5 9 17.5 20 6.5" />
-    </svg>
-  )
-}
-function IconList({ active }: IconProps) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 6h13M8 12h13M8 18h13" />
-      <path d="M3 6h.01M3 12h.01M3 18h.01" />
     </svg>
   )
 }

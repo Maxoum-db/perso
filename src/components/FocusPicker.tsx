@@ -4,7 +4,6 @@ import { FOCUS, FOCUS_IDS, type FocusId } from '../lib/focus'
 // l'alerte des muscles négligés plus impatiente sur ces muscles-là.
 
 export function FocusPicker({ value, onChange }: { value: FocusId; onChange: (id: FocusId) => void }) {
-  const actif = FOCUS[value]
   return (
     <section className="card space-y-2 p-3">
       <h2 className="text-sm font-bold text-ink">🎯 Point faible à rattraper</h2>
@@ -22,7 +21,6 @@ export function FocusPicker({ value, onChange }: { value: FocusId; onChange: (id
           </button>
         ))}
       </div>
-      <p className="text-[11px] leading-relaxed text-muted">{actif.conseil}</p>
     </section>
   )
 }

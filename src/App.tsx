@@ -9,9 +9,7 @@ import { Behourd } from './pages/Behourd'
 import { Musculation } from './pages/Musculation'
 import { Brassage } from './pages/Brassage'
 import { Notes } from './pages/Notes'
-import { Listes } from './pages/Listes'
 import { Partage } from './pages/Partage'
-import { Tasks } from './pages/Tasks'
 import { Mails } from './pages/Mails'
 
 export default function App() {
@@ -35,14 +33,16 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/notes" element={<Notes />} />
-        <Route path="/listes" element={<Listes />} />
+        <Route path="/listes" element={<Notes initial="listes" />} />
         <Route path="/partage" element={<Partage />} />
-        <Route path="/taches" element={<Tasks />} />
+        <Route path="/taches" element={<Notes initial="taches" />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/behourd" element={<Behourd />} />
         <Route path="/musculation" element={<Musculation />} />
         <Route path="/brassage" element={<Brassage />} />
         <Route path="/reglages" element={<Settings />} />
+        {/* Mails en veille : la route reste accessible en direct, mais la
+            section a quitté la navigation. */}
         {/* Anciennes routes désormais regroupées dans des hubs */}
         <Route path="/journee" element={<Navigate to="/agenda" replace />} />
         <Route path="/humeur" element={<Navigate to="/notes" replace />} />

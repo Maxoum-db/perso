@@ -32,6 +32,10 @@ export interface ArmorPiece {
   weight_actual_kg?: number
   notes?: string
   notes_user?: string
+  /** Possédée mais hors service : à réparer avant de recombattre. */
+  needs_repair?: boolean
+  /** Ce qu'il y a à réparer sur cette pièce. */
+  repair_notes?: string
   pre_order?: boolean
   expected_delivery?: string
   manufacturer?: string
