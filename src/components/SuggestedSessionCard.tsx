@@ -13,6 +13,14 @@ function repos(jours: number): string {
   return j <= 1 ? 'prêt' : `reposé ${j} j`
 }
 
+/** En mode récupération, on annonce l'état de courbature plutôt que le repos. */
+function courbature(jours: number): string {
+  if (jours >= 99) return 'frais'
+  if (jours <= 2) return 'courbaturé'
+  if (jours <= 4) return 'sensible'
+  return 'frais'
+}
+
 export function SuggestedSessionCard({
   suggestion,
   forme,
@@ -49,20 +57,23 @@ export function SuggestedSessionCard({
   return (
     <div className="card space-y-2 p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-bold text-ink">🧠 {suggestion.name}</span>
+        <span className="min-w-0 truncate text-sm font-bold text-ink">
+          {suggestion.recuperation ? '🧊' : '🧠'} {suggestion.name}
+        </span>
         <button onClick={onClose} className="shrink-0 text-xs text-copper">
           Fermer
         </button>
       </div>
 
       <p className="text-[11px] text-muted">
-        Composée à partir de ta récupération : ces muscles sont reposés, et les plus utiles au béhourd passent
-        devant.
+        {suggestion.recuperation
+          ? 'Étirements et mobilité ciblés sur ce qui est encore courbaturé — la logique est inversée : on va chercher le chaud.'
+          : 'Composée à partir de ta récupération : ces muscles sont reposés, et les plus utiles au béhourd passent devant.'}
       </p>
 
       {forme ? <FormeCard forme={forme} compact /> : null}
 
-      {suggestion.degrade ? (
+      {suggestion.degrade && !suggestion.recuperation ? (
         <p className="rounded-xl2 border border-clay/30 bg-clay/5 p-2 text-[11px] text-clay">
           ⚠️ Presque tout est encore en récupération. Cette séance reste jouable, mais en léger — ou repose-toi.
         </p>
@@ -89,8 +100,12 @@ export function SuggestedSessionCard({
                 </div>
               ) : null}
             </div>
-            <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-[10px] font-semibold text-sage-dark">
-              {repos(s.reposMin)}
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                suggestion.recuperation ? 'bg-clay/15 text-clay' : 'bg-sage/15 text-sage-dark'
+              }`}
+            >
+              {suggestion.recuperation ? courbature(s.reposMin) : repos(s.reposMin)}
             </span>
           </li>
         ))}
@@ -105,7 +120,7 @@ export function SuggestedSessionCard({
 
       <div className="flex flex-wrap gap-2 pt-1">
         <button onClick={onLive} className="btn-primary flex-1 py-2 text-sm">
-          ▶️ Démarrer
+          ▶️ {suggestion.recuperation ? 'Lancer la récup' : 'Démarrer'}
         </button>
         <button onClick={onManual} className="btn-ghost px-3 py-2 text-sm">
           ✍️ Éditer
