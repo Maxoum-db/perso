@@ -243,11 +243,8 @@ export function Home() {
       <BrassageCard brews={brews} />
 
       <div className="grid grid-cols-2 gap-3">
-        <QuickCard to="/notes" title="Notes" subtitle="Notes · humeur · synthèses" emoji="📝" />
-        <QuickCard to="/listes" title="Listes" subtitle="Courses · à cocher ✅" emoji="🛒" />
-        <QuickCard to="/taches" title="Tâches" subtitle="To-do Google ✅" emoji="✅" />
+        <QuickCard to="/notes" title="Notes" subtitle="Listes · notes · tâches 📝" emoji="📝" />
         <QuickCard to="/partage" title="À deux" subtitle="Mots · agenda 💕" emoji="💕" />
-        <QuickCard to="/mails" title="Mails" subtitle="Gmail" emoji="📧" />
         <QuickCard to="/musculation" title="Muscu" subtitle="Journal · séances · poids 💪" emoji="💪" />
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement 🛡️" emoji="🛡️" />
         <QuickCard to="/brassage" title="Brassage" subtitle="Brassins · recettes 🍺" emoji="🍺" />

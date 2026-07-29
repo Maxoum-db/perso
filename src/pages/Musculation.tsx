@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
-import { InfoBox } from '../components/training-ui'
+import { Section } from '../components/training-ui'
 import { Poids } from './Carnet'
 import { listWeighins } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
@@ -233,7 +233,10 @@ export function Musculation() {
       ) : templates === null || sessions === null ? (
         <div className="animate-pulse text-sm text-muted">Chargement…</div>
       ) : tab === 'progression' ? (
-        <ProgressTab progress={exerciseProgress(sessions)} />
+        <div className="space-y-3">
+          <ProgressTab progress={exerciseProgress(sessions)} />
+          <NeglectedMuscles loads={groupLoads(sessions)} focus={focus} />
+        </div>
       ) : tab === 'journal' ? (
         <Journal
           userId={user?.id ?? ''}
@@ -558,13 +561,8 @@ function Journal({
 
       <section className="card space-y-2 p-3">
         <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
-        <p className="text-[11px] text-muted">
-          En rouge ce que tu viens de travailler, en vert ce qui est reposé — pour varier les groupes.
-        </p>
         <MuscleBodyDiagram loads={groupLoads(sessions)} />
       </section>
-
-      <NeglectedMuscles loads={groupLoads(sessions)} focus={focus} />
 
       {sessions.length === 0 ? (
         <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>
@@ -953,30 +951,6 @@ function TypesTab({
 
       <GroupsManager userId={userId} groups={groups} onGroups={onGroups} />
 
-      <InfoBox title="💡 Conseils d'optimisation" tone="amber">
-        <ul className="ml-4 list-disc space-y-1 text-[11px] leading-relaxed text-ink">
-          <li>
-            <b>Double progression</b> : quand tu atteins le haut de la fourchette de reps sur toutes les séries
-            (ex. 4×10 sur « 8-10 »), ajoute +2,5 kg la séance suivante et repars du bas.
-          </li>
-          <li>
-            <b>Note la charge à chaque exercice</b> — la nouvelle séance reprend automatiquement tes dernières
-            charges : la progression se voit d'une séance à l'autre.
-          </li>
-          <li>
-            <b>Pauses</b> : 90-120 s pour la force (5-8 reps), 60 s pour l'hypertrophie (10-12), 30-45 s pour le
-            gainage.
-          </li>
-          <li>
-            <b>Deload</b> : toutes les 6-8 semaines, une semaine à -40 % de volume (mêmes exos, 2 séries) pour
-            récupérer et relancer la progression.
-          </li>
-          <li>
-            <b>Avec le béhourd du samedi</b> : garde Legs lourd à ≥ 48 h du sparring (mardi/mercredi idéal), et
-            note tes douleurs dans les notes de séance pour repérer ce qui coince.
-          </li>
-        </ul>
-      </InfoBox>
     </div>
   )
 }
@@ -1126,23 +1100,21 @@ function CatalogManager({
   }
 
   return (
-    <div className="card space-y-2 p-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink">📚 Catalogue d'exercices</h3>
+    <Section title="📚 Catalogue d'exercices" subtitle={`${catalog.length} exercices`} accent="#B87333">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] text-muted">
+          Sélectionnables dans l'éditeur de séance. La charge se saisit pendant la séance.
+        </p>
         <button
           onClick={() => setDraft({ name: '', muscle_group: '', sets: '3', reps: '10', weight: '', notes: '' })}
-          className="text-xs font-semibold text-copper"
+          className="shrink-0 text-xs font-semibold text-copper"
         >
           + Ajouter
         </button>
       </div>
-      <p className="text-[11px] text-muted">
-        Tes exercices avec leur format par défaut (séries × reps) — sélectionnables dans l'éditeur de séance. La
-        charge se saisit pendant la séance.
-      </p>
 
       <input
-        className="field"
+        className="field mb-2"
         type="search"
         placeholder="🔍 Filtrer par nom…"
         value={query}
@@ -1186,7 +1158,7 @@ function CatalogManager({
         </div>
       ) : null}
 
-      <ul className="space-y-1">
+      <ul className="mt-2 space-y-1">
         {shown.map((c) => (
           <li key={c.id} className="flex items-center gap-2 border-b border-line/40 pb-1 text-sm last:border-0">
             <div className="min-w-0 flex-1">
@@ -1222,7 +1194,7 @@ function CatalogManager({
           </li>
         ))}
       </ul>
-    </div>
+    </Section>
   )
 }
 
@@ -1245,9 +1217,8 @@ function GroupsManager({
   }
 
   return (
-    <div className="card space-y-2 p-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink">🎯 Groupes musculaires</h3>
+    <Section title="🎯 Groupes musculaires" subtitle={`${groups.length} groupes`} accent="#B87333">
+      <div className="mb-2 flex justify-end">
         <button onClick={() => save(MUSCLE_GROUPS_DEFAULT)} className="text-[11px] text-muted hover:text-copper">
           Réinitialiser
         </button>
@@ -1266,7 +1237,7 @@ function GroupsManager({
           </span>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div className="mt-2 flex gap-2">
         <input
           className="field"
           placeholder="Ajouter un groupe (ex: Avant-bras)"
@@ -1291,7 +1262,7 @@ function GroupsManager({
           +
         </button>
       </div>
-      <p className="text-[10px] text-muted">Ces groupes alimentent le sélecteur « Groupe visé » des exercices.</p>
-    </div>
+      <p className="mt-2 text-[10px] text-muted">Ces groupes alimentent le sélecteur « Groupe visé » des exercices.</p>
+    </Section>
   )
 }
