@@ -83,6 +83,12 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Oiseau haltères (buste penché)', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.5, Rhomboïdes:0.4', sets: 3, reps: '15' },
   { name: 'Écarté inversé à la machine', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.5, Rhomboïdes:0.4', sets: 3, reps: '15' },
   { name: 'Rotation externe d’épaule (poulie ou élastique)', groups: 'Deltoïde postérieur:0.6', sets: 2, reps: '15/bras' },
+  // Trapèze inférieur : le grand oublié. C'est lui qui fait glisser l'omoplate
+  // vers le bas quand le bras monte ; faible, l'épaule remonte et pince.
+  // ⚠️ Épaule AC : c'est le muscle le plus rentable à renforcer.
+  { name: 'Y couché au banc incliné', groups: 'Trapèze inférieur:1, Trapèze moyen:0.6, Deltoïde postérieur:0.5', sets: 3, reps: '12-15', notes: 'Buste sur un banc incliné, bras tendus en Y, pouces vers le plafond. Charge très légère : 2 à 5 kg suffisent.' },
+  { name: 'Haussements d’épaules bras au-dessus de la tête', groups: 'Trapèze inférieur:1, Trapèze supérieur:0.5, Deltoïde antérieur:0.4', sets: 3, reps: '12', notes: 'Bras tendus au-dessus de la tête, on pousse vers le plafond sans plier les coudes. Cible la partie basse du trapèze.' },
+  { name: 'Glissé au mur (wall slide)', groups: 'Trapèze inférieur:1, Trapèze moyen:0.6, Deltoïde postérieur:0.4', sets: 3, reps: '10', notes: 'Avant-bras au mur, on monte sans décoller. Excellent échauffement d’épaule avant toute poussée.' },
 
   // ── Bras ──────────────────────────────────────────────────────────────────
   { name: 'Curl haltères', groups: 'Biceps:1, Brachial:0.6, Avant-bras:0.4', sets: 3, reps: '10-12' },
@@ -212,6 +218,10 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Soulevé de terre trap bar', groups: 'Quadriceps:1, Grand fessier:1, Ischios:0.7, Trapèze supérieur:0.6, Érecteurs du rachis:0.6, Fléchisseurs avant-bras:0.5', sets: 4, reps: '6-8', notes: 'Barre hexagonale : dos plus vertical, excellent compromis pour les lombaires.' },
   { name: 'Fentes inversées', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.5', sets: 3, reps: '10/jambe', notes: '⚠️ Rotules : moins de cisaillement que la fente avant.' },
   { name: 'Mollets unilatéraux', groups: 'Gastrocnémiens:1, Soléaire:0.5', sets: 3, reps: '15/jambe' },
+  // Tibial antérieur : antagoniste du mollet. Négligé, il lâche en premier sur
+  // les longs déplacements et donne les périostites.
+  { name: 'Flexion dorsale de cheville (élastique)', groups: 'Tibial antérieur:1', sets: 3, reps: '15-20', notes: 'Assis jambe tendue, élastique sur l’avant du pied, on ramène les orteils vers soi.' },
+  { name: 'Marche sur les talons', groups: 'Tibial antérieur:1, Soléaire:0.3', sets: 3, reps: '30 m', notes: 'Orteils décollés du sol. Prévention des périostites, utile avant les longues sessions en armure.' },
   { name: 'Extensions de poignets', groups: 'Extenseurs avant-bras:1', sets: 3, reps: '15-20', notes: 'Compense le travail de préhension — prévention épicondylite.' },
   { name: 'Curl concentration', groups: 'Biceps:1, Brachial:0.5', sets: 3, reps: '12/bras' },
   { name: 'Crunch inversé', groups: 'Grand droit:1, Obliques:0.4', sets: 3, reps: '15', notes: 'Bas des abdos : enrouler le bassin, ne pas tirer sur la nuque.' },
