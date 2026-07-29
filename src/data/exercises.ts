@@ -63,12 +63,16 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Tirage buste penché à la barre', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.6, Biceps:0.5, Érecteurs du rachis:0.4', sets: 4, reps: '8' },
   { name: 'Tirage unilatéral à l’haltère', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.5, Obliques:0.3', sets: 3, reps: '10' },
   { name: 'Tirage buste appuyé', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.4', sets: 3, reps: '10' },
+  // Grand rond : le « petit grand dorsal » de l'aisselle. Bras tendus, les
+  // biceps sortent du mouvement et il devient le moteur.
+  { name: 'Pull-over à la poulie haute (bras tendus)', groups: 'Grand rond:1, Grand dorsal:0.9, Triceps longue portion:0.4, Grand droit:0.3', sets: 3, reps: '12' },
+  { name: 'Pull-over haltère au banc', groups: 'Grand rond:1, Grand dorsal:0.8, Grand pectoral:0.5, Triceps longue portion:0.4', sets: 3, reps: '12', notes: '⚠️ AC droite : garder les coudes fléchis, ne pas chercher l’amplitude maximale.' },
   { name: 'Tirage assis à la machine', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.4', sets: 3, reps: '12' },
   { name: 'Tirage horizontal poulie prise neutre', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.4', sets: 3, reps: '12' },
   { name: 'Soulevé de terre', groups: 'Ischios:1, Grand fessier:1, Érecteurs du rachis:0.8, Grand dorsal:0.6, Trapèze supérieur:0.5, Avant-bras:0.4', sets: 4, reps: '8' },
   { name: 'Soulevé de terre roumain (RDL)', groups: 'Ischios:1, Grand fessier:0.8, Érecteurs du rachis:0.6, Grand dorsal:0.4', sets: 3, reps: '10' },
   { name: 'Haussements d’épaules aux haltères', groups: 'Trapèze supérieur:1, Cou:0.4, Avant-bras:0.3', sets: 3, reps: '15' },
-  { name: 'Tirage visage à la poulie haute', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.6, Rhomboïdes:0.5', sets: 3, reps: '15' },
+  { name: 'Tirage visage à la poulie haute', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.6, Coiffe des rotateurs:0.6, Rhomboïdes:0.5', sets: 3, reps: '15' },
   { name: 'Extensions du buste (banc lombaire)', groups: 'Grand fessier:0.8, Ischios:0.7, Érecteurs du rachis:0.6', sets: 3, reps: '12' },
   { name: 'Suspension à la barre', groups: 'Fléchisseurs avant-bras:1, Grand dorsal:0.5, Deltoïde postérieur:0.3', sets: 3, reps: '30 s' },
 
@@ -82,7 +86,18 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Élévations frontales', groups: 'Deltoïde antérieur:1, Pectoral supérieur:0.3', sets: 3, reps: '12' },
   { name: 'Oiseau haltères (buste penché)', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.5, Rhomboïdes:0.4', sets: 3, reps: '15' },
   { name: 'Écarté inversé à la machine', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.5, Rhomboïdes:0.4', sets: 3, reps: '15' },
+  // Rhomboïdes en moteur : les tirages les emmènent en passant, mais aucun ne
+  // les isolait. La rétraction pure, sans flexion de coude, c'est eux seuls.
+  { name: 'Rétraction scapulaire à la poulie', groups: 'Rhomboïdes:1, Trapèze moyen:0.8, Trapèze inférieur:0.4', sets: 3, reps: '15', notes: 'Bras tendus : on ne tire QUE les omoplates l’une vers l’autre, 2 s de tenue.' },
+  { name: 'Rowing prise large coudes hauts', groups: 'Rhomboïdes:1, Trapèze moyen:0.9, Deltoïde postérieur:0.7, Grand dorsal:0.5', sets: 3, reps: '12' },
+  // Dentelé antérieur : il plaque l'omoplate contre les côtes. Faible, l'omoplate
+  // décolle et l'épaule perd sa base — critique avec une AC abîmée.
+  { name: 'Pompe scapulaire (protraction)', groups: 'Dentelé antérieur:1, Grand pectoral:0.3', sets: 3, reps: '15', notes: 'En planche, coudes verrouillés : on ne bouge que les omoplates.' },
+  { name: 'Poussée dentelé à la poulie (serratus punch)', groups: 'Dentelé antérieur:1, Deltoïde antérieur:0.4, Grand pectoral:0.3', sets: 3, reps: '15/bras' },
   { name: 'Rotation externe d’épaule (poulie ou élastique)', groups: 'Coiffe des rotateurs:1, Deltoïde postérieur:0.4', sets: 2, reps: '15/bras' },
+  // Bras à 90° d'abduction : la position d'armé, celle où l'épaule est la plus
+  // exposée sous le heaume. C'est là que la coiffe doit tenir.
+  { name: 'Rotation externe à 90° d’abduction (poulie)', groups: 'Coiffe des rotateurs:1, Deltoïde postérieur:0.5, Trapèze moyen:0.3', sets: 3, reps: '12/bras', notes: '⚠️ AC droite : charge légère, amplitude contrôlée, jamais à l’échec.' },
   // Trapèze inférieur : le grand oublié. C'est lui qui fait glisser l'omoplate
   // vers le bas quand le bras monte ; faible, l'épaule remonte et pince.
   // ⚠️ Épaule AC : c'est le muscle le plus rentable à renforcer.
@@ -221,6 +236,10 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // Tibial antérieur : antagoniste du mollet. Négligé, il lâche en premier sur
   // les longs déplacements et donne les périostites.
   { name: 'Flexion dorsale de cheville (élastique)', groups: 'Tibial antérieur:1, Fibulaires:0.5', sets: 3, reps: '20', notes: 'Assis jambe tendue, élastique sur l’avant du pied, on ramène les orteils vers soi.' },
+  // Fibulaires : ils tiennent la cheville contre l'entorse en varus. En armure,
+  // sur terrain défoncé, ce sont eux qui empêchent le pied de partir.
+  { name: 'Éversion de cheville à l’élastique', groups: 'Fibulaires:1, Soléaire:0.3', sets: 3, reps: '20/côté' },
+  { name: 'Équilibre unipodal sur coussin', groups: 'Fibulaires:1, Soléaire:0.6, Tibial antérieur:0.5, Moyen fessier:0.4', sets: 3, reps: '45 s/côté' },
   { name: 'Marche sur les talons', groups: 'Tibial antérieur:1, Soléaire:0.3', sets: 3, reps: '30 m', notes: 'Orteils décollés du sol. Prévention des périostites, utile avant les longues sessions en armure.' },
   { name: 'Extensions de poignets', groups: 'Extenseurs avant-bras:1', sets: 3, reps: '20', notes: 'Compense le travail de préhension — prévention épicondylite.' },
   { name: 'Curl concentration', groups: 'Biceps:1, Brachial:0.5', sets: 3, reps: '12/bras' },
@@ -294,6 +313,13 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Sangles de suspension — tirage', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Biceps:0.5, Grand droit:0.5, Deltoïde postérieur:0.4', sets: 3, reps: '12' },
   { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Triceps:0.6, Deltoïde antérieur:0.5, Grand droit:0.5', sets: 3, reps: '12' },
   { name: 'Marche latérale élastique (mini-band)', groups: 'Moyen fessier:1, Tenseur du fascia lata:0.7, Grand fessier:0.4', sets: 3, reps: '15/côté', notes: 'Échauffement de hanche : réveille le moyen fessier avant le travail lourd de jambes.' },
+  // Tenseur du fascia lata : abduction hanche TENDUE. En gainage latéral il
+  // passe devant le moyen fessier, qui préfère la hanche fléchie.
+  { name: 'Abduction en gainage latéral', groups: 'Tenseur du fascia lata:1, Moyen fessier:0.9, Obliques:0.6', sets: 3, reps: '15/côté' },
+  // Psoas-iliaque : moteur de la bascule antérieure du bassin. Le renforcer en
+  // amplitude complète vaut mieux que de le laisser court et tirer sur les lombaires.
+  { name: 'Flexion de hanche à l’élastique (debout)', groups: 'Psoas-iliaque:1, Droit fémoral:0.5, Grand droit:0.4', sets: 3, reps: '15/côté' },
+  { name: 'Montée de genou à la poulie basse', groups: 'Psoas-iliaque:1, Grand droit:0.6, Obliques:0.4', sets: 3, reps: '12/côté', notes: 'Cheville sanglée, monter au-dessus de l’horizontale : c’est là que le psoas prend seul.' },
 
   // ── ✊ Préhension (matériel perso) ────────────────────────────────────────
   // L'anneau de poigne se travaille n'importe où : c'est le muscle le plus
