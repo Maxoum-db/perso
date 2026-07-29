@@ -19,8 +19,12 @@ export interface LibraryExercise {
    * opposition à un exercice de salle. Elles comptent dans la récupération
    * musculaire, mais le générateur de séance ne les propose pas comme
    * « exercice » — on ne place pas 20 min de crawl au milieu d'un push.
+   *
+   * `recuperation` désigne au contraire un travail qui ACCÉLÈRE le retour :
+   * il retire un jour de récupération aux zones concernées au lieu d'en
+   * ajouter.
    */
-  kind?: 'activite'
+  kind?: 'activite' | 'recuperation'
 }
 
 export const EXERCISE_LIBRARY: LibraryExercise[] = [
@@ -299,7 +303,25 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Vacuum abdominal', groups: 'Grand droit:0.6', sets: 3, reps: '20 s', notes: 'Transverse profond : expirer à fond puis rentrer le ventre sous les côtes. À jeun, sans charge — c’est ce qui resserre la sangle.' },
   { name: 'Deadbug lesté', groups: 'Grand droit:1, Obliques:0.5', sets: 3, reps: '10/côté', notes: 'Un haltère léger tenu bras tendus : l’anti-extension devient beaucoup plus exigeante.' },
   { name: 'Portage frontal unilatéral (rack sur une épaule)', groups: 'Obliques:1, Grand droit:0.8, Érecteurs du rachis:0.6, Trapèze supérieur:0.5, Quadriceps:0.4', sets: 3, reps: '30 m/côté', notes: 'Charge asymétrique en hauteur : la ceinture encaisse tout. Très proche du port du bouclier.' },
+
+  // ── 🧘 Récupération active ────────────────────────────────────────────────
+  // Ces séances ne fatiguent pas : elles relancent la circulation et raccourcissent
+  // le délai de retour. Enregistrées, elles retirent un jour de récupération aux
+  // zones travaillées — c'est tout l'intérêt de les noter.
+  { name: 'Récupération — mobilité générale', groups: 'Haut du corps:1, Jambes:1', sets: 1, reps: '20 min', kind: 'recuperation', notes: 'Amplitudes complètes sans charge, articulation par articulation. Le lendemain d’une grosse séance.' },
+  { name: 'Récupération — mobilité haut du corps', groups: 'Épaules:1, Dos:1, Pectoraux:1, Trapèzes:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'Ouverture de la cage, rotations d’épaules, décompression cervicale. ⚠️ AC droite : rester dans l’indolore.' },
+  { name: 'Récupération — mobilité hanches et jambes', groups: 'Jambes:1, Fessiers:1, Adducteurs:1, Ischios:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'Fentes basses, ouverture de hanche, chaîne postérieure. Essentiel avec l’antéversion du bassin.' },
+  { name: 'Récupération — rouleau de massage', groups: 'Jambes:1, Dos:1, Fessiers:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'Lent, en s’arrêtant sur les points sensibles. Respiration ample.' },
+  { name: 'Récupération — nage souple', groups: 'Haut du corps:1, Dos:1, Épaules:1', sets: 1, reps: '20 min', kind: 'recuperation', notes: 'Sans forcer, en portage. L’eau décharge les articulations : idéal au lendemain du béhourd.' },
+  { name: 'Récupération — marche', groups: 'Jambes:1, Mollets:1, Fessiers:1', sets: 1, reps: '30 min', kind: 'recuperation', notes: 'Le moyen le plus simple de relancer la circulation sans coûter d’énergie.' },
+  { name: 'Récupération — étirements complets', groups: 'Haut du corps:1, Jambes:1, Lombaires:1', sets: 1, reps: '15 min', kind: 'recuperation', notes: 'À froid jamais : toujours après un échauffement ou en fin de journée active.' },
+  { name: 'Récupération — sauna ou bain chaud', groups: 'Haut du corps:1, Jambes:1', sets: 1, reps: '20 min', kind: 'recuperation', notes: 'Vasodilatation. À éviter juste après une séance de force : laisser 2 h.' },
 ]
+
+/** Exercices qui retirent de la fatigue au lieu d'en ajouter. */
+export const RECUPERATION_NAMES = new Set(
+  EXERCISE_LIBRARY.filter((e) => e.kind === 'recuperation').map((e) => e.name.trim().toLowerCase()),
+)
 
 /**
  * Anciens noms (parfois anglais) → nom français actuel. Sert à renommer les

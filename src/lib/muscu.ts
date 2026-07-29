@@ -2,7 +2,8 @@ import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { OUTDOOR_ACTIVITIES } from '../data/activities'
-import { EXERCISE_LIBRARY, EXERCISE_RENAMES } from '../data/exercises'
+import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
+import { regionsForGroup } from './muscles'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -52,6 +53,17 @@ export interface CatalogExercise {
   default_weight_kg: number | null
   notes: string
   position: number
+}
+
+/**
+ * Nom réservé à la ligne « ressenti » d'une séance sans exercices précis
+ * (béhourd, kickboxing). Elle porte les zones sollicitées et leur intensité,
+ * mais ne compte ni dans le tonnage ni dans le coût métabolique.
+ */
+export const RESSENTI_NAME = 'Ressenti de séance'
+
+export function estRessenti(name: string): boolean {
+  return name.trim().toLowerCase() === RESSENTI_NAME.toLowerCase()
 }
 
 // ── Tonnage : séries × reps × charge (exos au temps ou sans charge ignorés) ──
@@ -160,17 +172,47 @@ export interface GroupLoad {
   effectiveDays: number
   /** Jours de récupération ajoutés à la main (courbatures déclarées). */
   soreExtra?: number
+  /** Jours retirés par des séances de récupération active postérieures. */
+  recupBonus?: number
+}
+
+/** Une séance de récupération active ne fatigue pas : elle raccourcit le délai. */
+function estRecuperation(name: string): boolean {
+  return RECUPERATION_NAMES.has(name.trim().toLowerCase())
 }
 
 export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const jours = (date: string) => Math.round((today.getTime() - new Date(date + 'T00:00:00').getTime()) / 86400000)
+
+  // Récupération active : elle ne compte pas comme du travail, elle en efface.
+  // Indexée par MUSCLE et non par libellé de groupe — sans ça une marche
+  // déclarée sur « Jambes » ne toucherait jamais un squat déclaré sur
+  // « Quadriceps », alors que ce sont les mêmes muscles.
+  const recups = new Map<string, number[]>()
+  for (const s of sessions) {
+    const d = jours(s.date)
+    if (d < 0) continue
+    for (const e of s.exercises) {
+      if (!estRecuperation(e.name)) continue
+      for (const g of parseGroupEntries(e.muscle_group)) {
+        for (const region of regionsForGroup(g.name)) {
+          const l = recups.get(region) ?? []
+          l.push(d)
+          recups.set(region, l)
+        }
+      }
+    }
+  }
+
   const out: Record<string, GroupLoad> = {}
   for (const s of sessions) {
-    const days = Math.round((today.getTime() - new Date(s.date + 'T00:00:00').getTime()) / 86400000)
+    const days = jours(s.date)
     if (days < 0) continue // séance datée dans le futur : ignorée
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
+      if (estRecuperation(e.name)) continue
       for (const g of parseGroupEntries(e.muscle_group)) {
         // Pondération quadratique, plafonnée au palier orange les premiers
         // jours — sans ce plafond une sollicitation légère saute du rouge au
@@ -187,6 +229,19 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
         }
       }
     }
+  }
+
+  // Chaque séance de récupération faite APRÈS le travail retire un jour, deux
+  // au maximum : au-delà, ce n'est plus de la récupération, c'est du repos.
+  // Un groupe profite du bonus dès qu'un de ses muscles en a bénéficié.
+  for (const [group, load] of Object.entries(out)) {
+    const dates = new Set<number>()
+    for (const region of regionsForGroup(group)) {
+      for (const d of recups.get(region) ?? []) if (d < load.days) dates.add(d)
+    }
+    if (dates.size === 0) continue
+    const bonus = Math.min(2, dates.size)
+    out[group] = { ...load, effectiveDays: load.effectiveDays + bonus, recupBonus: bonus }
   }
   return out
 }
@@ -345,7 +400,8 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v9'
+const LIBRARY_SEED_KEY = 'muscu_library_v10'
+const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v1'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -688,8 +744,59 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
   }
 
   if (await ensureLibrary(userId)) didSeed = true
+  if (await ensureRecoveryTemplates(userId)) didSeed = true
 
   return didSeed
+}
+
+/**
+ * Deux séances types de récupération active, prêtes à lancer. Elles retirent un
+ * jour de récupération aux zones qu'elles touchent : sans modèle sous la main,
+ * personne ne pense à les enregistrer.
+ */
+const RECUP_TEMPLATES: Array<{ name: string; icon: string; duration: number; notes: string; exos: string[] }> = [
+  {
+    name: 'Récup — lendemain de béhourd',
+    icon: '🧘',
+    duration: 35,
+    notes: 'Le lendemain d’un sparring : relancer la circulation sans rien casser.',
+    exos: ['Récupération — nage souple', 'Récupération — mobilité haut du corps', 'Récupération — rouleau de massage'],
+  },
+  {
+    name: 'Récup — jambes lourdes',
+    icon: '🍃',
+    duration: 30,
+    notes: 'Après une grosse séance de jambes ou beaucoup de déplacement en armure.',
+    exos: ['Récupération — marche', 'Récupération — mobilité hanches et jambes', 'Récupération — rouleau de massage'],
+  },
+]
+
+async function ensureRecoveryTemplates(userId: string): Promise<boolean> {
+  const done = await fetchKv<boolean>(userId, RECUP_TEMPLATES_KEY, false)
+  if (done) return false
+
+  const existants = new Set((await listTemplates(userId)).map((t) => t.name.trim().toLowerCase()))
+  const lib = new Map(EXERCISE_LIBRARY.map((e) => [e.name, e]))
+  for (const tpl of RECUP_TEMPLATES) {
+    if (existants.has(tpl.name.trim().toLowerCase())) continue
+    await saveTemplate(
+      userId,
+      { name: tpl.name, icon: tpl.icon, duration_min: tpl.duration, notes: tpl.notes },
+      tpl.exos.map((n) => {
+        const e = lib.get(n)
+        return {
+          name: n,
+          muscle_group: e?.groups ?? '',
+          sets: e?.sets ?? 1,
+          reps: e?.reps ?? '15 min',
+          weight_kg: null,
+          notes: '',
+        }
+      }),
+    )
+  }
+  await saveKv(userId, RECUP_TEMPLATES_KEY, true)
+  return true
 }
 
 /**

@@ -6,6 +6,7 @@ import { Poids } from './Carnet'
 import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { GroupPicker } from '../components/GroupPicker'
+import { RessentiPicker } from '../components/RessentiPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
@@ -30,6 +31,9 @@ import {
   fmtTonnage,
   sessionTonnage,
   distanceEnMetres,
+  RESSENTI_NAME,
+  estRessenti,
+  parseGroupEntries,
   METRES_PAR_REP,
   deleteCatalogExercise,
   deleteSession,
@@ -88,6 +92,27 @@ const ICON_KEYWORDS: Array<[RegExp, string]> = [
   [/pec|poitrine|push|pouss|epaule|bras|biceps|triceps|develop/, '💪'],
 ]
 
+/** Zones « bras » : servent à décider entre bras normal et bras d'acier. */
+const MOTS_BRAS = /biceps|triceps|brachial|avant-bras|bras/i
+
+/**
+ * Séance de bras : 🦾 quand ça a vraiment forcé, 💪 quand c'était plus doux.
+ * Le seuil s'appuie sur ce qui a été fait — séries sur les bras et intensité
+ * déclarée — plutôt que sur le nom de la séance.
+ */
+function brasDAcier(s: MuscuSession): boolean {
+  let series = 0
+  let maxIntensite = 0
+  for (const e of s.exercises) {
+    const surLesBras = parseGroupEntries(e.muscle_group).filter((g) => MOTS_BRAS.test(g.name))
+    if (surLesBras.length === 0) continue
+    const i = Math.max(...surLesBras.map((g) => g.intensity))
+    maxIntensite = Math.max(maxIntensite, i)
+    if (i >= 0.8) series += Math.max(1, e.sets)
+  }
+  return maxIntensite >= 0.8 && series >= 9
+}
+
 /** Emoji d'une séance du journal : celui de sa séance type, sinon déduit du nom. */
 function sessionEmoji(s: MuscuSession, templates: MuscuTemplate[]): string {
   const tpl = s.template_id ? templates.find((t) => t.id === s.template_id) : null
@@ -97,7 +122,12 @@ function sessionEmoji(s: MuscuSession, templates: MuscuTemplate[]): string {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
-  for (const [re, icon] of ICON_KEYWORDS) if (re.test(haystack)) return icon
+  for (const [re, icon] of ICON_KEYWORDS) {
+    if (!re.test(haystack)) continue
+    // Le seul cas où l'emoji dépend de l'effort et pas du nom.
+    if (icon === '💪') return brasDAcier(s) ? '🦾' : '💪'
+    return icon
+  }
   return '🏋️'
 }
 
@@ -774,6 +804,11 @@ function SessionEditor({
         onChange={(exos) => setD({ ...d, exos })}
       />
 
+      <RessentiSection
+        value={d.exos.find((e) => estRessenti(e.name))?.muscle_group ?? ''}
+        onChange={(groupes) => setD({ ...d, exos: majRessenti(d.exos, groupes) })}
+      />
+
       {(() => {
         const t = sessionTonnage(d.exos.map(draftToInput))
         const distance = d.exos.some((e) => distanceEnMetres(e.reps) !== null)
@@ -788,6 +823,30 @@ function SessionEditor({
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance'}
       </button>
+    </div>
+  )
+}
+
+/** Ajoute, met à jour ou retire la ligne de ressenti d'une liste d'exercices. */
+function majRessenti(exos: ExoDraft[], groupes: string): ExoDraft[] {
+  const sans = exos.filter((e) => !estRessenti(e.name))
+  if (!groupes.trim()) return sans
+  return [
+    ...sans,
+    { name: RESSENTI_NAME, muscle_group: groupes, sets: '1', reps: '—', weight: '', notes: '' },
+  ]
+}
+
+/** Bloc « zones sollicitées », pour les séances sans exercices chiffrés. */
+function RessentiSection({ value, onChange }: { value: string; onChange: (groups: string) => void }) {
+  return (
+    <div className="card space-y-2 p-3">
+      <h3 className="text-sm font-bold text-ink">🤕 Ressenti — zones sollicitées</h3>
+      <p className="text-[11px] text-muted">
+        Pour le béhourd, le kickboxing ou tout ce qui n'a ni série ni charge : dis simplement ce qui a pris cher.
+        Le mannequin et le générateur de séance en tiennent compte comme d'un vrai travail.
+      </p>
+      <RessentiPicker value={value} onChange={onChange} />
     </div>
   )
 }
@@ -976,6 +1035,7 @@ function TypesTab({
         + Nouvelle séance type
       </button>
 
+      <Section title="📋 Mes séances types" subtitle={`${templates.length} modèles`} accent="#B87333" defaultOpen>
       <ul className="space-y-2">
         {templates.map((t) => (
           <li key={t.id} className="card p-3">
@@ -1006,6 +1066,7 @@ function TypesTab({
           </li>
         ))}
       </ul>
+      </Section>
 
       <CatalogManager userId={userId} catalog={catalog} groups={groups} onChange={onChange} />
 

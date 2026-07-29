@@ -1,4 +1,4 @@
-import type { MuscleRegion } from '../components/MuscleBodyDiagram'
+import type { MuscleRegion } from '../lib/muscles'
 
 // Ce qui compte réellement en combat en armure, dans l'ordre, avec les points
 // faibles connus du profil (épaule AC droite, dysplasie rotulienne).

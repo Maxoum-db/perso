@@ -1,6 +1,17 @@
 import { useState } from 'react'
 import type { GroupLoad } from '../lib/muscu'
 import { PALIERS } from '../lib/soreness'
+import {
+  MUSCLE_LABELS,
+  SOLLICITATION_MARQUEUR,
+  sollicitation,
+  type MuscleRegion,
+  type Sollicitation,
+} from '../lib/muscles'
+import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
+
+export { MUSCLE_LABELS, regionsForGroup, sollicitation, SOLLICITATION_MARQUEUR } from '../lib/muscles'
+export type { MuscleRegion, Sollicitation } from '../lib/muscles'
 
 // Mannequin de récupération, façon planche anatomique : chaque muscle est un
 // tracé distinct (une trentaine), coloré sur un spectre continu selon
@@ -12,76 +23,6 @@ import { PALIERS } from '../lib/soreness'
 //
 // Les tracés sont exprimés dans un repère centré (x = 0 au milieu du corps) :
 // on ne décrit qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)).
-
-export type MuscleRegion =
-  | 'neck'
-  | 'trapsUpper'
-  | 'trapsMid'
-  | 'trapsLow'
-  | 'deltAnt'
-  | 'deltLat'
-  | 'deltPost'
-  | 'pecUpper'
-  | 'pecLower'
-  | 'serratus'
-  | 'lats'
-  | 'teres'
-  | 'erectors'
-  | 'biceps'
-  | 'brachialis'
-  | 'tricepsLong'
-  | 'tricepsLat'
-  | 'forearmFlex'
-  | 'forearmExt'
-  | 'rectus'
-  | 'obliques'
-  | 'gluteMax'
-  | 'gluteMed'
-  | 'rectusFemoris'
-  | 'vastusLat'
-  | 'vastusMed'
-  | 'adductors'
-  | 'bicepsFemoris'
-  | 'hamsInner'
-  | 'gastroc'
-  | 'soleus'
-  | 'tibialis'
-
-/** Nom affiché quand on touche un muscle sur le schéma. */
-export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
-  neck: 'Cou (sterno-cléido-mastoïdien)',
-  trapsUpper: 'Trapèze supérieur',
-  trapsMid: 'Trapèze moyen',
-  trapsLow: 'Trapèze inférieur',
-  deltAnt: 'Deltoïde antérieur',
-  deltLat: 'Deltoïde latéral',
-  deltPost: 'Deltoïde postérieur',
-  pecUpper: 'Pectoral supérieur (faisceau claviculaire)',
-  pecLower: 'Grand pectoral',
-  serratus: 'Dentelé antérieur',
-  lats: 'Grand dorsal',
-  teres: 'Grand rond',
-  erectors: 'Érecteurs du rachis',
-  biceps: 'Biceps brachial',
-  brachialis: 'Brachial antérieur',
-  tricepsLong: 'Triceps — longue portion',
-  tricepsLat: 'Triceps — portion latérale',
-  forearmFlex: 'Fléchisseurs de l’avant-bras',
-  forearmExt: 'Extenseurs de l’avant-bras',
-  rectus: 'Grand droit de l’abdomen',
-  obliques: 'Obliques',
-  gluteMax: 'Grand fessier',
-  gluteMed: 'Moyen fessier',
-  rectusFemoris: 'Droit fémoral',
-  vastusLat: 'Vaste latéral',
-  vastusMed: 'Vaste médial',
-  adductors: 'Adducteurs',
-  bicepsFemoris: 'Biceps fémoral',
-  hamsInner: 'Ischios internes',
-  gastroc: 'Gastrocnémiens (jumeaux)',
-  soleus: 'Soléaire',
-  tibialis: 'Tibial antérieur',
-}
 
 const NEUTRAL = '#C9C4BD'
 
@@ -126,21 +67,6 @@ function hsl(h: number, s: number, l: number): string {
   return `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${l.toFixed(0)}%)`
 }
 
-/** Trois degrés de sollicitation, pour la légende et les pastilles. */
-export type Sollicitation = 'principal' | 'secondaire' | 'leger'
-
-export function sollicitation(intensity: number): Sollicitation {
-  if (intensity >= 0.8) return 'principal'
-  if (intensity >= 0.5) return 'secondaire'
-  return 'leger'
-}
-
-export const SOLLICITATION_MARQUEUR: Record<Sollicitation, string> = {
-  principal: '●',
-  secondaire: '◐',
-  leger: '○',
-}
-
 /**
  * Couleur d'un muscle. La position sur la rampe porte l'état de récupération.
  *
@@ -161,100 +87,6 @@ export function recoveryColor(effectiveDays: number | undefined, intensity = 1):
   if (effectiveDays > 4) return hsl(h, s, l)
   const appoint = 1 - Math.max(0, Math.min(1, intensity))
   return hsl(h, s - 14 * appoint, l + 14 * appoint)
-}
-
-function norm(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-}
-
-// ── Correspondance libellé → muscles ────────────────────────────────────────
-// La recherche se fait par égalité sur le libellé normalisé : plus de piège de
-// sous-chaîne (« Abdos » contient « dos »).
-
-const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
-const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow']
-const PECS: MuscleRegion[] = ['pecUpper', 'pecLower']
-const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
-const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt']
-const BACK: MuscleRegion[] = ['lats', 'teres', 'trapsMid', 'trapsLow']
-const ABS: MuscleRegion[] = ['rectus', 'obliques']
-const GLUTES: MuscleRegion[] = ['gluteMax', 'gluteMed']
-const QUADS: MuscleRegion[] = ['rectusFemoris', 'vastusLat', 'vastusMed']
-const HAMS: MuscleRegion[] = ['bicepsFemoris', 'hamsInner']
-const CALVES: MuscleRegion[] = ['gastroc', 'soleus']
-const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'tibialis']
-const UPPER: MuscleRegion[] = [...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'biceps', 'brachialis']
-
-const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
-  // Groupes larges
-  epaules: DELTS,
-  pectoraux: PECS,
-  dos: BACK,
-  trapezes: TRAPS,
-  triceps: TRICEPS,
-  'avant-bras': FOREARMS,
-  'abdos/core': ABS,
-  fessiers: GLUTES,
-  quadriceps: QUADS,
-  ischios: HAMS,
-  mollets: CALVES,
-  lombaires: ['erectors'],
-  cou: ['neck'],
-  biceps: ['biceps', 'brachialis'],
-  obliques: ['obliques'],
-  adducteurs: ['adductors'],
-  // Muscles précis
-  'deltoide anterieur': ['deltAnt'],
-  'deltoide lateral': ['deltLat'],
-  'deltoide posterieur': ['deltPost'],
-  'trapeze superieur': ['trapsUpper'],
-  'trapeze moyen': ['trapsMid'],
-  'trapeze inferieur': ['trapsLow'],
-  rhomboides: ['trapsMid'],
-  'pectoral superieur': ['pecUpper'],
-  'grand pectoral': PECS,
-  'grand dorsal': ['lats'],
-  'grand rond': ['teres'],
-  'dentele anterieur': ['serratus'],
-  'erecteurs du rachis': ['erectors'],
-  brachial: ['brachialis'],
-  'brachio-radial': ['forearmFlex'],
-  'triceps longue portion': ['tricepsLong'],
-  'triceps lateral': ['tricepsLat'],
-  'flechisseurs avant-bras': ['forearmFlex'],
-  'extenseurs avant-bras': ['forearmExt'],
-  'grand droit': ['rectus'],
-  transverse: ['rectus'],
-  'grand fessier': ['gluteMax'],
-  'moyen fessier': ['gluteMed'],
-  'droit femoral': ['rectusFemoris'],
-  'vaste lateral': ['vastusLat'],
-  'vaste medial': ['vastusMed'],
-  'biceps femoral': ['bicepsFemoris'],
-  'ischios internes': ['hamsInner'],
-  gastrocnemiens: ['gastroc'],
-  soleaire: ['soleus'],
-  'tibial anterieur': ['tibialis'],
-}
-
-/** Les muscles couverts par un libellé de groupe ou de muscle. */
-export function regionsForGroup(label: string): MuscleRegion[] {
-  const n = norm(label)
-  if (!n) return []
-  const exact = MUSCLE_MAP[n]
-  if (exact) return exact
-  if (n.includes('full body') || n.includes('corps entier')) return [...LEGS, ...UPPER, ...ABS, 'neck', ...FOREARMS]
-  if (n.includes('jambes')) return LEGS
-  if (n.includes('haut du corps')) return UPPER
-  // Repli tolérant pour les libellés personnalisés.
-  for (const [key, regions] of Object.entries(MUSCLE_MAP)) {
-    if (n.includes(key)) return regions
-  }
-  return [] // ex. « Cardio » : aucun muscle dédié
 }
 
 // ── Tracés (repère centré, moitié gauche du corps) ──────────────────────────
@@ -330,18 +162,12 @@ export function MuscleBodyDiagram({
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
   const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
 
-  // Chaque muscle prend la sollicitation la plus fraîche parmi les libellés qui
-  // le couvrent ; on garde le libellé d'origine pour la fiche au clic.
-  const byRegion: Partial<Record<MuscleRegion, { label: string; load: GroupLoad }>> = {}
-  for (const [group, load] of Object.entries(loads)) {
-    for (const region of regionsForGroup(group)) {
-      const cur = byRegion[region]
-      if (!cur || load.effectiveDays < cur.load.effectiveDays) byRegion[region] = { label: group, load }
-    }
-  }
+  // Repos par muscle, vitesse de récupération de la zone comprise. Calcul
+  // partagé avec le générateur de séance : une seule définition.
+  const byRegion = reposParMuscle(loads)
 
   const fill = (r: MuscleRegion | 'neutral') =>
-    r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.load.effectiveDays, byRegion[r]?.load.intensity)
+    r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.jours, byRegion[r]?.intensite)
   const tracked = Object.entries(loads).sort((a, b) => a[1].effectiveDays - b[1].effectiveDays)
 
   return (
@@ -518,15 +344,15 @@ function MuscleSheet({
   onClose,
 }: {
   region: MuscleRegion
-  info?: { label: string; load: GroupLoad }
+  info?: ReposMuscle
   onClose: () => void
 }) {
-  const color = recoveryColor(info?.load.effectiveDays, info?.load.intensity)
+  const color = recoveryColor(info?.jours, info?.intensite)
   const etat = !info
     ? 'Prêt — jamais travaillé sur les séances chargées'
-    : info.load.effectiveDays <= 2
+    : info.jours <= 2
       ? 'En récupération'
-      : info.load.effectiveDays <= 4
+      : info.jours <= 4
         ? 'Bientôt prêt'
         : 'Prêt'
 
@@ -557,12 +383,17 @@ function MuscleSheet({
           <p className="mt-2 text-xs text-muted">
             Dernière sollicitation :{' '}
             <b className="text-ink">
-              {info.load.days === 0 ? "aujourd'hui" : info.load.days === 1 ? 'hier' : `il y a ${info.load.days} jours`}
+              {info.joursReels === 0 ? "aujourd'hui" : info.joursReels === 1 ? 'hier' : `il y a ${info.joursReels} jours`}
             </b>{' '}
             via <b className="text-ink">{info.label}</b>
-            {info.load.intensity < 1
-              ? ` — en secondaire (${Math.round(info.load.intensity * 100)} %), donc récupération plus rapide.`
+            {info.intensite < 1
+              ? ` — en secondaire (${Math.round(info.intensite * 100)} %), donc récupération plus rapide.`
               : ' — en moteur principal.'}
+            {VITESSE_RECUP[region] > 1
+              ? ' Cette zone récupère vite.'
+              : VITESSE_RECUP[region] < 1
+                ? ' Cette zone est lente à revenir.'
+                : ''}
           </p>
         ) : (
           <p className="mt-2 text-xs text-muted">

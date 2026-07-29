@@ -1,5 +1,5 @@
 import { fetchKv, saveKv } from './kv'
-import type { MuscleRegion } from '../components/MuscleBodyDiagram'
+import type { MuscleRegion } from './muscles'
 
 // Priorité du moment : le point faible qu'on veut rattraper. Elle pèse dans le
 // générateur de séance (score et place réservée) et dans l'alerte des muscles

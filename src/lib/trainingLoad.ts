@@ -1,6 +1,6 @@
 import { fetchKv, saveKv } from './kv'
 import { dureeSeance, metPourExercice } from './calories'
-import type { MuscuSession } from './muscu'
+import { estRessenti, type MuscuSession } from './muscu'
 
 // Charge d'entraînement et ratio aigu/chronique (ACWR).
 //
@@ -14,8 +14,8 @@ import type { MuscuSession } from './muscu'
 
 export function chargeSeance(s: MuscuSession): number {
   const minutes = dureeSeance(s)
-  const mets = s.exercises.map((e) => metPourExercice(e.name))
-  const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : 5
+  const mets = s.exercises.filter((e) => !estRessenti(e.name)).map((e) => metPourExercice(e.name))
+  const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : metPourExercice(s.name)
   return Math.round(met * minutes)
 }
 
