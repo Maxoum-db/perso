@@ -669,7 +669,9 @@ function Journal({
             ✍️ Saisir une séance après coup
           </button>
           <button onClick={() => suggerer()} className="btn-ghost w-full py-2 text-sm">
-            🧠 Composer une séance selon ma récup
+            {focus === 'recup'
+              ? '🧊 Composer une séance de récupération'
+              : '🧠 Composer une séance selon ma récup'}
           </button>
         </div>
       )}

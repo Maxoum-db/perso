@@ -4,7 +4,7 @@ import { regionsForGroup, type MuscleRegion } from './muscles'
 import { reposParMuscle } from './recuperation'
 import { estRessenti, groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
-import { FOCUS, POIDS_FOCUS, type FocusId } from './focus'
+import { FOCUS, FOCUS_RECUP, POIDS_FOCUS, type FocusId } from './focus'
 
 // Générateur de séance : compose une séance à partir de ce que le corps a déjà
 // encaissé. Le principe est celui du mannequin, appliqué à l'envers — au lieu
@@ -21,6 +21,11 @@ import { FOCUS, POIDS_FOCUS, type FocusId } from './focus'
  */
 const ACTIVITES = new Set(
   EXERCISE_LIBRARY.filter((e) => e.kind).map((e) => e.name.trim().toLowerCase()),
+)
+
+/** Le vivier du mode récupération : étirements et mobilité, rien d'autre. */
+const RECUPERATIONS = new Set(
+  EXERCISE_LIBRARY.filter((e) => e.kind === 'recuperation').map((e) => e.name.trim().toLowerCase()),
 )
 
 /** Muscle jamais travaillé : totalement disponible. */
@@ -75,6 +80,8 @@ export interface SuggestedExercise {
 
 export interface SuggestedSession {
   name: string
+  /** Vrai quand la séance composée vise à passer les courbatures. */
+  recuperation: boolean
   exercises: SuggestedExercise[]
   /** Muscles écartés parce qu'encore en récupération. */
   evites: MuscleRegion[]
@@ -87,6 +94,16 @@ function poidsRepos(jours: number): number {
   if (jours <= 2) return -3
   if (jours <= 4) return 0.6
   return 1.6
+}
+
+/**
+ * Mode récupération : la logique s'inverse. Plus un muscle est courbaturé, plus
+ * on veut l'étirer — un muscle déjà frais n'a rien à gagner à être mobilisé.
+ */
+function poidsCourbature(jours: number): number {
+  if (jours <= 2) return 3
+  if (jours <= 4) return 1.5
+  return 0.2
 }
 
 /** Intensité maximale par muscle pour un exercice donné. */
@@ -136,6 +153,7 @@ export function buildSession(
   const exclude = options.exclude ?? new Set<string>()
   const loads: Record<string, GroupLoad> = options.loads ?? groupLoads(sessions)
   const repos = reposParMuscle(loads)
+  const modeRecup = options.focus === FOCUS_RECUP
   const focusRegions = new Set(FOCUS[options.focus ?? 'aucun'].regions)
 
   // Exercices déjà pratiqués : eux seuls ont un historique de charge. À score
@@ -146,17 +164,31 @@ export function buildSession(
   const reposDe = (r: MuscleRegion) => repos[r]?.jours ?? JAMAIS
 
   const candidats = catalog
-    .filter((c) => !exclude.has(c.id) && !estRessenti(c.name) && !ACTIVITES.has(c.name.trim().toLowerCase()))
+    .filter((c) => {
+      if (exclude.has(c.id) || estRessenti(c.name)) return false
+      const clef = c.name.trim().toLowerCase()
+      // En récupération on ne veut QUE des étirements ; sinon on les écarte.
+      return modeRecup ? RECUPERATIONS.has(clef) : !ACTIVITES.has(clef)
+    })
     .map((c) => {
       const muscles = musclesDeLExercice(c.muscle_group)
       const moteurs = [...muscles.entries()].filter(([, i]) => i >= 0.8).map(([r]) => r)
       let score = 0
       for (const [region, intensity] of muscles) {
+        if (modeRecup) {
+          score += intensity * poidsCourbature(reposDe(region))
+          continue
+        }
         const focus = focusRegions.has(region) ? POIDS_FOCUS : 1
         score += intensity * poidsRepos(reposDe(region)) * poidsBehourd(region) * focus
       }
-      if (score > 0 && dejaFaits.has(c.name.trim().toLowerCase())) score *= 1.25
-      const fatigue = moteurs.some((r) => reposDe(r) <= 2)
+      // En récupération on retient la courbature MOYENNE des muscles visés, pas
+      // la somme : sinon un « étirements complets » qui couvre tout le corps
+      // bat systématiquement l'étirement précis de ce qui fait mal.
+      if (modeRecup && muscles.size > 0) score /= muscles.size
+      if (!modeRecup && score > 0 && dejaFaits.has(c.name.trim().toLowerCase())) score *= 1.25
+      // En récupération, viser un muscle chaud est le but : aucun veto.
+      const fatigue = !modeRecup && moteurs.some((r) => reposDe(r) <= 2)
       const reposMin = moteurs.length ? Math.min(...moteurs.map(reposDe)) : JAMAIS
       return { exo: c, muscles, moteurs, score, fatigue, reposMin }
     })
@@ -199,7 +231,7 @@ export function buildSession(
   // Réserve du point faible : deux exercices garantis dessus quand il est
   // reposé. Le multiplicateur de score ne suffit pas — un exercice de gainage
   // ne vise qu'un ou deux muscles et perd contre n'importe quel polyarticulaire.
-  if (focusRegions.size > 0) {
+  if (!modeRecup && focusRegions.size > 0) {
     for (let n = 0; n < 2; n++) {
       const best = classes.find(
         (c) => !pris.has(c.exo.id) && c.moteurs.some((r) => focusRegions.has(r) && reposDe(r) >= 3),
@@ -212,10 +244,12 @@ export function buildSession(
   // Réserve béhourd : le cou et la préhension se travaillent en isolation, donc
   // ils perdent toujours au score face à un soulevé de terre. Deux places leur
   // sont réservées quand ils sont reposés — sinon ils ne sortiraient jamais.
-  const prioritaires = (Object.keys(PRIORITE_BEHOURD) as MuscleRegion[])
-    .filter((r) => reposDe(r) >= 5)
-    .sort((a, b) => PRIORITE_BEHOURD[a]!.rang - PRIORITE_BEHOURD[b]!.rang)
-    .slice(0, 2)
+  const prioritaires: MuscleRegion[] = modeRecup
+    ? [] // en récupération, la priorité est la courbature, pas le béhourd
+    : (Object.keys(PRIORITE_BEHOURD) as MuscleRegion[])
+        .filter((r) => reposDe(r) >= 5)
+        .sort((a, b) => PRIORITE_BEHOURD[a]!.rang - PRIORITE_BEHOURD[b]!.rang)
+        .slice(0, 2)
   for (const region of prioritaires) {
     const best = classes.find((c) => !pris.has(c.exo.id) && c.moteurs.includes(region))
     if (best) prendre(best)
@@ -256,7 +290,14 @@ export function buildSession(
     .map(([z]) => z)
 
   return {
-    name: zones.length ? `Séance ${zones.join(' · ')}` : 'Séance du jour',
+    name: modeRecup
+      ? zones.length
+        ? `Récup ${zones.join(' · ')}`
+        : 'Récupération'
+      : zones.length
+        ? `Séance ${zones.join(' · ')}`
+        : 'Séance du jour',
+    recuperation: modeRecup,
     exercises: choisis,
     evites,
     degrade,
