@@ -75,6 +75,11 @@ export function metPourExercice(name: string): number {
   return MET_MUSCU
 }
 
+/** Durée retenue pour une séance : celle saisie, sinon l'estimation. */
+export function dureeSeance(s: MuscuSession): number {
+  return s.duration_min ?? dureeEstimee(s)
+}
+
 export interface SessionCalories {
   kcal: number
   /** MET moyen de la séance. */
@@ -87,14 +92,15 @@ export interface SessionCalories {
 /**
  * Durée estimée quand elle n'a pas été saisie : ~2,5 min par série, série et
  * repos compris. Volontairement prudent — mieux vaut sous-estimer.
+ * Exportée pour que la charge d'entraînement estime exactement pareil.
  */
-function dureeEstimee(s: MuscuSession): number {
+export function dureeEstimee(s: MuscuSession): number {
   const series = s.exercises.reduce((n, e) => n + Math.max(1, e.sets), 0)
   return Math.min(150, Math.max(15, Math.round(series * 2.5)))
 }
 
 export function sessionCalories(s: MuscuSession, bodyWeight: number | null): SessionCalories {
-  const minutes = s.duration_min ?? dureeEstimee(s)
+  const minutes = dureeSeance(s)
   const mets = s.exercises.map((e) => metPourExercice(e.name))
   const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : MET_MUSCU
   const poids = bodyWeight ?? 75
