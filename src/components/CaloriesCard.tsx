@@ -84,6 +84,16 @@ export function CaloriesCard({
                 <span className="min-w-0 flex-1 truncate text-ink">{s.name}</span>
                 <span className="shrink-0 text-[10px] text-muted">
                   {c.minutes} min{c.dureeEstimee ? '*' : ''} · MET {c.met}
+                  {c.densite.applique && c.densite.coef !== 1 ? (
+                    <span
+                      className={`ml-1 font-bold ${c.densite.coef > 1 ? 'text-sage-dark' : 'text-clay'}`}
+                      title={`Densité : ${c.densite.seriesParMin?.toFixed(2)} série/min${
+                        c.densite.tonnageParMin ? `, ${c.densite.tonnageParMin.toFixed(2)} poids de corps/min` : ''
+                      }`}
+                    >
+                      ×{c.densite.coef}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="w-14 shrink-0 text-right font-semibold text-copper">{c.kcal} kcal</span>
               </li>
@@ -95,8 +105,11 @@ export function CaloriesCard({
       )}
 
       <p className="mt-2 text-[10px] leading-relaxed text-muted">
-        Estimation MET × poids de corps × durée{bodyWeight ? ` (${bodyWeight} kg)` : ' (poids de corps non renseigné : 75 kg par défaut)'}.
-        Compte ±15 % sans capteur cardiaque. Une durée suivie de <b>*</b> a été estimée faute d'être saisie.
+        Estimation MET × densité × poids de corps × durée
+        {bodyWeight ? ` (${bodyWeight} kg)` : ' (poids de corps non renseigné : 75 kg par défaut)'}. La densité
+        compare tonnage et séries au temps passé : une heure enchaînée compte jusqu'à 35 % de plus qu'une heure
+        traînante. Elle ne s'applique que si tu as saisi la durée — sinon elle serait déduite des séries, donc
+        toujours identique. Compte ±15 % sans capteur cardiaque ; une durée suivie de <b>*</b> a été estimée.
       </p>
     </section>
   )

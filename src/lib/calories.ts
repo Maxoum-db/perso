@@ -1,4 +1,4 @@
-import { estRessenti, type MuscuSession } from './muscu'
+import { estRessenti, sessionTonnage, type MuscuSession } from './muscu'
 
 // Estimation de la dépense énergétique d'une séance par la méthode MET :
 //
@@ -80,13 +80,72 @@ export function dureeSeance(s: MuscuSession): number {
   return s.duration_min ?? dureeEstimee(s)
 }
 
+// ── Densité : ce que vaut réellement une heure de salle ────────────────────
+//
+// Deux séances d'une heure ne se valent pas. Le MET seul ne voit que la nature
+// des exercices, pas le rythme : trois séries molles et vingt-cinq séries
+// enchaînées pèsent pareil. La densité corrige ça.
+//
+// Deux signaux, moyennés :
+//   • tonnage rapporté au poids de corps et au temps — combien de fois on a
+//     soulevé son propre poids par minute ;
+//   • séries par minute — le rythme, seul signal disponible quand il n'y a pas
+//     de charge (gainage, poids du corps).
+
+/** Référence : une séance de force menée correctement. */
+const REF_TONNAGE_PAR_MIN = 1.0 // poids de corps soulevés par minute
+const REF_SERIES_PAR_MIN = 0.33 // une série toutes les trois minutes, repos compris
+
+export interface Densite {
+  /** Multiplicateur appliqué au MET (1 = séance de référence). */
+  coef: number
+  tonnageParMin: number | null
+  seriesParMin: number | null
+  /**
+   * Faux quand la densité n'est pas calculable : durée non saisie (elle serait
+   * déduite des séries, donc le rapport serait constant par construction) ou
+   * séance sans exercice chiffré.
+   */
+  applique: boolean
+}
+
+export function densiteSeance(s: MuscuSession, bodyWeight: number | null): Densite {
+  const exos = s.exercises.filter((e) => !estRessenti(e.name))
+  const series = exos.reduce((n, e) => n + Math.max(1, e.sets), 0)
+
+  // Durée estimée = séries × 2,5 : en tirer une densité reviendrait à mesurer
+  // la règle avec elle-même. On s'abstient plutôt que de produire un chiffre
+  // qui a l'air informé.
+  if (s.duration_min === null || s.duration_min <= 0 || series === 0) {
+    return { coef: 1, tonnageParMin: null, seriesParMin: null, applique: false }
+  }
+
+  const minutes = s.duration_min
+  const poids = bodyWeight ?? 75
+  const tonnage = sessionTonnage(exos)
+  const tonnageParMin = tonnage > 0 ? tonnage / (poids * minutes) : null
+  const seriesParMin = series / minutes
+
+  const ratios = [seriesParMin / REF_SERIES_PAR_MIN]
+  if (tonnageParMin !== null) ratios.push(tonnageParMin / REF_TONNAGE_PAR_MIN)
+  const ratio = ratios.reduce((a, b) => a + b, 0) / ratios.length
+
+  // Modulation volontairement douce : ±25 % en dessous, +35 % au maximum.
+  // Au-delà, ce n'est plus de la densité, c'est une erreur de saisie.
+  const coef = Math.max(0.75, Math.min(1.35, 0.75 + 0.25 * ratio))
+  return { coef: Math.round(coef * 100) / 100, tonnageParMin, seriesParMin, applique: true }
+}
+
 export interface SessionCalories {
   kcal: number
-  /** MET moyen de la séance. */
+  /** MET moyen de la séance, densité comprise. */
   met: number
+  /** MET des exercices seuls, avant modulation. */
+  metBrut: number
   minutes: number
   /** Vrai quand la durée n'était pas saisie et a été estimée. */
   dureeEstimee: boolean
+  densite: Densite
 }
 
 /**
@@ -106,13 +165,17 @@ export function sessionCalories(s: MuscuSession, bodyWeight: number | null): Ses
   // Et quand il n'y a QUE du ressenti — béhourd, kickboxing —, c'est le nom de
   // la séance qui porte l'intensité, pas sa liste d'exercices.
   const mets = s.exercises.filter((e) => !estRessenti(e.name)).map((e) => metPourExercice(e.name))
-  const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : metPourExercice(s.name)
+  const metBrut = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : metPourExercice(s.name)
+  const densite = densiteSeance(s, bodyWeight)
+  const met = metBrut * densite.coef
   const poids = bodyWeight ?? 75
   return {
     kcal: Math.round(met * poids * (minutes / 60)),
     met: Math.round(met * 10) / 10,
+    metBrut: Math.round(metBrut * 10) / 10,
     minutes,
     dureeEstimee: s.duration_min === null,
+    densite,
   }
 }
 
