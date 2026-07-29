@@ -1,4 +1,5 @@
 import { bilanCalories, sessionCalories } from '../lib/calories'
+import { INTENSITES } from '../lib/intensite'
 import type { MuscuSession } from '../lib/muscu'
 
 // Dépense des séances sur 7 jours. L'intérêt n'est pas le chiffre absolu —
@@ -84,7 +85,16 @@ export function CaloriesCard({
                 <span className="min-w-0 flex-1 truncate text-ink">{s.name}</span>
                 <span className="shrink-0 text-[10px] text-muted">
                   {c.minutes} min{c.dureeEstimee ? '*' : ''} · MET {c.met}
-                  {c.densite.applique && c.densite.coef !== 1 ? (
+                  {c.declaree && s.intensite ? (
+                    // Déclaré à la main : on le dit, sinon on ne sait plus d'où
+                    // vient le coefficient en relisant le journal trois mois après.
+                    <span
+                      className={`ml-1 font-bold ${c.densite.coef > 1 ? 'text-sage-dark' : 'text-clay'}`}
+                      title={`Intensité déclarée : ${INTENSITES[s.intensite].label.toLowerCase()}`}
+                    >
+                      {INTENSITES[s.intensite].emoji} ×{c.densite.coef}
+                    </span>
+                  ) : c.densite.applique && c.densite.coef !== 1 ? (
                     <span
                       className={`ml-1 font-bold ${c.densite.coef > 1 ? 'text-sage-dark' : 'text-clay'}`}
                       title={`Densité : ${c.densite.seriesParMin?.toFixed(2)} série/min${

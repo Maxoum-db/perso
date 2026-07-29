@@ -22,6 +22,15 @@ import {
   type Courbatures,
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
+import {
+  INTENSITES,
+  INTENSITE_IDS,
+  loadIntensites,
+  nettoyerIntensites,
+  saveIntensite,
+  type IntensiteId,
+  type Intensites,
+} from '../lib/intensite'
 import { PROFIL_DEFAUT, loadProfil, type Profil } from '../lib/profil'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
@@ -247,13 +256,15 @@ export function Musculation() {
   const [courbatures, setCourbatures] = useState<Courbatures>({})
   // Profil morphologique : seul le sexe sert ici, pour la silhouette du mannequin.
   const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
+  // Intensités déclarées à la main, indexées par séance.
+  const [intensites, setIntensites] = useState<Intensites>({})
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb, pr] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -262,6 +273,7 @@ export function Musculation() {
         loadFocus(user.id).catch(() => FOCUS_PAR_DEFAUT),
         loadCourbatures(user.id).catch(() => ({})),
         loadProfil(user.id).catch(() => PROFIL_DEFAUT),
+        loadIntensites(user.id).catch(() => ({}) as Intensites),
       ])
       setTemplates(t)
       setSessions(s)
@@ -272,6 +284,8 @@ export function Musculation() {
       setFocus(f)
       setCourbatures(cb)
       setProfil(pr)
+      // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
+      setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -322,6 +336,8 @@ export function Musculation() {
           focus={focus}
           courbatures={courbatures}
           sexe={profil.sex}
+          intensites={intensites}
+          onIntensite={setIntensites}
           onCourbatures={(next) => {
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
@@ -356,6 +372,8 @@ interface SessionDraft {
   notes: string
   template_id: string | null
   exos: ExoDraft[]
+  /** Intensité déclarée — null tant que tu ne t'es pas prononcé. */
+  intensite: IntensiteId | null
 }
 
 function Journal({
@@ -370,6 +388,8 @@ function Journal({
   onFocus,
   courbatures,
   onCourbatures,
+  intensites,
+  onIntensite,
   sexe,
   onChange,
 }: {
@@ -384,6 +404,9 @@ function Journal({
   onFocus: (id: FocusId) => void
   courbatures: Courbatures
   onCourbatures: (c: Courbatures) => void
+  /** Intensités déclarées, indexées par séance. */
+  intensites: Intensites
+  onIntensite: (i: Intensites) => void
   /** Silhouette du mannequin — déclarée dans Poids › profil. */
   sexe: Profil['sex']
   onChange: () => void
@@ -414,6 +437,7 @@ function Journal({
       date: today(),
       name: 'Séance',
       duration: '',
+      intensite: null,
       notes: '',
       template_id: null,
       exos: [c ? rappelDraft(c) : { ...emptyExo(), name }],
@@ -445,7 +469,7 @@ function Journal({
   function startBlank() {
     if (picking === 'live') return startLive(null)
     setPicking(null)
-    setDraft({ date: today(), name: 'Séance', duration: '', notes: '', template_id: null, exos: [emptyExo()] })
+    setDraft({ date: today(), name: 'Séance', duration: '', intensite: null, notes: '', template_id: null, exos: [emptyExo()] })
   }
 
   function startFromTemplate(tpl: MuscuTemplate) {
@@ -455,6 +479,7 @@ function Journal({
       date: today(),
       name: tpl.name,
       duration: tpl.duration_min ? String(tpl.duration_min) : '',
+      intensite: null,
       notes: '',
       template_id: tpl.id,
       // Reps reprises de la dernière fois, charge conseillée par la progression.
@@ -546,6 +571,7 @@ function Journal({
         date: today(),
         name: s.name,
         duration: '',
+        intensite: null,
         notes: '',
         template_id: null,
         exos: lignes.map((l) => ({ ...l, sets: String(l.sets), notes: '' })),
@@ -578,6 +604,7 @@ function Journal({
       date: s.date,
       name: s.name,
       duration: s.duration_min ? String(s.duration_min) : '',
+      intensite: s.intensite ?? null,
       notes: s.notes,
       template_id: s.template_id,
       exos: s.exercises.map(exoToDraft),
@@ -615,7 +642,7 @@ function Journal({
         bodyWeight={bodyWeight}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
-          await saveSession(
+          const id = await saveSession(
             userId,
             {
               id: d.id,
@@ -627,6 +654,8 @@ function Journal({
             },
             d.exos.filter((e) => e.name.trim()).map(draftToInput),
           )
+          // Après la séance : une création n'a son identifiant qu'à ce moment-là.
+          onIntensite(await saveIntensite(userId, id, d.intensite, intensites))
           setDraft(null)
           onChange()
         }}
@@ -788,6 +817,53 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 
 // ── Éditeur de séance (journal) ──────────────────────────────────────────────
 
+/**
+ * Intensité déclarée de la séance.
+ *
+ * Le calcul automatique ne sait juger que la salle — tonnage et séries
+ * rapportés à la durée. Sur une slackline ou un sparring, il n'a rien à
+ * mesurer : la durée saisie est du temps de présence. Plutôt que de deviner un
+ * rendement décroissant, on te laisse trancher. Ne rien cocher reste valide :
+ * le barème automatique reprend la main.
+ */
+function IntensitePicker({
+  value,
+  onChange,
+}: {
+  value: IntensiteId | null
+  onChange: (v: IntensiteId | null) => void
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1">
+        {INTENSITE_IDS.map((id) => {
+          const it = INTENSITES[id]
+          const actif = value === id
+          return (
+            <button
+              key={id}
+              // Recliquer sur le palier actif le retire : on peut revenir au calcul.
+              onClick={() => onChange(actif ? null : id)}
+              title={it.aide}
+              className={`chip text-[11px] font-semibold transition ${
+                actif ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
+              }`}
+            >
+              {it.emoji} {it.label}
+              {it.coef !== 1 ? ` ×${it.coef.toLocaleString('fr-FR')}` : ''}
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-[10px] text-muted">
+        {value
+          ? `${INTENSITES[value].aide} Cette déclaration remplace le calcul automatique.`
+          : 'Intensité non déclarée : le barème est déduit du tonnage et du rythme. À renseigner surtout pour la slackline, le bloc ou le béhourd, où la durée saisie n’est pas du temps d’effort.'}
+      </p>
+    </div>
+  )
+}
+
 function SessionEditor({
   draft,
   groups,
@@ -848,6 +924,7 @@ function SessionEditor({
             min au total
           </label>
         </div>
+        <IntensitePicker value={d.intensite} onChange={(intensite) => setD({ ...d, intensite })} />
         <div className="flex items-start gap-2">
           <textarea
             className="field"
