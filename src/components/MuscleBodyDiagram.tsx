@@ -89,6 +89,16 @@ export function recoveryColor(effectiveDays: number | undefined, intensity = 1):
   return hsl(h, s - 14 * appoint, l + 14 * appoint)
 }
 
+/**
+ * Couleur d'un effort déclaré, sur la même échelle que le mannequin : 100 % de
+ * ce qu'on peut donner = marron brûlant, 0 % = vert reposé. Le ressenti et le
+ * corps parlent ainsi le même langage visuel.
+ */
+export function effortColor(pourcent: number): string {
+  const p = Math.max(0, Math.min(1, pourcent))
+  return recoveryColor(7 * (1 - p))
+}
+
 // ── Tracés (repère centré, moitié gauche du corps) ──────────────────────────
 
 // Silhouette de base sous les muscles : sans elle, le fond apparaît entre les
