@@ -42,6 +42,8 @@ export interface MuscuSession {
   notes: string
   template_id: string | null
   exercises: MuscuExo[]
+  /** Horodatage d'enregistrement — sert à situer la séance dans la journée. */
+  created_at?: string
 }
 
 export interface CatalogExercise {
@@ -153,13 +155,61 @@ export function serializeGroups(entries: GroupEntry[]): string {
 // ── Récupération : depuis combien de jours chaque groupe a-t-il été travaillé ──
 
 /**
+ * Pas de temps de la récupération : une demi-journée.
+ *
+ * En marches de 24 h, un muscle gardait la même couleur du réveil au coucher
+ * puis changeait d'un coup pendant la nuit — alors qu'entre une séance du matin
+ * et le soir même il s'est passé l'essentiel de la première phase de
+ * récupération. À 12 h, chaque journée porte deux états : le mannequin bouge
+ * dans la journée, et l'écart matin/soir cesse d'être invisible.
+ */
+export const PAS_HEURES = 12
+export const PAS_JOURS = PAS_HEURES / 24
+
+/**
+ * Instant de référence d'une séance.
+ *
+ * Enregistrée le jour même, son heure de création fait foi — c'est le seul
+ * moyen de distinguer une séance de 8 h d'une séance de 20 h, soit une section
+ * entière. Saisie après coup, on la place à midi : à mi-journée l'erreur ne
+ * dépasse jamais une demi-section dans un sens ou dans l'autre.
+ */
+export function instantSeance(s: { date: string; created_at?: string }): number {
+  if (s.created_at) {
+    const t = new Date(s.created_at)
+    if (!Number.isNaN(t.getTime()) && t.toLocaleDateString('en-CA') === s.date) return t.getTime()
+  }
+  return new Date(s.date + 'T12:00:00').getTime()
+}
+
+/**
+ * Ancienneté d'une séance en jours, arrondie à la demi-journée INFÉRIEURE : on
+ * ne fait jamais vieillir un muscle plus vite que le temps réel.
+ */
+export function ancienneteEnJours(s: { date: string; created_at?: string }, now = Date.now()): number {
+  const heures = (now - instantSeance(s)) / 3600000
+  return Math.max(0, Math.floor(heures / PAS_HEURES) * PAS_JOURS)
+}
+
+/** « aujourd'hui », « il y a 12 h », « hier », « il y a 3 j ½ ». */
+export function fmtAnciennete(jours: number): string {
+  if (jours < PAS_JOURS) return "aujourd'hui"
+  if (jours < 1) return `il y a ${PAS_HEURES} h`
+  if (jours < 1 + PAS_JOURS) return 'hier'
+  const pleins = Math.floor(jours)
+  return `il y a ${pleins} j${jours - pleins >= PAS_JOURS ? ' ½' : ''}`
+}
+
+/**
  * Pour chaque groupe musculaire, le nombre de jours écoulés depuis la dernière
  * séance qui l'a travaillé (0 = aujourd'hui). Un groupe absent n'a jamais été
  * travaillé sur la période chargée.
  */
 export interface GroupLoad {
-  /** Jours écoulés depuis la dernière sollicitation. */
+  /** Jours écoulés depuis la dernière sollicitation, par pas d'une demi-journée. */
   days: number
+  /** Date de la séance à l'origine (YYYY-MM-DD). */
+  date: string
   /** Intensité de cette sollicitation (1 = principal). */
   intensity: number
   /**
@@ -182,9 +232,8 @@ function estRecuperation(name: string): boolean {
 }
 
 export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const jours = (date: string) => Math.round((today.getTime() - new Date(date + 'T00:00:00').getTime()) / 86400000)
+  const now = Date.now()
+  const aujourdhui = new Date(now).toLocaleDateString('en-CA')
 
   // Récupération active : elle ne compte pas comme du travail, elle en efface.
   // Indexée par MUSCLE et non par libellé de groupe — sans ça une marche
@@ -192,8 +241,8 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
   // « Quadriceps », alors que ce sont les mêmes muscles.
   const recups = new Map<string, number[]>()
   for (const s of sessions) {
-    const d = jours(s.date)
-    if (d < 0) continue
+    if (s.date > aujourdhui) continue
+    const d = ancienneteEnJours(s, now)
     for (const e of s.exercises) {
       if (!estRecuperation(e.name)) continue
       for (const g of parseGroupEntries(e.muscle_group)) {
@@ -208,8 +257,8 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
 
   const out: Record<string, GroupLoad> = {}
   for (const s of sessions) {
-    const days = jours(s.date)
-    if (days < 0) continue // séance datée dans le futur : ignorée
+    if (s.date > aujourdhui) continue // séance datée dans le futur : ignorée
+    const days = ancienneteEnJours(s, now)
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       if (estRecuperation(e.name)) continue
@@ -225,7 +274,7 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
         if (!cur || effectiveDays < cur.effectiveDays) {
-          out[g.name] = { days, intensity: g.intensity, effectiveDays }
+          out[g.name] = { days, date: s.date, intensity: g.intensity, effectiveDays }
         }
       }
     }
@@ -569,7 +618,7 @@ export async function deleteTemplate(id: string): Promise<void> {
 export async function listSessions(userId: string, limit = 100): Promise<MuscuSession[]> {
   const { data: sessions, error } = await supabase
     .from('perso_muscu_sessions')
-    .select('id,date,name,duration_min,notes,template_id')
+    .select('id,date,name,duration_min,notes,template_id,created_at')
     .eq('user_id', userId)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })

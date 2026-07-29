@@ -20,7 +20,8 @@ export type Courbatures = Record<string, Courbature>
 
 const KEY = 'muscu_courbatures'
 
-export const PALIERS = [1, 2, 3] as const
+/** Paliers proposés, au même pas de 12 h que le mannequin. */
+export const PALIERS = [0.5, 1, 2, 3] as const
 
 export async function loadCourbatures(userId: string): Promise<Courbatures> {
   const c = await fetchKv<Courbatures>(userId, KEY, {})
@@ -31,12 +32,13 @@ export async function saveCourbatures(userId: string, c: Courbatures): Promise<v
   await saveKv(userId, KEY, c)
 }
 
-/** Date de la séance à l'origine d'une charge : aujourd'hui moins ses jours. */
+/**
+ * Date de la séance à l'origine d'une charge. Elle est portée par la charge
+ * elle-même : depuis le passage au pas de 12 h, la déduire d'« aujourd'hui
+ * moins ses jours » tomberait à côté dès que l'ancienneté porte une demi-journée.
+ */
 export function dateDeLaSeance(load: GroupLoad): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() - load.days)
-  return d.toLocaleDateString('en-CA')
+  return load.date
 }
 
 /**

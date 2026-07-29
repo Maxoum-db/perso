@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { GroupLoad } from '../lib/muscu'
+import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { PALIERS } from '../lib/soreness'
 import {
   MUSCLE_LABELS,
@@ -22,6 +22,11 @@ export type { MuscleRegion, Sollicitation } from '../lib/muscles'
 //   5-7 j  → lime, vert     (prêt)
 //   ≥ 10 j → turquoise      (en attente / jamais travaillé)
 //
+// L'échelle avance par sections de 12 h (cf. PAS_JOURS) : chaque journée porte
+// deux couleurs, le matin et le soir. La rampe pose donc un point de repère à
+// chaque demi-journée sur toute la partie chaude — là où l'état change vite —
+// et s'étale ensuite, une fois le muscle prêt.
+//
 // Les tracés sont exprimés dans un repère centré (x = 0 au milieu du corps) :
 // on ne décrit qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)).
 
@@ -34,19 +39,46 @@ const NEUTRAL = '#C9C4BD'
  * longtemps. Un vrai spectre plutôt que trois pastilles à comparer.
  *
  * Les paliers validés restent lisibles : chaud jusqu'à 2 j, ambre à 3-4 j,
- * bascule dans les froides à partir de 5 j.
+ * bascule dans les froides à partir de 5 j. Entre deux paliers, la demi-journée
+ * a sa propre teinte — deux sections voisines ne se confondent jamais.
  */
 const RAMPE: Array<[jours: number, h: number, s: number, l: number]> = [
-  [0, 20, 52, 30], //   marron — encore brûlant, séance du jour
-  [1, 4, 76, 47], //    rouge
-  [2, 20, 84, 50], //   rouge orangé — dernier cran « en récup »
-  [3, 34, 88, 50], //   orange
-  [4, 46, 90, 50], //   ambre — dernier cran « bientôt prêt »
-  [5, 74, 62, 44], //   lime : bascule sur « prêt »
-  [7, 112, 55, 42], //  vert
-  [10, 158, 55, 41], // turquoise
-  [14, 192, 58, 44], // cyan
-  [21, 212, 56, 46], // bleu franc — froid, oublié
+  [0, 20, 52, 30], //     marron — encore brûlant, la séance vient de finir
+  [0.5, 12, 64, 38], //   marron rouge — le soir de la séance
+  [1, 4, 76, 47], //      rouge
+  [1.5, 12, 80, 49], //   rouge vif
+  [2, 20, 84, 50], //     rouge orangé — dernier cran « en récup »
+  [2.5, 27, 86, 50], //   orange sombre
+  [3, 34, 88, 50], //     orange
+  [3.5, 40, 89, 50], //   orange ambré
+  [4, 46, 90, 50], //     ambre — dernier cran « bientôt prêt »
+  [4.5, 60, 76, 47], //   jaune lime
+  [5, 74, 62, 44], //     lime : bascule sur « prêt »
+  [6, 93, 58, 43], //     vert clair
+  [7, 112, 55, 42], //    vert
+  [10, 158, 55, 41], //   turquoise
+  [14, 192, 58, 44], //   cyan
+  [21, 212, 56, 46], //   bleu franc — froid, oublié
+]
+
+/**
+ * Bornes de section affichées dans la légende : une case par 12 h tant que le
+ * muscle récupère, puis les trois paliers froids. Le dégradé continu masquait
+ * justement ce que l'échelle a de discret.
+ */
+const SECTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 10, 14, 21]
+
+/**
+ * Les cinq états, chacun large de ses propres sections — un libellé réparti à
+ * intervalles égaux tomberait à côté de sa couleur, la queue froide écrasant
+ * l'échelle. La somme des `cases` vaut exactement SECTIONS.length.
+ */
+const ETATS: Array<{ label: string; cases: number; align: string }> = [
+  { label: 'brûlant', cases: 1, align: 'text-left' }, //         0 j
+  { label: 'en récup', cases: 4, align: 'text-center' }, //      0,5 → 2 j
+  { label: 'bientôt prêt', cases: 4, align: 'text-center' }, //  2,5 → 4 j
+  { label: 'prêt', cases: 6, align: 'text-center' }, //          4,5 → 7 j
+  { label: 'froid', cases: 3, align: 'text-right' }, //          10 → 21 j
 ]
 
 /** Couleur interpolée sur la rampe, teinte, saturation et clarté comprises. */
@@ -68,36 +100,44 @@ function hsl(h: number, s: number, l: number): string {
   return `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${l.toFixed(0)}%)`
 }
 
+/** Couleur continue de la rampe — sert au ressenti, réglé au pourcentage. */
+function couleurContinue(jours: number, intensity = 1): string {
+  const [h, s, l] = surLaRampe(jours)
+  if (jours > 4) return hsl(h, s, l)
+  // Sur la partie chaude, l'intensité du dernier travail éclaircit la teinte :
+  // un moteur principal reste dense, un stabilisateur tire vers le clair — mais
+  // tous deux gardent leur couleur. L'écart doit rester lisible côte à côte
+  // dans la légende, où les trois pastilles partagent la même section.
+  const appoint = 1 - Math.max(0, Math.min(1, intensity))
+  return hsl(h, s - 24 * appoint, l + 22 * appoint)
+}
+
 /**
- * Couleur d'un muscle. La position sur la rampe porte l'état de récupération.
- *
- * Sur la partie chaude (encore en récup), l'intensité du dernier travail
- * éclaircit la teinte : un moteur principal reste dense, un stabilisateur
- * tire vers le clair — mais tous deux gardent leur couleur.
+ * Couleur d'un muscle. La position sur la rampe porte l'état de récupération,
+ * ramenée à sa section de 12 h : entre le matin et le soir la couleur change,
+ * mais à l'intérieur d'une même demi-journée elle est stable — sans quoi on
+ * verrait le corps dériver en permanence sans jamais pouvoir dire où il en est.
  *
  * Sur la partie froide, la position suffit : plus le muscle attend, plus il
  * descend vers le bleu.
  */
 export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
   // Jamais travaillé sur la période : le plus froid de l'échelle.
-  if (effectiveDays === undefined) {
-    const [h, s, l] = surLaRampe(21)
-    return hsl(h, s, l)
-  }
-  const [h, s, l] = surLaRampe(effectiveDays)
-  if (effectiveDays > 4) return hsl(h, s, l)
-  const appoint = 1 - Math.max(0, Math.min(1, intensity))
-  return hsl(h, s - 14 * appoint, l + 14 * appoint)
+  if (effectiveDays === undefined) return couleurContinue(21)
+  const section = Math.max(0, Math.floor(effectiveDays / PAS_JOURS) * PAS_JOURS)
+  return couleurContinue(section, intensity)
 }
 
 /**
  * Couleur d'un effort déclaré, sur la même échelle que le mannequin : 100 % de
  * ce qu'on peut donner = marron brûlant, 0 % = vert reposé. Le ressenti et le
  * corps parlent ainsi le même langage visuel.
+ *
+ * Ici pas de section : un curseur au pourcentage doit répondre à chaque cran.
  */
 export function effortColor(pourcent: number): string {
   const p = Math.max(0, Math.min(1, pourcent))
-  return recoveryColor(7 * (1 - p))
+  return couleurContinue(7 * (1 - p))
 }
 
 // ── Tracés (repère centré, moitié gauche du corps) ──────────────────────────
@@ -204,23 +244,30 @@ export function MuscleBodyDiagram({
         </text>
       </svg>
 
-      {/* Spectre : une barre continue vaut mieux que trois pastilles isolées. */}
+      {/* Spectre en sections de 12 h : une case par demi-journée tant que le
+          muscle récupère. Le dégradé continu laissait croire à une dérive
+          lente ; les cases disent qu'on avance par crans, deux par jour. */}
       <div className="px-1">
-        <div
-          className="h-2.5 w-full rounded-full"
-          style={{
-            background: `linear-gradient(to right, ${[0, 1, 2, 3, 4, 5, 7, 10, 14, 21]
-              .map((j) => recoveryColor(j))
-              .join(', ')})`,
-          }}
-        />
-        <div className="mt-0.5 flex justify-between text-[10px] text-muted">
-          <span>brûlant</span>
-          <span>en récup</span>
-          <span>bientôt prêt</span>
-          <span>prêt</span>
-          <span>froid</span>
+        <div className="flex h-2.5 w-full gap-px overflow-hidden rounded-full">
+          {SECTIONS.map((j) => (
+            <div
+              key={j}
+              className="h-full flex-1"
+              style={{ background: recoveryColor(j) }}
+              title={j < 1 ? `${j * 24} h` : `${j} j`}
+            />
+          ))}
         </div>
+        <div className="mt-0.5 flex text-[10px] text-muted">
+          {ETATS.map((e) => (
+            <span key={e.label} className={`${e.align} whitespace-nowrap`} style={{ flexGrow: e.cases, flexBasis: 0 }}>
+              {e.label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-0.5 text-center text-[9px] text-muted">
+          Une case = {PAS_HEURES} h · le corps change de couleur deux fois par jour
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
@@ -229,7 +276,7 @@ export function MuscleBodyDiagram({
           <span key={s} className="inline-flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 rounded"
-              style={{ background: recoveryColor(1, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
+              style={{ background: recoveryColor(PAS_JOURS, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
             />
             {SOLLICITATION_MARQUEUR[s]} {s === 'leger' ? 'appoint' : s}
           </span>
@@ -249,9 +296,8 @@ export function MuscleBodyDiagram({
                 title="Toucher pour déclarer des courbatures"
               >
                 <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-                {group} {SOLLICITATION_MARQUEUR[sollicitation(load.intensity)]} ·{' '}
-                {load.days === 0 ? "aujourd'hui" : load.days === 1 ? 'hier' : `il y a ${load.days} j`}
-                {load.soreExtra ? ` · 😣 +${load.soreExtra} j` : ''}
+                {group} {SOLLICITATION_MARQUEUR[sollicitation(load.intensity)]} · {fmtAnciennete(load.days)}
+                {load.soreExtra ? ` · 😣 +${fmtPalier(load.soreExtra)}` : ''}
                 <span className="ml-0.5 font-bold opacity-60">+</span>
               </button>
             )
@@ -282,6 +328,11 @@ export function MuscleBodyDiagram({
       ) : null}
     </div>
   )
+}
+
+/** « 12 h », « 1 j », « 2 j » — les paliers de courbature suivent le pas de 12 h. */
+function fmtPalier(jours: number): string {
+  return jours < 1 ? `${Math.round(jours * 24)} h` : `${jours} j`
 }
 
 /** Menu ouvert au clic sur une pastille de groupe : déclarer des courbatures. */
@@ -316,10 +367,7 @@ function SorenessSheet({
         </div>
 
         <p className="text-xs text-muted">
-          Travaillé{' '}
-          <b className="text-ink">
-            {load.days === 0 ? "aujourd'hui" : load.days === 1 ? 'hier' : `il y a ${load.days} jours`}
-          </b>
+          Travaillé <b className="text-ink">{fmtAnciennete(load.days)}</b>
           {load.intensity < 1 ? ` en secondaire (${Math.round(load.intensity * 100)} %)` : ' en moteur principal'}.
         </p>
 
@@ -338,7 +386,7 @@ function SorenessSheet({
                   actuel === n ? 'bg-clay text-white' : 'bg-white/5 text-muted hover:text-ink'
                 }`}
               >
-                +{n} j
+                +{fmtPalier(n)}
               </button>
             ))}
           </div>
@@ -347,7 +395,7 @@ function SorenessSheet({
               onClick={() => choisir(0)}
               className="mt-2 w-full rounded-lg bg-white/5 px-2 py-1.5 text-xs font-semibold text-muted hover:text-ink"
             >
-              Retirer les {actuel} j déclarés
+              Retirer les {fmtPalier(actuel)} déclarés
             </button>
           ) : null}
         </div>
@@ -371,13 +419,18 @@ function MuscleSheet({
 }) {
   const propositions = exercicesPourMuscle(region, 8)
   const color = recoveryColor(info?.jours, info?.intensite)
+  // Les cinq états sont ceux de la légende du spectre, dans le même ordre.
   const etat = !info
-    ? 'Prêt — jamais travaillé sur les séances chargées'
-    : info.jours <= 2
-      ? 'En récupération'
-      : info.jours <= 4
-        ? 'Bientôt prêt'
-        : 'Prêt'
+    ? 'Froid — jamais travaillé sur les séances chargées'
+    : info.jours < PAS_JOURS
+      ? 'Brûlant'
+      : info.jours <= 2
+        ? 'En récupération'
+        : info.jours <= 4
+          ? 'Bientôt prêt'
+          : info.jours <= 10
+            ? 'Prêt'
+            : 'Froid'
 
   return (
     <div
@@ -404,11 +457,8 @@ function MuscleSheet({
 
         {info ? (
           <p className="mt-2 text-xs text-muted">
-            Dernière sollicitation :{' '}
-            <b className="text-ink">
-              {info.joursReels === 0 ? "aujourd'hui" : info.joursReels === 1 ? 'hier' : `il y a ${info.joursReels} jours`}
-            </b>{' '}
-            via <b className="text-ink">{info.label}</b>
+            Dernière sollicitation : <b className="text-ink">{fmtAnciennete(info.joursReels)}</b> via{' '}
+            <b className="text-ink">{info.label}</b>
             {info.intensite < 1
               ? ` — en secondaire (${Math.round(info.intensite * 100)} %), donc récupération plus rapide.`
               : ' — en moteur principal.'}
