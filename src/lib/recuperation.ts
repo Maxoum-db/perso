@@ -32,6 +32,15 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   fibularis: RAPIDE, //  stabilisateur de cheville, en service toute la journée
 
   // Moyens
+  //
+  // Quadriceps et grand fessier ont longtemps été classés lents parce qu'ils
+  // sont gros. C'est le mauvais critère : ce sont aussi les muscles les plus
+  // vascularisés du corps et les seuls à travailler à chaque pas, chaque
+  // escalier, chaque relevé de chaise. Ils reviennent en 48-72 h, pas en six
+  // jours — un pectoral, lui, ne sert à rien entre deux séances.
+  rectusFemoris: MOYEN,
+  vastusLat: MOYEN,
+  gluteMax: MOYEN,
   biceps: MOYEN,
   brachialis: MOYEN,
   brachioradialis: MOYEN,
@@ -50,7 +59,9 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   gluteMed: MOYEN,
   vastusMed: MOYEN,
 
-  // Lents — grosses masses et chaîne postérieure, plus la coiffe : petite, mais
+  // Lents — ce qui traîne vraiment : la chaîne postérieure, très sollicitée en
+  // excentrique (le mode qui abîme le plus), les grosses masses du haut qui ne
+  // servent à rien entre deux séances, plus la coiffe : petite, mais
   // très tendineuse et peu vascularisée, elle est longue à revenir. La traiter
   // comme un petit muscle rapide serait exactement la mauvaise consigne sur une
   // épaule qui a déjà lâché.
@@ -58,9 +69,6 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   pecLower: LENT,
   lats: LENT,
   erectors: LENT,
-  gluteMax: LENT,
-  rectusFemoris: LENT,
-  vastusLat: LENT,
   bicepsFemoris: LENT,
   hamsInner: LENT,
 }
