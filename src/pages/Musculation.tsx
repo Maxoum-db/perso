@@ -801,10 +801,11 @@ function SessionEditor({
               type="number"
               inputMode="numeric"
               placeholder="durée"
+              title="Durée totale de la séance, échauffement et repos compris"
               value={d.duration}
               onChange={(e) => setD({ ...d, duration: e.target.value })}
             />
-            min
+            min au total
           </label>
         </div>
         <div className="flex items-start gap-2">

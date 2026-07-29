@@ -36,6 +36,13 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Développé décliné', groups: 'Grand pectoral:1, Triceps:0.6, Deltoïde antérieur:0.3', sets: 3, reps: '10' },
   { name: 'Écarté haltères', groups: 'Grand pectoral:1, Deltoïde antérieur:0.3', sets: 3, reps: '12', notes: '⚠️ AC droite : ne pas descendre les coudes sous la ligne du buste.' },
   { name: 'Écarté à la poulie', groups: 'Grand pectoral:1, Pectoral supérieur:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '12-15' },
+  // Écarté croisé (« cable crossover ») : debout entre deux poulies, on ramène
+  // les deux bras devant soi. La hauteur de la poulie change le faisceau visé,
+  // et le deltoïde antérieur travaille dur dans les trois — d'où les épaules
+  // qui chauffent autant que les pectoraux.
+  { name: 'Écarté croisé à la poulie haute', groups: 'Grand pectoral:1, Deltoïde antérieur:0.5, Pectoral supérieur:0.3, Grand droit:0.3', sets: 3, reps: '12-15', notes: 'Poulies en haut, mains ramenées vers le bas et l’avant : cible le faisceau sternal. ⚠️ AC droite : coudes légèrement fléchis, ne pas croiser au-delà du sternum.' },
+  { name: 'Écarté croisé à la poulie à hauteur d’épaules', groups: 'Grand pectoral:1, Deltoïde antérieur:0.6, Pectoral supérieur:0.5, Grand droit:0.3', sets: 3, reps: '12-15', notes: 'Poulies à hauteur de poitrine, trajectoire horizontale : la version la plus complète, et la plus exigeante pour l’épaule antérieure.' },
+  { name: 'Écarté croisé à la poulie basse', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.7, Grand pectoral:0.6, Grand droit:0.3', sets: 3, reps: '12-15', notes: 'Poulies en bas, mains ramenées vers le haut et l’avant : cible le faisceau claviculaire. ⚠️ AC droite : c’est la variante qui charge le plus l’épaule, monter sans dépasser la ligne des yeux.' },
   { name: 'Écarté à la machine (pec deck)', groups: 'Grand pectoral:1, Deltoïde antérieur:0.3', sets: 3, reps: '12-15' },
   { name: 'Développé pectoraux à la machine', groups: 'Grand pectoral:1, Triceps:0.5, Deltoïde antérieur:0.4', sets: 3, reps: '10-12' },
   { name: 'Développé incliné à la machine', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.5, Triceps:0.4', sets: 4, reps: '12' },

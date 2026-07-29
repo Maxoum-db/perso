@@ -92,7 +92,12 @@ export function dureeSeance(s: MuscuSession): number {
 //   • séries par minute — le rythme, seul signal disponible quand il n'y a pas
 //     de charge (gainage, poids du corps).
 
-/** Référence : une séance de force menée correctement. */
+/**
+ * Référence : une séance de force menée correctement, rapportée à la durée
+ * TOTALE passée à la salle — échauffement, repos entre les séries et remise en
+ * place des charges compris. C'est cette durée-là qui est saisie, et c'est
+ * elle qui rend la comparaison honnête d'une séance à l'autre.
+ */
 const REF_TONNAGE_PAR_MIN = 1.0 // poids de corps soulevés par minute
 const REF_SERIES_PAR_MIN = 0.33 // une série toutes les trois minutes, repos compris
 
