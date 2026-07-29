@@ -1,5 +1,7 @@
 import { MUSCLE_LABELS } from './MuscleBodyDiagram'
 import { TON_STYLE } from '../lib/charge'
+import { FormeCard } from './FormeCard'
+import type { Forme } from '../lib/forme'
 import type { SuggestedSession } from '../lib/sessionBuilder'
 
 // Aperçu de la séance composée automatiquement : on montre POURQUOI chaque
@@ -13,12 +15,15 @@ function repos(jours: number): string {
 
 export function SuggestedSessionCard({
   suggestion,
+  forme,
   onLive,
   onManual,
   onRegenerate,
   onClose,
 }: {
   suggestion: SuggestedSession | null
+  /** État de forme ayant dicté le volume et les charges de cette séance. */
+  forme?: Forme
   onLive: () => void
   onManual: () => void
   onRegenerate: () => void
@@ -54,6 +59,8 @@ export function SuggestedSessionCard({
         Composée à partir de ta récupération : ces muscles sont reposés, et les plus utiles au béhourd passent
         devant.
       </p>
+
+      {forme ? <FormeCard forme={forme} compact /> : null}
 
       {suggestion.degrade ? (
         <p className="rounded-xl2 border border-clay/30 bg-clay/5 p-2 text-[11px] text-clay">

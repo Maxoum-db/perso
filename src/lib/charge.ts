@@ -130,6 +130,17 @@ export function suggererCharge(
   return { weight: last.weight, ton: 'maintien', raison: `garde ${last.weight} kg, vise ${cible} reps` }
 }
 
+/**
+ * Rabote une charge conseillée d'un facteur donné (séance allégée). Sans effet
+ * au poids du corps : on ne demande pas à quelqu'un de peser 10 % de moins.
+ */
+export function ajusterCharge(c: ChargeSuggestion, facteur: number): ChargeSuggestion {
+  if (facteur >= 1 || c.weight === null || c.ton === 'corps') return c
+  const w = Math.round(c.weight * facteur * 2) / 2
+  const pct = Math.round((1 - facteur) * 100)
+  return { weight: w, ton: 'baisse', raison: `${c.raison} — allégé de ${pct} %` }
+}
+
 /** Petite pastille de couleur associée au ton. */
 export const TON_STYLE: Record<TonCharge, { icone: string; classe: string }> = {
   hausse: { icone: '↗', classe: 'text-sage-dark' },

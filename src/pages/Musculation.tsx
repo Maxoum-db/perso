@@ -3,7 +3,7 @@ import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import { Section } from '../components/training-ui'
 import { Poids } from './Carnet'
-import { listWeighins } from '../lib/workouts'
+import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { GroupPicker } from '../components/GroupPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
@@ -20,6 +20,7 @@ import {
   saveCourbatures,
   type Courbatures,
 } from '../lib/soreness'
+import { evaluerForme } from '../lib/forme'
 import { ProgressTab } from './MusculationProgress'
 import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -184,6 +185,8 @@ export function Musculation() {
   // Poids de corps de l'utilisateur connecté : sert de charge aux exercices
   // au poids du corps (chacun le sien).
   const [bodyWeight, setBodyWeight] = useState<number | null>(null)
+  // Pesées complètes : servent à déduire la balance énergétique, donc l'état de forme.
+  const [weighins, setWeighins] = useState<Weighin[]>([])
   // Point faible à rattraper : pèse sur le générateur et sur l'alerte des négligés.
   const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
   // Courbatures déclarées à la main, en plus du calcul automatique.
@@ -208,6 +211,7 @@ export function Musculation() {
       setCatalog(c)
       setGroups(g)
       setBodyWeight(w[0]?.weight_kg ?? null)
+      setWeighins(w)
       setFocus(f)
       setCourbatures(cb)
     } catch (e) {
@@ -255,6 +259,7 @@ export function Musculation() {
           templates={templates}
           catalog={catalog}
           bodyWeight={bodyWeight}
+          weighins={weighins}
           groups={groups}
           focus={focus}
           courbatures={courbatures}
@@ -301,6 +306,7 @@ function Journal({
   catalog,
   groups,
   bodyWeight,
+  weighins,
   focus,
   onFocus,
   courbatures,
@@ -313,6 +319,7 @@ function Journal({
   catalog: CatalogExercise[]
   groups: string[]
   bodyWeight: number | null
+  weighins: Weighin[]
   focus: FocusId
   onFocus: (id: FocusId) => void
   courbatures: Courbatures
@@ -330,6 +337,9 @@ function Journal({
 
   // Une seule source de vérité : la récup automatique corrigée des courbatures.
   const loads = applyCourbatures(groupLoads(sessions), courbatures)
+  // État de forme : charge d'entraînement + balance énergétique déduite du poids.
+  // C'est lui qui dicte le volume et les charges de la séance proposée.
+  const forme = evaluerForme(sessions, weighins)
 
   /** Déclare (ou retire) des courbatures sur un groupe. */
   function declarerCourbatures(group: string, extra: number) {
@@ -407,14 +417,21 @@ function Journal({
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus, loads }), exclude })
+    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus, loads, count: forme.exos, intensite: forme.intensite }), exclude })
   }
 
   function regenerer() {
     if (!suggest) return
     const next = new Set(suggest.exclude)
     for (const e of suggest.session?.exercises ?? []) next.add(e.exo.id)
-    const session = buildSession(catalog, sessions, { exclude: next, bodyWeight, focus, loads })
+    const session = buildSession(catalog, sessions, {
+      exclude: next,
+      bodyWeight,
+      focus,
+      loads,
+      count: forme.exos,
+      intensite: forme.intensite,
+    })
     // Plus rien de neuf à proposer : on repart du catalogue complet.
     if (!session) suggerer(new Set())
     else setSuggest({ session, exclude: next })
@@ -585,6 +602,7 @@ function Journal({
       {suggest ? (
         <SuggestedSessionCard
           suggestion={suggest.session}
+          forme={forme}
           onLive={() => lancerSuggestion(true)}
           onManual={() => lancerSuggestion(false)}
           onRegenerate={regenerer}

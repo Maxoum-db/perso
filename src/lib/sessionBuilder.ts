@@ -2,7 +2,7 @@ import { EXERCISE_LIBRARY } from '../data/exercises'
 import { PRIORITE_BEHOURD, poidsBehourd } from '../data/behourdPriority'
 import { regionsForGroup, type MuscleRegion } from '../components/MuscleBodyDiagram'
 import { groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
-import { suggererCharge, type ChargeSuggestion } from './charge'
+import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
 import { FOCUS, POIDS_FOCUS, type FocusId } from './focus'
 
 // Générateur de séance : compose une séance à partir de ce que le corps a déjà
@@ -124,6 +124,11 @@ export interface BuildOptions {
    * elle est recalculée depuis les séances — mais sans les courbatures.
    */
   loads?: Record<string, GroupLoad>
+  /**
+   * Multiplicateur de charge venu de l'état de forme (séance allégée). Ne
+   * touche ni au poids du corps ni aux exercices au temps.
+   */
+  intensite?: number
 }
 
 /**
@@ -182,10 +187,13 @@ export function buildSession(
       moteurs: c.moteurs,
       reposMin: c.reposMin,
       score: c.score,
-      charge: suggererCharge(
-        sessions,
-        { name: c.exo.name, default_reps: c.exo.default_reps },
-        options.bodyWeight ?? null,
+      charge: ajusterCharge(
+        suggererCharge(
+          sessions,
+          { name: c.exo.name, default_reps: c.exo.default_reps },
+          options.bodyWeight ?? null,
+        ),
+        options.intensite ?? 1,
       ),
     })
   }
