@@ -235,6 +235,7 @@ export function MuscleBodyDiagram({
   const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
   // Corps affiché en plein écran, ou null pour la vue à deux vignettes.
   const [zoom, setZoom] = useState<Face | null>(null)
+  const [listeOuverte, setListeOuverte] = useState(false)
 
   // Repos par muscle, vitesse de récupération de la zone comprise. Calcul
   // partagé avec le générateur de séance : une seule définition.
@@ -304,25 +305,52 @@ export function MuscleBodyDiagram({
         ))}
       </div>
 
+      {/* Liste des groupes suivis, repliée par défaut : une séance complète en
+          aligne une trentaine, et ce mur de pastilles repoussait tout le reste
+          de la page hors de l'écran. Le mannequin dit déjà l'essentiel ; cette
+          liste ne sert qu'à déclarer des courbatures. */}
       {tracked.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {tracked.map(([group, load]) => {
-            const color = recoveryColor(load.effectiveDays, load.intensity)
-            return (
-              <button
-                key={group}
-                onClick={() => setGroupOuvert(group)}
-                className="chip flex items-center gap-1 text-[10px]"
-                style={{ background: color + '22', color }}
-                title="Toucher pour déclarer des courbatures"
-              >
-                <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-                {group} {SOLLICITATION_MARQUEUR[sollicitation(load.intensity)]} · {fmtAnciennete(load.days)}
-                {load.soreExtra ? ` · 😣 +${fmtPalier(load.soreExtra)}` : ''}
-                <span className="ml-0.5 font-bold opacity-60">+</span>
-              </button>
-            )
-          })}
+        <div className="space-y-1.5">
+          <button
+            onClick={() => setListeOuverte((o) => !o)}
+            className="flex w-full items-center gap-1.5 rounded-lg bg-bg px-2 py-1 text-[11px] font-semibold text-muted transition hover:text-ink"
+          >
+            <span className="shrink-0 text-[9px]">{listeOuverte ? '▾' : '▸'}</span>
+            <span className="shrink-0 whitespace-nowrap">😣 Déclarer des courbatures</span>
+            {/* Aperçu des états même replié : le corps résumé en une ligne. */}
+            <span className="ml-auto flex shrink-0 gap-px">
+              {tracked.slice(0, 8).map(([group, load]) => (
+                <span
+                  key={group}
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ background: recoveryColor(load.effectiveDays, load.intensity) }}
+                />
+              ))}
+            </span>
+            <span className="shrink-0 font-normal">{tracked.length}</span>
+          </button>
+
+          {listeOuverte ? (
+            <div className="flex flex-wrap gap-1.5">
+              {tracked.map(([group, load]) => {
+                const color = recoveryColor(load.effectiveDays, load.intensity)
+                return (
+                  <button
+                    key={group}
+                    onClick={() => setGroupOuvert(group)}
+                    className="chip flex items-center gap-1 text-[10px]"
+                    style={{ background: color + '22', color }}
+                    title="Toucher pour déclarer des courbatures"
+                  >
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
+                    {group} {SOLLICITATION_MARQUEUR[sollicitation(load.intensity)]} · {fmtAnciennete(load.days)}
+                    {load.soreExtra ? ` · 😣 +${fmtPalier(load.soreExtra)}` : ''}
+                    <span className="ml-0.5 font-bold opacity-60">+</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
       ) : (
         <p className="text-center text-[11px] text-muted">
@@ -383,7 +411,10 @@ function ZoomBody({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg">
-      <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-4">
+      {/* En PWA plein écran (viewport-fit=cover), le haut de l'overlay passe SOUS
+          l'heure et la batterie de l'iPhone : la barre d'outils doit descendre
+          de l'encoche. Idem en bas pour la barre d'accueil. */}
+      <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-[calc(1rem+env(safe-area-inset-top))]">
         <div className="flex gap-1">
           {(['front', 'back'] as Face[]).map((f) => (
             <button
@@ -423,7 +454,7 @@ function ZoomBody({
         />
       </svg>
 
-      <p className="px-4 pb-5 pt-1 text-center text-[11px] text-muted">
+      <p className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 text-center text-[11px] text-muted">
         Touche un muscle pour son état de récupération et les exercices qui le visent.
       </p>
     </div>
