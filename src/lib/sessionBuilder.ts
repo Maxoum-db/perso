@@ -71,8 +71,6 @@ export interface SuggestedExercise {
 export interface SuggestedSession {
   name: string
   exercises: SuggestedExercise[]
-  /** Muscles visés, du plus reposé au moins reposé. */
-  cibles: MuscleRegion[]
   /** Muscles écartés parce qu'encore en récupération. */
   evites: MuscleRegion[]
   /** Vrai si tout était encore rouge et qu'on a dû assouplir la règle. */
@@ -146,6 +144,12 @@ export function buildSession(
   const loads: Record<string, GroupLoad> = options.loads ?? groupLoads(sessions)
   const repos = reposParMuscle(loads)
   const focusRegions = new Set(FOCUS[options.focus ?? 'aucun'].regions)
+
+  // Exercices déjà pratiqués : eux seuls ont un historique de charge. À score
+  // comparable ils passent devant, sinon la séance proposée arrive pleine de
+  // « ? kg » — la charge conseillée devient inutile là où elle sert le plus.
+  const dejaFaits = new Set<string>()
+  for (const s of sessions) for (const e of s.exercises) dejaFaits.add(e.name.trim().toLowerCase())
   const reposDe = (r: MuscleRegion) => repos[r] ?? JAMAIS
 
   const candidats = catalog
@@ -158,6 +162,7 @@ export function buildSession(
         const focus = focusRegions.has(region) ? POIDS_FOCUS : 1
         score += intensity * poidsRepos(reposDe(region)) * poidsBehourd(region) * focus
       }
+      if (score > 0 && dejaFaits.has(c.name.trim().toLowerCase())) score *= 1.25
       const fatigue = moteurs.some((r) => reposDe(r) <= 2)
       const reposMin = moteurs.length ? Math.min(...moteurs.map(reposDe)) : JAMAIS
       return { exo: c, muscles, moteurs, score, fatigue, reposMin }
@@ -239,7 +244,6 @@ export function buildSession(
   // Les polyarticulaires d'abord, l'isolation en fin de séance.
   choisis.sort((a, b) => b.moteurs.length - a.moteurs.length || b.score - a.score)
 
-  const cibles = [...usage.keys()].sort((a, b) => reposDe(b) - reposDe(a))
   const evites = [...new Set(candidats.filter((c) => c.fatigue).flatMap((c) => c.moteurs))]
     .filter((r) => reposDe(r) <= 2)
     .sort((a, b) => reposDe(a) - reposDe(b))
@@ -261,7 +265,6 @@ export function buildSession(
   return {
     name: zones.length ? `Séance ${zones.join(' · ')}` : 'Séance du jour',
     exercises: choisis,
-    cibles,
     evites,
     degrade,
   }

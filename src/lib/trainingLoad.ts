@@ -1,5 +1,5 @@
 import { fetchKv, saveKv } from './kv'
-import { metPourExercice } from './calories'
+import { dureeSeance, metPourExercice } from './calories'
 import type { MuscuSession } from './muscu'
 
 // Charge d'entraînement et ratio aigu/chronique (ACWR).
@@ -13,7 +13,7 @@ import type { MuscuSession } from './muscu'
 // s'adapter à ce qu'on lui demande.
 
 export function chargeSeance(s: MuscuSession): number {
-  const minutes = s.duration_min ?? Math.min(150, Math.max(15, s.exercises.reduce((n, e) => n + Math.max(1, e.sets), 0) * 2.5))
+  const minutes = dureeSeance(s)
   const mets = s.exercises.map((e) => metPourExercice(e.name))
   const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : 5
   return Math.round(met * minutes)
