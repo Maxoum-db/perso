@@ -28,10 +28,13 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   obliques: RAPIDE,
   serratus: RAPIDE,
   deltLat: RAPIDE,
+  tfl: RAPIDE, //        petit, postural, sollicité à chaque pas
+  fibularis: RAPIDE, //  stabilisateur de cheville, en service toute la journée
 
   // Moyens
   biceps: MOYEN,
   brachialis: MOYEN,
+  brachioradialis: MOYEN,
   tricepsLong: MOYEN,
   tricepsLat: MOYEN,
   deltAnt: MOYEN,
@@ -40,12 +43,18 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   trapsMid: MOYEN,
   trapsLow: MOYEN,
   teres: MOYEN,
+  rhomboids: MOYEN,
+  hipFlexors: MOYEN,
   pecUpper: MOYEN,
   adductors: MOYEN,
   gluteMed: MOYEN,
   vastusMed: MOYEN,
 
-  // Lents — grosses masses et chaîne postérieure
+  // Lents — grosses masses et chaîne postérieure, plus la coiffe : petite, mais
+  // très tendineuse et peu vascularisée, elle est longue à revenir. La traiter
+  // comme un petit muscle rapide serait exactement la mauvaise consigne sur une
+  // épaule qui a déjà lâché.
+  rotatorCuff: LENT,
   pecLower: LENT,
   lats: LENT,
   erectors: LENT,
