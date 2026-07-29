@@ -113,8 +113,29 @@ function brasDAcier(s: MuscuSession): boolean {
   return maxIntensite >= 0.8 && series >= 9
 }
 
-/** Emoji d'une séance du journal : celui de sa séance type, sinon déduit du nom. */
+// Une séance n'a pas de colonne « icône » : l'emoji choisi à la main vit en
+// préfixe de son nom. Visible, modifiable, et sans migration de schéma.
+const PREFIXE_EMOJI = /^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s*/u
+
+export function emojiDuNom(nom: string): string | null {
+  return nom.match(PREFIXE_EMOJI)?.[1] ?? null
+}
+
+/** Le nom sans son emoji, pour ne pas l'afficher deux fois. */
+function nomSansEmoji(nom: string): string {
+  return nom.replace(PREFIXE_EMOJI, '').trim() || nom
+}
+
+/** Remplace (ou retire) l'emoji en tête d'un nom de séance. */
+function avecEmoji(nom: string, emoji: string | null): string {
+  const base = nom.replace(PREFIXE_EMOJI, '').trim()
+  return emoji ? `${emoji} ${base}`.trim() : base
+}
+
+/** Emoji d'une séance du journal : choisi à la main, sinon sa séance type, sinon déduit. */
 function sessionEmoji(s: MuscuSession, templates: MuscuTemplate[]): string {
+  const choisi = emojiDuNom(s.name)
+  if (choisi) return choisi
   const tpl = s.template_id ? templates.find((t) => t.id === s.template_id) : null
   if (tpl?.icon) return tpl.icon
   const haystack = [s.name, ...s.exercises.map((e) => e.name)]
@@ -659,7 +680,7 @@ function Journal({
                   <div className="mt-0.5 text-xs font-bold text-copper">{frDate(s.date)}</div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-bold text-ink">{s.name}</div>
+                  <div className="truncate font-bold text-ink">{nomSansEmoji(s.name)}</div>
                   <div className="text-xs text-muted">
                     {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
                     {s.duration_min ? ` · ${s.duration_min} min` : ''}
@@ -786,13 +807,19 @@ function SessionEditor({
             min
           </label>
         </div>
-        <textarea
-          className="field"
-          rows={2}
-          placeholder="Notes sur la séance (ressenti, énergie, douleurs…)"
-          value={d.notes}
-          onChange={(e) => setD({ ...d, notes: e.target.value })}
-        />
+        <div className="flex items-start gap-2">
+          <textarea
+            className="field"
+            rows={2}
+            placeholder="Notes sur la séance (ressenti, énergie, douleurs…)"
+            value={d.notes}
+            onChange={(e) => setD({ ...d, notes: e.target.value })}
+          />
+          <EmojiPicker
+            value={emojiDuNom(d.name)}
+            onChange={(emoji) => setD({ ...d, name: avecEmoji(d.name, emoji) })}
+          />
+        </div>
       </div>
 
       <ExoListEditor
@@ -827,6 +854,54 @@ function SessionEditor({
   )
 }
 
+/** Choix d'emoji replié : fermé il ne montre que celui en cours. */
+function EmojiPicker({ value, onChange }: { value: string | null; onChange: (emoji: string | null) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Emoji de la séance"
+        className="flex h-[42px] w-11 items-center justify-center rounded-xl2 border border-line bg-bg text-xl"
+      >
+        {value ?? '🙂'}
+      </button>
+      {open ? (
+        <div className="absolute right-0 z-20 mt-1 w-64 space-y-1.5 rounded-xl2 border border-line bg-card p-2 shadow-lift">
+          {TPL_ICON_THEMES.map((grp) => (
+            <div key={grp.theme} className="flex items-center gap-1.5">
+              <span className="w-14 shrink-0 text-[9px] uppercase tracking-wide text-muted">{grp.theme}</span>
+              <div className="flex flex-wrap gap-0.5">
+                {grp.icons.map((ic) => (
+                  <button
+                    key={ic}
+                    onClick={() => {
+                      onChange(ic)
+                      setOpen(false)
+                    }}
+                    className={`rounded-lg px-1.5 py-0.5 text-lg ${value === ic ? 'bg-copper/20 ring-1 ring-copper' : ''}`}
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => {
+              onChange(null)
+              setOpen(false)
+            }}
+            className="w-full rounded-lg bg-bg py-1 text-[11px] font-semibold text-muted hover:text-ink"
+          >
+            Automatique
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /** Ajoute, met à jour ou retire la ligne de ressenti d'une liste d'exercices. */
 function majRessenti(exos: ExoDraft[], groupes: string): ExoDraft[] {
   const sans = exos.filter((e) => !estRessenti(e.name))
@@ -842,10 +917,6 @@ function RessentiSection({ value, onChange }: { value: string; onChange: (groups
   return (
     <div className="card space-y-2 p-3">
       <h3 className="text-sm font-bold text-ink">🤕 Ressenti — zones sollicitées</h3>
-      <p className="text-[11px] text-muted">
-        Pour le béhourd, le kickboxing ou tout ce qui n'a ni série ni charge : dis simplement ce qui a pris cher.
-        Le mannequin et le générateur de séance en tiennent compte comme d'un vrai travail.
-      </p>
       <RessentiPicker value={value} onChange={onChange} />
     </div>
   )
@@ -902,6 +973,10 @@ function ExoListEditor({
               ✕
             </button>
           </div>
+          {estRessenti(e.name) ? (
+            <RessentiPicker value={e.muscle_group} onChange={(v) => update(i, { muscle_group: v })} />
+          ) : (
+            <>
           <GroupPicker
             value={e.muscle_group}
             groups={groups}
@@ -945,6 +1020,8 @@ function ExoListEditor({
               </span>
             ) : null}
           </div>
+            </>
+          )}
           <input
             className="field text-xs"
             placeholder="Notes sur l'exercice (machine, tempo, ressenti…)"
