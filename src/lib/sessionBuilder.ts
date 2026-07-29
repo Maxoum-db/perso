@@ -14,9 +14,13 @@ import { FOCUS, POIDS_FOCUS, type FocusId } from './focus'
 // À priorité de repos égale, les muscles qui comptent pour le béhourd passent
 // devant (cou, préhension, trapèzes, érecteurs, obliques…).
 
-/** Les activités (nage, course, béhourd, bois) ne sont pas des exercices de séance. */
+/**
+ * Ni les activités (nage, course, béhourd, bois) ni la récupération active ne
+ * sont des exercices de séance : les premières se vivent dehors, la seconde
+ * s'enregistre pour effacer de la fatigue — pas pour en produire.
+ */
 const ACTIVITES = new Set(
-  EXERCISE_LIBRARY.filter((e) => e.kind === 'activite').map((e) => e.name.trim().toLowerCase()),
+  EXERCISE_LIBRARY.filter((e) => e.kind).map((e) => e.name.trim().toLowerCase()),
 )
 
 /** Muscle jamais travaillé : totalement disponible. */
