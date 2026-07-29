@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { addWeighin, deleteWeighin, listWeighins, type Weighin } from '../lib/workouts'
+import { listSessions, type MuscuSession } from '../lib/muscu'
+import { CaloriesCard } from '../components/CaloriesCard'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -8,6 +10,8 @@ const today = () => new Date().toISOString().slice(0, 10)
 export function Poids() {
   const { user } = useAuth()
   const [weighins, setWeighins] = useState<Weighin[]>([])
+  // Séances récentes : servent au bilan calorique de la semaine.
+  const [sessions, setSessions] = useState<MuscuSession[]>([])
   const [error, setError] = useState<string | null>(null)
   const [date, setDate] = useState(today())
   const [weight, setWeight] = useState('')
@@ -16,7 +20,9 @@ export function Poids() {
   async function reload() {
     if (!user) return
     try {
-      setWeighins(await listWeighins(user.id))
+      const [w, s] = await Promise.all([listWeighins(user.id), listSessions(user.id, 60).catch(() => [])])
+      setWeighins(w)
+      setSessions(s)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -45,6 +51,8 @@ export function Poids() {
   return (
     <div className="space-y-3">
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
+
+      <CaloriesCard sessions={sessions} bodyWeight={latest?.weight_kg ?? null} />
 
       <section className="card p-4">
         <h2 className="mb-2 text-sm font-extrabold text-ink">⚖️ Poids de corps</h2>
