@@ -10,6 +10,7 @@ import {
 } from '../lib/muscles'
 import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
+import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
 
 export { MUSCLE_LABELS, regionsForGroup, sollicitation, SOLLICITATION_MARQUEUR } from '../lib/muscles'
 export type { MuscleRegion, Sollicitation } from '../lib/muscles'
@@ -208,10 +209,10 @@ const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['vastusLat', 'M-28,172 C-32,196 -31,222 -27,244 C-24,249 -20,247 -19,242 C-19,214 -20,192 -21,172 Z'],
   ['rectusFemoris', 'M-18,172 C-21,198 -20,226 -16,248 L-9,248 C-8,222 -9,196 -10,172 Z'],
   ['adductors', 'M-8,174 C-12,196 -13,216 -11,232 L-3,232 C-3,214 -3,192 -3,174 Z'],
-  ['vastusMed', 'M-26,224 C-26,239 -21,249 -14,251 L-8,249 C-11,240 -18,233 -19,222 Z'],
+  ['vastusMed', 'M-18,226 C-17,239 -13,249 -7,252 C-4,250 -3,246 -4,242 C-8,238 -12,234 -13,224 Z'],
   ['neutral', 'M-27,254 C-20,260 -10,260 -5,254 L-5,264 C-11,270 -21,270 -27,264 Z'],
-  ['gastroc', 'M-25,265 C-27,283 -25,300 -22,310 L-16,309 C-16,291 -17,276 -18,263 Z'],
-  ['tibialis', 'M-15,263 C-16,284 -15,302 -13,313 L-6,313 C-5,293 -6,276 -9,262 Z'],
+  ['tibialis', 'M-24,264 C-26,283 -24,301 -21,313 L-15,313 C-14,294 -15,277 -17,262 Z'],
+  ['gastroc', 'M-14,264 C-15,282 -13,299 -11,311 L-5,311 C-4,292 -5,277 -6,263 Z'],
   ['neutral', 'M-25,320 C-26,328 -24,333 -19,334 L-4,334 C-3,330 -3,324 -4,318 Z'],
 ]
 
@@ -246,10 +247,13 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
 
 export function MuscleBodyDiagram({
   loads,
+  sexe = 'H',
   onSoreness,
   onExercice,
 }: {
   loads: Record<string, GroupLoad>
+  /** Silhouette à dessiner — vient du sexe déclaré dans Poids › profil. */
+  sexe?: Sexe
   /** Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler). */
   onSoreness?: (group: string, extra: number) => void
   /** Ouvre une séance sur un exercice proposé depuis la fiche d'un muscle. */
@@ -279,8 +283,8 @@ export function MuscleBodyDiagram({
         strokeLinejoin="round"
         aria-label="Récupération musculaire"
       >
-        <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} onZoom={() => setZoom('front')} />
-        <Figure cx={295} half={BACK_HALF} fill={fill} back onZoom={() => setZoom('back')} />
+        <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} sexe={sexe} onZoom={() => setZoom('front')} />
+        <Figure cx={295} half={BACK_HALF} fill={fill} back sexe={sexe} onZoom={() => setZoom('back')} />
         <text x="105" y="350" textAnchor="middle" fill="#a8a29e" fontSize="11" stroke="none">
           Face
         </text>
@@ -382,7 +386,16 @@ export function MuscleBodyDiagram({
         </p>
       )}
 
-      {zoom ? <ZoomBody face={zoom} fill={fill} onFace={setZoom} onPick={setSelected} onClose={() => setZoom(null)} /> : null}
+      {zoom ? (
+        <ZoomBody
+          face={zoom}
+          fill={fill}
+          sexe={sexe}
+          onFace={setZoom}
+          onPick={setSelected}
+          onClose={() => setZoom(null)}
+        />
+      ) : null}
 
       {selected ? (
         <MuscleSheet
@@ -423,12 +436,14 @@ export function MuscleBodyDiagram({
 function ZoomBody({
   face,
   fill,
+  sexe,
   onFace,
   onPick,
   onClose,
 }: {
   face: Face
   fill: (r: MuscleRegion | 'neutral') => string
+  sexe: Sexe
   onFace: (f: Face) => void
   onPick: (r: MuscleRegion) => void
   onClose: () => void
@@ -474,6 +489,7 @@ function ZoomBody({
           half={face === 'front' ? FRONT_HALF : BACK_HALF}
           fill={fill}
           back={face === 'back'}
+          sexe={sexe}
           onPick={onPick}
         />
       </svg>
@@ -733,6 +749,7 @@ function Figure({
   half,
   fill,
   back,
+  sexe = 'H',
   onPick,
   onZoom,
 }: {
@@ -740,6 +757,7 @@ function Figure({
   half: Array<[MuscleRegion | 'neutral', string]>
   fill: (r: MuscleRegion | 'neutral') => string
   back: boolean
+  sexe?: Sexe
   /** Absent en vignette : à cette taille, viser un muscle relève du hasard. */
   onPick?: (r: MuscleRegion) => void
   /** Présent en vignette : tout le corps est une seule cible, vers le zoom. */
@@ -750,8 +768,11 @@ function Figure({
     onPick && region !== 'neutral'
       ? { onClick: () => onPick(region), style: { cursor: 'pointer' } }
       : {}
-  const side = half.map(([region, d], i) => <path key={i} d={d} fill={fill(region)} {...viser(region)} />)
-  const base = BASE_HALF.map((d, i) => <path key={i} d={d} fill={NEUTRAL} stroke="none" />)
+  // Tout tracé passe par la morphologie : un seul jeu de muscles, deux
+  // silhouettes. Pour 'H' c'est l'identité, la référence n'est pas déformée.
+  const m = (d: string) => morphPath(d, sexe)
+  const side = half.map(([region, d], i) => <path key={i} d={m(d)} fill={fill(region)} {...viser(region)} />)
+  const base = BASE_HALF.map((d, i) => <path key={i} d={m(d)} fill={NEUTRAL} stroke="none" />)
   return (
     <g
       transform={`translate(${cx},0)`}
@@ -759,35 +780,49 @@ function Figure({
       style={onZoom ? { cursor: 'zoom-in' } : undefined}
     >
       {/* Silhouette de base, puis les muscles par-dessus */}
-      <path d={BASE_CENTER} fill={NEUTRAL} stroke="none" />
+      <path d={m(BASE_CENTER)} fill={NEUTRAL} stroke="none" />
       {base}
       <g transform="scale(-1,1)">{base}</g>
       {/* Tête ovoïde et cou, hors muscles suivis */}
-      <ellipse cx="0" cy="25" rx="12.5" ry="18" fill={NEUTRAL} />
-      <path d="M-6.5,41 C-6.5,47 -8,51 -10,54 L10,54 C8,51 6.5,47 6.5,41 Z" fill={NEUTRAL} stroke="none" />
+      <ellipse cx="0" cy="24" rx={deformerX(13, 24, sexe)} ry="19.5" fill={NEUTRAL} />
+      <path
+        d={m('M-6.5,41 C-6.5,47 -8,51 -10,54 L10,54 C8,51 6.5,47 6.5,41 Z')}
+        fill={NEUTRAL}
+        stroke="none"
+      />
       {/* Grand droit : uniquement de face, avec ses intersections tendineuses.
           Il se rétrécit vers le pubis, comme sur les planches. */}
       {back ? null : (
         <>
           <path
-            d="M-13,100 C-13,118 -13,136 -11,146 C-8,153 8,153 11,146 C13,136 13,118 13,100 C6,97 -6,97 -13,100 Z"
+            d={m('M-13,100 C-13,118 -13,136 -11,146 C-8,153 8,153 11,146 C13,136 13,118 13,100 C6,97 -6,97 -13,100 Z')}
             fill={fill('rectus')}
             {...viser('rectus')}
           />
           <path
-            d="M-12.6,112 L12.6,112 M-12.8,124 L12.8,124 M-12,136 L12,136 M0,99 L0,150"
+            d={m('M-12.6,111 L12.6,111 M-12.8,121 L12.8,121 M-12.4,131 L12.4,131 M0,99 L0,150')}
             strokeWidth="0.7"
             fill="none"
           />
+          {/* Silhouette mammaire : elle repose SUR le grand pectoral, elle ne le
+              remplace pas — un simple sillon sous-mammaire, sans remplissage,
+              pour que la couleur du muscle reste lisible. */}
+          {sexe === 'F' ? (
+            <path
+              d={m('M-24,74 C-24,88 -17,97 -7,97 M24,74 C24,88 17,97 7,97')}
+              strokeWidth="0.9"
+              fill="none"
+            />
+          ) : null}
         </>
       )}
       {/* Bassin */}
       <path
-        d={
+        d={m(
           back
             ? 'M-17,150 C-19,158 -18,166 -16,173 L16,173 C18,166 19,158 17,150 Z'
-            : 'M-17,150 C-19,162 -17,174 -13,183 L13,183 C17,174 19,162 17,150 Z'
-        }
+            : 'M-17,150 C-19,162 -17,174 -13,183 L13,183 C17,174 19,162 17,150 Z',
+        )}
         fill={NEUTRAL}
       />
       {side}
