@@ -68,6 +68,24 @@ const RAMPE: Array<[jours: number, h: number, s: number, l: number]> = [
  */
 const SECTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 10, 14, 21]
 
+/** Position d'un muscle sur la barre de sections, en % — centre de sa case. */
+function positionSpectre(jours: number | undefined): number {
+  if (jours === undefined) return ((SECTIONS.length - 0.5) / SECTIONS.length) * 100
+  let i = 0
+  while (i + 1 < SECTIONS.length && SECTIONS[i + 1] <= jours) i++
+  return ((i + 0.5) / SECTIONS.length) * 100
+}
+
+/** Le côté du corps affiché en plein écran. */
+type Face = 'front' | 'back'
+
+/**
+ * Entrée dans la bande « prêt », en jours ressentis. C'est la borne exacte de
+ * la quatrième case d'ETATS : le compte à rebours affiché et le libellé d'état
+ * doivent basculer au même instant, sinon la fiche se contredit elle-même.
+ */
+const SEUIL_PRET = 4.5
+
 /**
  * Les cinq états, chacun large de ses propres sections — un libellé réparti à
  * intervalles égaux tomberait à côté de sa couleur, la queue froide écrasant
@@ -215,6 +233,8 @@ export function MuscleBodyDiagram({
 }) {
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
   const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
+  // Corps affiché en plein écran, ou null pour la vue à deux vignettes.
+  const [zoom, setZoom] = useState<Face | null>(null)
 
   // Repos par muscle, vitesse de récupération de la zone comprise. Calcul
   // partagé avec le générateur de séance : une seule définition.
@@ -234,8 +254,8 @@ export function MuscleBodyDiagram({
         strokeLinejoin="round"
         aria-label="Récupération musculaire"
       >
-        <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} onPick={setSelected} />
-        <Figure cx={295} half={BACK_HALF} fill={fill} back onPick={setSelected} />
+        <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} onZoom={() => setZoom('front')} />
+        <Figure cx={295} half={BACK_HALF} fill={fill} back onZoom={() => setZoom('back')} />
         <text x="105" y="324" textAnchor="middle" fill="#a8a29e" fontSize="11" stroke="none">
           Face
         </text>
@@ -243,6 +263,7 @@ export function MuscleBodyDiagram({
           Dos
         </text>
       </svg>
+      <p className="text-center text-[10px] text-muted">🔍 Touche un corps pour l'agrandir et viser un muscle</p>
 
       {/* Spectre en sections de 12 h : une case par demi-journée tant que le
           muscle récupère. Le dégradé continu laissait croire à une dérive
@@ -309,11 +330,20 @@ export function MuscleBodyDiagram({
         </p>
       )}
 
+      {zoom ? <ZoomBody face={zoom} fill={fill} onFace={setZoom} onPick={setSelected} onClose={() => setZoom(null)} /> : null}
+
       {selected ? (
         <MuscleSheet
           region={selected}
           info={byRegion[selected]}
-          onExercice={onExercice}
+          onExercice={
+            onExercice
+              ? (name) => {
+                  setZoom(null) // ouvrir une séance sort du plein écran
+                  onExercice(name)
+                }
+              : undefined
+          }
           onClose={() => setSelected(null)}
         />
       ) : null}
@@ -326,6 +356,76 @@ export function MuscleBodyDiagram({
           onClose={() => setGroupOuvert(null)}
         />
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * Corps en plein écran.
+ *
+ * À la taille des vignettes, viser le deltoïde postérieur plutôt que le trapèze
+ * relève du hasard : c'est ici, et seulement ici, que les muscles se touchent
+ * un par un. Les deux faces restent accessibles sans repasser par la vue
+ * d'ensemble — on tourne autour du corps.
+ */
+function ZoomBody({
+  face,
+  fill,
+  onFace,
+  onPick,
+  onClose,
+}: {
+  face: Face
+  fill: (r: MuscleRegion | 'neutral') => string
+  onFace: (f: Face) => void
+  onPick: (r: MuscleRegion) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-bg">
+      <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-4">
+        <div className="flex gap-1">
+          {(['front', 'back'] as Face[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => onFace(f)}
+              className={`chip text-xs font-bold transition ${
+                face === f ? 'bg-copper text-white' : 'bg-white/5 text-muted hover:text-ink'
+              }`}
+            >
+              {f === 'front' ? 'Face' : 'Dos'}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Quitter le plein écran"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg leading-none text-ink transition hover:bg-white/20"
+        >
+          ✕
+        </button>
+      </div>
+
+      <svg
+        viewBox="-58 0 116 316"
+        className="min-h-0 w-full flex-1"
+        stroke="#ffffff"
+        strokeWidth="0.7"
+        strokeLinejoin="round"
+        aria-label={face === 'front' ? 'Corps de face' : 'Corps de dos'}
+      >
+        <Figure
+          cx={0}
+          half={face === 'front' ? FRONT_HALF : BACK_HALF}
+          fill={fill}
+          back={face === 'back'}
+          onPick={onPick}
+        />
+      </svg>
+
+      <p className="px-4 pb-5 pt-1 text-center text-[11px] text-muted">
+        Touche un muscle pour son état de récupération et les exercices qui le visent.
+      </p>
     </div>
   )
 }
@@ -355,10 +455,10 @@ function SorenessSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <div className="card w-full max-w-sm rounded-b-none p-5 sm:rounded-xl2" onClick={(e) => e.stopPropagation()}>
+      <div className="card max-h-[88vh] w-full max-w-sm overflow-y-auto rounded-b-none p-5 sm:rounded-xl2" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex items-start justify-between gap-3">
           <h2 className="text-base font-extrabold text-ink">{group}</h2>
           <button onClick={onClose} className="shrink-0 text-muted hover:text-ink">
@@ -404,6 +504,30 @@ function SorenessSheet({
   )
 }
 
+/**
+ * Temps restant avant que le muscle repasse « prêt », en jours réels.
+ *
+ * On repart de l'état courant plutôt que de refaire le calcul depuis la séance :
+ * il porte déjà les courbatures déclarées et les récups actives. Au-delà du
+ * plateau, les jours ressentis avancent de `vitesse ÷ intensité²` par jour réel
+ * — il suffit d'inverser ce rapport.
+ */
+function resteAvantPret(info: ReposMuscle, region: MuscleRegion): number {
+  if (info.jours >= SEUIL_PRET) return 0
+  const i = Math.max(0.1, Math.min(1, info.intensite))
+  const reste = ((SEUIL_PRET - info.jours) * i * i) / VITESSE_RECUP[region]
+  // Arrondi à la section supérieure : mieux vaut annoncer une demi-journée de
+  // trop qu'envoyer quelqu'un sur un muscle qui n'est pas encore revenu.
+  return Math.max(PAS_JOURS, Math.ceil(reste / PAS_JOURS) * PAS_JOURS)
+}
+
+/** « 12 h », « 1 j », « 2 j ½ » — la même échelle que partout ailleurs. */
+function fmtDuree(jours: number): string {
+  if (jours < 1) return `${Math.round(jours * 24)} h`
+  const pleins = Math.floor(jours)
+  return `${pleins} j${jours - pleins >= PAS_JOURS ? ' ½' : ''}`
+}
+
 /** Fiche affichée au clic sur un muscle du schéma. */
 function MuscleSheet({
   region,
@@ -419,6 +543,7 @@ function MuscleSheet({
 }) {
   const propositions = exercicesPourMuscle(region, 8)
   const color = recoveryColor(info?.jours, info?.intensite)
+  const reste = info ? resteAvantPret(info, region) : 0
   // Les cinq états sont ceux de la légende du spectre, dans le même ordre.
   const etat = !info
     ? 'Froid — jamais travaillé sur les séances chargées'
@@ -434,11 +559,11 @@ function MuscleSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-sm rounded-b-none p-5 sm:rounded-xl2"
+        className="card max-h-[88vh] w-full max-w-sm overflow-y-auto rounded-b-none p-5 sm:rounded-xl2"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-start justify-between gap-3">
@@ -448,11 +573,36 @@ function MuscleSheet({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-sm">
-          <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
-          <span className="font-semibold" style={{ color }}>
-            {etat}
-          </span>
+        {/* État de récupération : le libellé, sa place sur le spectre, et le
+            temps qu'il reste à attendre — les trois questions qu'on se pose en
+            touchant un muscle. */}
+        <div className="rounded-xl2 border border-line/60 p-2.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="flex items-center gap-2 text-sm font-bold" style={{ color }}>
+              <span className="inline-block h-3 w-3 shrink-0 rounded-full" style={{ background: color }} />
+              {etat}
+            </span>
+            <span className="shrink-0 text-[11px] font-semibold text-muted">
+              {!info
+                ? 'disponible'
+                : reste > 0
+                  ? `prêt dans ~${fmtDuree(reste)}`
+                  : 'prêt à travailler'}
+            </span>
+          </div>
+
+          {/* Le même spectre que sous le mannequin, avec le curseur du muscle. */}
+          <div className="relative mt-2">
+            <div className="flex h-2 w-full gap-px overflow-hidden rounded-full">
+              {SECTIONS.map((j) => (
+                <div key={j} className="h-full flex-1" style={{ background: recoveryColor(j) }} />
+              ))}
+            </div>
+            <span
+              className="absolute -top-0.5 h-3 w-1 -translate-x-1/2 rounded-full border border-black/30 bg-white"
+              style={{ left: `${positionSpectre(info?.jours)}%` }}
+            />
+          </div>
         </div>
 
         {info ? (
@@ -529,26 +679,30 @@ function Figure({
   fill,
   back,
   onPick,
+  onZoom,
 }: {
   cx: number
   half: Array<[MuscleRegion | 'neutral', string]>
   fill: (r: MuscleRegion | 'neutral') => string
   back: boolean
-  onPick: (r: MuscleRegion) => void
+  /** Absent en vignette : à cette taille, viser un muscle relève du hasard. */
+  onPick?: (r: MuscleRegion) => void
+  /** Présent en vignette : tout le corps est une seule cible, vers le zoom. */
+  onZoom?: () => void
 }) {
-  // Les zones non suivies (mains, genoux, pieds) ne sont pas cliquables.
-  const side = half.map(([region, d], i) => (
-    <path
-      key={i}
-      d={d}
-      fill={fill(region)}
-      onClick={region === 'neutral' ? undefined : () => onPick(region)}
-      style={region === 'neutral' ? undefined : { cursor: 'pointer' }}
-    />
-  ))
+  // Les zones non suivies (mains, genoux, pieds) ne sont jamais cliquables.
+  const viser = (region: MuscleRegion | 'neutral') =>
+    onPick && region !== 'neutral'
+      ? { onClick: () => onPick(region), style: { cursor: 'pointer' } }
+      : {}
+  const side = half.map(([region, d], i) => <path key={i} d={d} fill={fill(region)} {...viser(region)} />)
   const base = BASE_HALF.map((d, i) => <path key={i} d={d} fill={NEUTRAL} stroke="none" />)
   return (
-    <g transform={`translate(${cx},0)`}>
+    <g
+      transform={`translate(${cx},0)`}
+      onClick={onZoom}
+      style={onZoom ? { cursor: 'zoom-in' } : undefined}
+    >
       {/* Silhouette de base, puis les muscles par-dessus */}
       <path d={BASE_CENTER} fill={NEUTRAL} stroke="none" />
       {base}
@@ -558,12 +712,7 @@ function Figure({
       {/* Grand droit : uniquement de face, avec ses intersections tendineuses */}
       {back ? null : (
         <>
-          <path
-            d="M-12,100 L12,100 L11,146 C5,152 -5,152 -11,146 Z"
-            fill={fill('rectus')}
-            onClick={() => onPick('rectus')}
-            style={{ cursor: 'pointer' }}
-          />
+          <path d="M-12,100 L12,100 L11,146 C5,152 -5,152 -11,146 Z" fill={fill('rectus')} {...viser('rectus')} />
           <path d="M-11,114 L11,114 M-11,130 L11,130 M0,101 L0,145" strokeWidth="0.8" fill="none" />
         </>
       )}
