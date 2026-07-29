@@ -18,9 +18,12 @@ export type MuscleRegion =
   | 'serratus'
   | 'lats'
   | 'teres'
+  | 'rhomboids'
+  | 'rotatorCuff'
   | 'erectors'
   | 'biceps'
   | 'brachialis'
+  | 'brachioradialis'
   | 'tricepsLong'
   | 'tricepsLat'
   | 'forearmFlex'
@@ -29,6 +32,8 @@ export type MuscleRegion =
   | 'obliques'
   | 'gluteMax'
   | 'gluteMed'
+  | 'tfl'
+  | 'hipFlexors'
   | 'rectusFemoris'
   | 'vastusLat'
   | 'vastusMed'
@@ -38,6 +43,7 @@ export type MuscleRegion =
   | 'gastroc'
   | 'soleus'
   | 'tibialis'
+  | 'fibularis'
 
 /** Nom affiché quand on touche un muscle sur le schéma. */
 export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
@@ -53,9 +59,12 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   serratus: 'Dentelé antérieur',
   lats: 'Grand dorsal',
   teres: 'Grand rond',
+  rhomboids: 'Rhomboïdes',
+  rotatorCuff: 'Coiffe des rotateurs (infra-épineux)',
   erectors: 'Érecteurs du rachis',
   biceps: 'Biceps brachial',
   brachialis: 'Brachial antérieur',
+  brachioradialis: 'Brachio-radial (long supinateur)',
   tricepsLong: 'Triceps — longue portion',
   tricepsLat: 'Triceps — portion latérale',
   forearmFlex: 'Fléchisseurs de l’avant-bras',
@@ -64,6 +73,8 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   obliques: 'Obliques',
   gluteMax: 'Grand fessier',
   gluteMed: 'Moyen fessier',
+  tfl: 'Tenseur du fascia lata',
+  hipFlexors: 'Psoas-iliaque (fléchisseurs de hanche)',
   rectusFemoris: 'Droit fémoral',
   vastusLat: 'Vaste latéral',
   vastusMed: 'Vaste médial',
@@ -73,6 +84,7 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   gastroc: 'Gastrocnémiens (jumeaux)',
   soleus: 'Soléaire',
   tibialis: 'Tibial antérieur',
+  fibularis: 'Fibulaires (péroniers)',
 }
 
 /** Trois degrés de sollicitation, pour la légende et les pastilles. */
@@ -106,15 +118,15 @@ const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
 const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow']
 const PECS: MuscleRegion[] = ['pecUpper', 'pecLower']
 const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
-const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt']
-const BACK: MuscleRegion[] = ['lats', 'teres', 'trapsMid', 'trapsLow']
+const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt', 'brachioradialis']
+const BACK: MuscleRegion[] = ['lats', 'teres', 'rhomboids', 'trapsMid', 'trapsLow']
 const ABS: MuscleRegion[] = ['rectus', 'obliques']
 const GLUTES: MuscleRegion[] = ['gluteMax', 'gluteMed']
 const QUADS: MuscleRegion[] = ['rectusFemoris', 'vastusLat', 'vastusMed']
 const HAMS: MuscleRegion[] = ['bicepsFemoris', 'hamsInner']
 const CALVES: MuscleRegion[] = ['gastroc', 'soleus']
-const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'tibialis']
-const UPPER: MuscleRegion[] = [...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'biceps', 'brachialis']
+const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'tibialis', 'fibularis', 'tfl', 'hipFlexors']
+const UPPER: MuscleRegion[] = [...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff']
 
 const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   // Groupes larges
@@ -141,7 +153,7 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'trapeze superieur': ['trapsUpper'],
   'trapeze moyen': ['trapsMid'],
   'trapeze inferieur': ['trapsLow'],
-  rhomboides: ['trapsMid'],
+  rhomboides: ['rhomboids'],
   'pectoral superieur': ['pecUpper'],
   'grand pectoral': PECS,
   'grand dorsal': ['lats'],
@@ -149,7 +161,18 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'dentele anterieur': ['serratus'],
   'erecteurs du rachis': ['erectors'],
   brachial: ['brachialis'],
-  'brachio-radial': ['forearmFlex'],
+  'brachio-radial': ['brachioradialis'],
+  'long supinateur': ['brachioradialis'],
+  'coiffe des rotateurs': ['rotatorCuff'],
+  'infra-epineux': ['rotatorCuff'],
+  rotateurs: ['rotatorCuff'],
+  'psoas-iliaque': ['hipFlexors'],
+  psoas: ['hipFlexors'],
+  'flechisseurs de hanche': ['hipFlexors'],
+  'tenseur du fascia lata': ['tfl'],
+  tfl: ['tfl'],
+  fibulaires: ['fibularis'],
+  peroniers: ['fibularis'],
   'triceps longue portion': ['tricepsLong'],
   'triceps lateral': ['tricepsLat'],
   'flechisseurs avant-bras': ['forearmFlex'],
@@ -168,6 +191,8 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'tibial anterieur': ['tibialis'],
 }
 
+const CLES_PAR_LONGUEUR = Object.keys(MUSCLE_MAP).sort((a, b) => b.length - a.length)
+
 /** Les muscles couverts par un libellé de groupe ou de muscle. */
 export function regionsForGroup(label: string): MuscleRegion[] {
   const n = norm(label)
@@ -177,9 +202,14 @@ export function regionsForGroup(label: string): MuscleRegion[] {
   if (n.includes('full body') || n.includes('corps entier')) return [...LEGS, ...UPPER, ...ABS, 'neck', ...FOREARMS]
   if (n.includes('jambes')) return LEGS
   if (n.includes('haut du corps')) return UPPER
-  // Repli tolérant pour les libellés personnalisés.
-  for (const [key, regions] of Object.entries(MUSCLE_MAP)) {
-    if (n.includes(key)) return regions
+  // Repli tolérant pour les libellés personnalisés — mais sur des MOTS entiers,
+  // et en essayant les clés les plus longues d'abord. « Couturier » contenait
+  // « cou » et colorait donc la nuque ; « Biceps fémoral gauche » aurait pris le
+  // biceps du bras avant d'atteindre sa propre clé.
+  for (const key of CLES_PAR_LONGUEUR) {
+    if (new RegExp(`(^|[^a-z])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`).test(n)) {
+      return MUSCLE_MAP[key]
+    }
   }
   return [] // ex. « Cardio » : aucun muscle dédié
 }
