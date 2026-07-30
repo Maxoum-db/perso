@@ -1,5 +1,6 @@
 import { fetchKv, saveKv } from './kv'
 import type { GroupLoad } from './muscu'
+import { SEUIL_PRET, VITESSE_MIN } from './recuperation'
 
 // Ajustement du ressenti, déclaré à la main.
 //
@@ -20,6 +21,16 @@ export interface Courbature {
   extra: number
   /** Date de la séance concernée (YYYY-MM-DD). */
   lastWorked: string
+  /**
+   * « C'est totalement bon » : le muscle est déclaré prêt, point.
+   *
+   * Ce n'est PAS un point de la barre, et c'est pourquoi c'est un champ à part.
+   * La barre corrige le barème d'une ou deux crans ; ceci le court-circuite. Un
+   * muscle peut être frais deux jours après une grosse séance sans qu'aucune
+   * valeur de −1 j ne suffise à le dire, et t'obliger à tirer une barre jusqu'à
+   * une borne qui ne suffit pas serait mentir sur ce que tu ressens.
+   */
+  pret?: boolean
 }
 
 export type Courbatures = Record<string, Courbature>
@@ -37,6 +48,16 @@ const KEY = 'muscu_courbatures'
 export const AJUST_MIN = -1
 export const AJUST_MAX = 3
 export const AJUST_PAS = 0.5
+
+/**
+ * Jours ressentis posés par « totalement bon ».
+ *
+ * Déduit du barème et non écrit en dur : il faut que même la zone la plus lente
+ * (la coiffe des rotateurs, ×0,6) franchisse le seuil de « prêt ». Une valeur
+ * figée deviendrait fausse à la première retouche des vitesses — et fausse dans
+ * le mauvais sens, en affichant « prêt » un muscle qui ne l'est pas.
+ */
+export const JOURS_TOTALEMENT_BON = SEUIL_PRET / VITESSE_MIN
 
 /**
  * « +12 h », « −1 j », « +2 j ½ » — un ajustement se lit signé, sans quoi on ne
@@ -96,6 +117,25 @@ export function declarerAjustement(
 }
 
 /**
+ * Pose ou retire « totalement bon ».
+ *
+ * Poser efface l'ajustement chiffré : les deux répondent à la même question et
+ * garder les deux laisserait un `extra` fantôme réapparaître le jour où tu
+ * retires « totalement bon ».
+ */
+export function declarerPret(
+  courbatures: Courbatures,
+  group: string,
+  pret: boolean,
+  load: GroupLoad,
+): Courbatures {
+  const next = { ...courbatures }
+  if (pret) next[group] = { extra: 0, lastWorked: dateDeLaSeance(load), pret: true }
+  else delete next[group]
+  return next
+}
+
+/**
  * Applique l'ajustement déclaré.
  *
  * Positif, le muscle est traité comme s'il avait été travaillé plus récemment :
@@ -110,15 +150,33 @@ export function applyCourbatures(
   const out: Record<string, GroupLoad> = {}
   for (const [group, load] of Object.entries(loads)) {
     const c = courbatures[group]
+    const perimee = !c || c.lastWorked !== dateDeLaSeance(load)
     // `=== 0` et non `<= 0` : c'est ce test qui bloquait les valeurs négatives.
-    if (!c || c.extra === 0 || c.lastWorked !== dateDeLaSeance(load)) {
+    if (perimee || (c!.extra === 0 && !c!.pret)) {
       out[group] = load
+      continue
+    }
+    // « Totalement bon » l'emporte sur tout, plafond orange compris. Ce plafond
+    // existe pour empêcher le barème de sauter du rouge au vert tout seul ; il
+    // n'a pas à t'empêcher, toi, de dire ce que tu ressens. C'est la seule
+    // déclaration qui prime sur le calcul au lieu de le corriger.
+    if (c!.pret) {
+      out[group] = {
+        ...load,
+        effectiveDays: Math.max(load.effectiveDays, JOURS_TOTALEMENT_BON),
+        effectiveDaysPrevus: load.effectiveDays,
+        sorePret: true,
+      }
       continue
     }
     out[group] = {
       ...load,
-      effectiveDays: Math.max(0, load.effectiveDays - c.extra),
-      soreExtra: c.extra,
+      effectiveDays: Math.max(0, load.effectiveDays - c!.extra),
+      // Ce que le barème disait avant ta correction : on le garde tel quel, la
+      // base d'observations en a besoin exact et le plancher à 0 ci-dessus rend
+      // le calcul inverse impossible.
+      effectiveDaysPrevus: load.effectiveDays,
+      soreExtra: c!.extra,
     }
   }
   return out

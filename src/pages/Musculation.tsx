@@ -9,6 +9,7 @@ import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
+import { ObservationsCard } from '../components/ObservationsCard'
 import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
 import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
 import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
@@ -16,6 +17,7 @@ import { FocusPicker } from '../components/FocusPicker'
 import { FOCUS_PAR_DEFAUT, loadFocus, saveFocus, type FocusId } from '../lib/focus'
 import {
   declarerAjustement,
+  declarerPret,
   fmtAjust,
   loadCourbatures,
   saveCourbatures,
@@ -23,6 +25,15 @@ import {
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
 import { chargesCourantes } from '../lib/charges'
+import {
+  loadObservations,
+  noterObservation,
+  observationDepuisFiche,
+  saveObservations,
+  type Observations,
+} from '../lib/observations'
+import { reposParMuscle } from '../lib/recuperation'
+import type { MuscleRegion } from '../lib/muscles'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { Sommeil } from './Sommeil'
 import {
@@ -263,13 +274,15 @@ export function Musculation() {
   const [intensites, setIntensites] = useState<Intensites>({})
   // Nuits renseignées : elles décalent la récupération du mannequin.
   const [nuits, setNuits] = useState<Nuits>({})
+  // Base des ressentis déclarés : elle servira à affiner le barème.
+  const [observations, setObservations] = useState<Observations>([])
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb, pr, it, nu] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -280,6 +293,7 @@ export function Musculation() {
         loadProfil(user.id).catch(() => PROFIL_DEFAUT),
         loadIntensites(user.id).catch(() => ({}) as Intensites),
         loadNuits(user.id).catch(() => ({}) as Nuits),
+        loadObservations(user.id).catch(() => [] as Observations),
       ])
       setTemplates(t)
       setSessions(s)
@@ -293,6 +307,7 @@ export function Musculation() {
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setNuits(nu)
+      setObservations(ob)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -333,6 +348,9 @@ export function Musculation() {
         <div className="space-y-3">
           <ProgressTab progress={exerciseProgress(sessions)} />
           <NeglectedMuscles loads={chargesCourantes(sessions, courbatures, nuits)} focus={focus} />
+          {/* La base des ressentis vit ici et non dans le journal : c'est de la
+              donnée d'analyse, au même titre que les courbes de progression. */}
+          <ObservationsCard observations={observations} />
         </div>
       ) : tab === 'journal' ? (
         <Journal
@@ -346,6 +364,11 @@ export function Musculation() {
           focus={focus}
           courbatures={courbatures}
           nuits={nuits}
+          observations={observations}
+          onObservations={(next) => {
+            setObservations(next)
+            if (user) saveObservations(user.id, next).catch(() => {})
+          }}
           sexe={profil.sex}
           intensites={intensites}
           onIntensite={setIntensites}
@@ -399,6 +422,8 @@ function Journal({
   onFocus,
   courbatures,
   nuits,
+  observations,
+  onObservations,
   onCourbatures,
   intensites,
   onIntensite,
@@ -417,6 +442,9 @@ function Journal({
   courbatures: Courbatures
   /** Nuits renseignées : elles décalent la récupération affichée. */
   nuits: Nuits
+  /** Base des ressentis déclarés. */
+  observations: Observations
+  onObservations: (o: Observations) => void
   onCourbatures: (c: Courbatures) => void
   /** Intensités déclarées, indexées par séance. */
   intensites: Intensites
@@ -482,11 +510,41 @@ function Journal({
     })
   }
 
+  /**
+   * Enregistre une déclaration dans la base.
+   *
+   * On la construit AVANT de modifier les courbatures : `observationDepuisFiche`
+   * a besoin de ce que le barème prévoyait, et il le retrouve en retirant la
+   * correction déjà en place. Après modification, on comparerait le modèle à
+   * lui-même et tout écart serait nul.
+   */
+  function noterRessenti(region: MuscleRegion, ajustement: number, pret: boolean) {
+    const obs = observationDepuisFiche(
+      region,
+      reposParMuscle(loads)[region],
+      ajustement,
+      pret,
+      new Date().toISOString(),
+    )
+    if (obs) onObservations(noterObservation(observations, obs))
+  }
+
   /** Déclare (ou retire) des courbatures sur un groupe. */
-  function declarerCourbatures(group: string, extra: number) {
+  function declarerCourbatures(group: string, extra: number, region: MuscleRegion) {
     const base = groupLoads(sessions)[group]
     if (!base) return
+    noterRessenti(region, extra, false)
     onCourbatures(declarerAjustement(courbatures, group, extra, base))
+  }
+
+  /** Déclare le muscle totalement remis, ou annule cette déclaration. */
+  function declarerTotalementBon(group: string, pret: boolean, region: MuscleRegion) {
+    const base = groupLoads(sessions)[group]
+    if (!base) return
+    // Annuler n'est pas une observation : c'est le retrait d'une observation
+    // précédente, pas un ressenti nouveau.
+    if (pret) noterRessenti(region, 0, true)
+    onCourbatures(declarerPret(courbatures, group, pret, base))
   }
 
   const month = today().slice(0, 7)
@@ -762,6 +820,7 @@ function Journal({
           sessions={sessions}
           sexe={sexe}
           onSoreness={declarerCourbatures}
+          onPret={declarerTotalementBon}
           onExercice={ouvrirSurExercice}
           onSeance={ouvrirSeance}
         />
