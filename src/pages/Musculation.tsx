@@ -731,6 +731,7 @@ function Journal({
         <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
         <MuscleBodyDiagram
           loads={loads}
+          sessions={sessions}
           sexe={sexe}
           onSoreness={declarerCourbatures}
           onExercice={ouvrirSurExercice}

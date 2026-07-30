@@ -11,6 +11,8 @@ import {
 import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
+import { historiqueParMuscle, type DernierExo, type HistoriqueMuscle } from '../lib/historiqueMuscle'
+import type { MuscuSession } from '../lib/muscu'
 
 export { MUSCLE_LABELS, regionsForGroup, sollicitation, SOLLICITATION_MARQUEUR } from '../lib/muscles'
 export type { MuscleRegion, Sollicitation } from '../lib/muscles'
@@ -254,11 +256,14 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
 
 export function MuscleBodyDiagram({
   loads,
+  sessions = [],
   sexe = 'H',
   onSoreness,
   onExercice,
 }: {
   loads: Record<string, GroupLoad>
+  /** Journal, pour nommer ce qui a chargé ou soulagé chaque muscle. */
+  sessions?: MuscuSession[]
   /** Silhouette à dessiner — vient du sexe déclaré dans Poids › profil. */
   sexe?: Sexe
   /** Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler). */
@@ -275,6 +280,8 @@ export function MuscleBodyDiagram({
   // Repos par muscle, vitesse de récupération de la zone comprise. Calcul
   // partagé avec le générateur de séance : une seule définition.
   const byRegion = reposParMuscle(loads)
+  // Ce qui a chargé et ce qui a soulagé chaque muscle, nommément.
+  const histo = historiqueParMuscle(sessions)
 
   const fill = (r: MuscleRegion | 'neutral') =>
     r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.jours, byRegion[r]?.intensite)
@@ -408,6 +415,7 @@ export function MuscleBodyDiagram({
         <MuscleSheet
           region={selected}
           info={byRegion[selected]}
+          histo={histo[selected]}
           onExercice={
             onExercice
               ? (name) => {
@@ -606,15 +614,64 @@ function fmtDuree(jours: number): string {
   return `${pleins} j${jours - pleins >= PAS_JOURS ? ' ½' : ''}`
 }
 
+/**
+ * Une ligne d'historique : ce qui a chargé le muscle, ou ce qui l'a soulagé.
+ *
+ * Cliquable quand la page sait ouvrir une séance — refaire le dernier exercice
+ * est le geste le plus probable après avoir regardé d'où vient la couleur.
+ */
+function Ligne({
+  emoji,
+  titre,
+  exo,
+  onExercice,
+  onClose,
+}: {
+  emoji: string
+  titre: string
+  exo: DernierExo
+  onExercice?: (name: string) => void
+  onClose: () => void
+}) {
+  const corps = (
+    <>
+      <span className="shrink-0">{emoji}</span>
+      <span className="min-w-0 flex-1 truncate">
+        <span className="text-muted">{titre} : </span>
+        <span className="font-semibold text-ink">{exo.nom}</span>
+      </span>
+      <span className="shrink-0 text-[10px] text-muted">{fmtAnciennete(exo.jours)}</span>
+    </>
+  )
+  const classes = 'flex w-full items-baseline gap-1.5 rounded-lg px-1.5 py-1 text-left text-xs'
+  return onExercice ? (
+    <button
+      onClick={() => {
+        onExercice(exo.nom)
+        onClose()
+      }}
+      className={`${classes} transition hover:bg-copper/10`}
+      title={`Séance « ${exo.seance} » · ${Math.round(exo.intensite * 100)} % de l’exercice pour ce muscle`}
+    >
+      {corps}
+    </button>
+  ) : (
+    <div className={classes}>{corps}</div>
+  )
+}
+
 /** Fiche affichée au clic sur un muscle du schéma. */
 function MuscleSheet({
   region,
   info,
+  histo,
   onExercice,
   onClose,
 }: {
   region: MuscleRegion
   info?: ReposMuscle
+  /** Dernier travail et dernière récup — ce que la couleur seule ne dit pas. */
+  histo?: HistoriqueMuscle
   /** Ouvre une séance sur cet exercice, quand la page sait le faire. */
   onExercice?: (name: string) => void
   onClose: () => void
@@ -683,9 +740,29 @@ function MuscleSheet({
           </div>
         </div>
 
+        {/* Ce qui est arrivé au muscle, nommément. La couleur dit où il en est,
+            pas pourquoi : entre un développé couché et vingt minutes de sangle,
+            le pectoral affiche la même teinte sans que ça signifie la même chose. */}
+        {histo?.travail || histo?.recup ? (
+          <div className="mt-2 space-y-1">
+            {histo.travail ? (
+              <Ligne
+                emoji="💪"
+                titre="Dernier travail"
+                exo={histo.travail}
+                onExercice={onExercice}
+                onClose={onClose}
+              />
+            ) : null}
+            {histo.recup ? (
+              <Ligne emoji="🧘" titre="Dernière récup" exo={histo.recup} onExercice={onExercice} onClose={onClose} />
+            ) : null}
+          </div>
+        ) : null}
+
         {info ? (
           <p className="mt-2 text-xs text-muted">
-            Dernière sollicitation : <b className="text-ink">{fmtAnciennete(info.joursReels)}</b> via{' '}
+            Compté <b className="text-ink">{fmtAnciennete(info.joursReels)}</b> via{' '}
             <b className="text-ink">{info.label}</b>
             {info.intensite < 1
               ? ` — en secondaire (${Math.round(info.intensite * 100)} %), donc récupération plus rapide.`
