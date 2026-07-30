@@ -16,7 +16,8 @@ import { FocusPicker } from '../components/FocusPicker'
 import { FOCUS_PAR_DEFAUT, loadFocus, saveFocus, type FocusId } from '../lib/focus'
 import {
   applyCourbatures,
-  dateDeLaSeance,
+  declarerAjustement,
+  fmtAjust,
   loadCourbatures,
   saveCourbatures,
   type Courbatures,
@@ -471,10 +472,7 @@ function Journal({
   function declarerCourbatures(group: string, extra: number) {
     const base = groupLoads(sessions)[group]
     if (!base) return
-    const next = { ...courbatures }
-    if (extra <= 0) delete next[group]
-    else next[group] = { extra, lastWorked: dateDeLaSeance(base) }
-    onCourbatures(next)
+    onCourbatures(declarerAjustement(courbatures, group, extra, base))
   }
 
   const month = today().slice(0, 7)
@@ -880,9 +878,16 @@ function IntensitePicker({
           )
         })}
       </div>
+      {/* La déclaration ne pèse pas que sur les calories : elle décale aussi la
+          récupération sur le mannequin. Autant le dire ici — c'est là qu'on
+          clique, pas sur la fiche du muscle trois écrans plus loin. */}
       <p className="text-[10px] text-muted">
         {value
-          ? `${INTENSITES[value].aide} Cette déclaration remplace le calcul automatique.`
+          ? `${INTENSITES[value].aide} Remplace le calcul automatique des calories${
+              INTENSITES[value].recup !== 0
+                ? ` et compte ${fmtAjust(INTENSITES[value].recup)} de récupération sur les muscles moteurs`
+                : ''
+            }.`
           : 'Intensité non déclarée : le barème est déduit du tonnage et du rythme. À renseigner surtout pour la slackline, le bloc ou le béhourd, où la durée saisie n’est pas du temps d’effort.'}
       </p>
     </div>

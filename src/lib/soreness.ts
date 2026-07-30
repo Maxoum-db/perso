@@ -38,6 +38,22 @@ export const AJUST_MIN = -1
 export const AJUST_MAX = 3
 export const AJUST_PAS = 0.5
 
+/**
+ * « +12 h », « −1 j », « +2 j ½ » — un ajustement se lit signé, sans quoi on ne
+ * sait pas si le muscle a pris du retard ou de l'avance.
+ *
+ * Ici et pas dans le mannequin : l'intensité déclarée d'une séance décale la
+ * récupération du même nombre de jours, et deux formateurs pour la même unité
+ * finiraient par ne plus dire la même chose.
+ */
+export function fmtAjust(jours: number): string {
+  const signe = jours < 0 ? '−' : '+'
+  const abs = Math.abs(jours)
+  if (abs < 1) return `${signe}${Math.round(abs * 24)} h`
+  const pleins = Math.floor(abs)
+  return `${signe}${pleins} j${abs - pleins >= AJUST_PAS ? ' ½' : ''}`
+}
+
 export async function loadCourbatures(userId: string): Promise<Courbatures> {
   const c = await fetchKv<Courbatures>(userId, KEY, {})
   return c && typeof c === 'object' ? c : {}
@@ -54,6 +70,29 @@ export async function saveCourbatures(userId: string, c: Courbatures): Promise<v
  */
 export function dateDeLaSeance(load: GroupLoad): string {
   return load.date
+}
+
+/**
+ * Pose ou retire la déclaration d'un groupe.
+ *
+ * Le zéro est le SEUL cas qui efface : c'est lui qui veut dire « pas de
+ * déclaration, barème automatique ». Une valeur négative est une déclaration
+ * comme une autre — « ça va mieux que prévu ».
+ *
+ * La règle vivait dans la page, où elle avait déjà divergé de `applyCourbatures`
+ * en interdisant tout ce qui était ≤ 0 : la barre restait bloquée au milieu,
+ * impossible de la tirer vers −1 j. Une seule définition, ici, pour les deux.
+ */
+export function declarerAjustement(
+  courbatures: Courbatures,
+  group: string,
+  extra: number,
+  load: GroupLoad,
+): Courbatures {
+  const next = { ...courbatures }
+  if (extra === 0) delete next[group]
+  else next[group] = { extra, lastWorked: dateDeLaSeance(load) }
+  return next
 }
 
 /**
