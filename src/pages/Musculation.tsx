@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { SubTabs } from '../components/SubTabs'
 import { Section } from '../components/training-ui'
@@ -414,6 +414,8 @@ function Journal({
   const [draft, setDraft] = useState<SessionDraft | null>(null)
   const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Lignes du journal, pour amener l'écran sur une séance depuis le mannequin.
+  const lignes = useRef(new Map<string, HTMLLIElement>())
   // Séance composée automatiquement : on garde les exercices déjà proposés pour
   // que « autre proposition » ne resserve pas la même chose.
   const [suggest, setSuggest] = useState<{ session: SuggestedSession | null; exclude: Set<string> } | null>(null)
@@ -449,6 +451,20 @@ function Journal({
     const last = lastExo(sessions, c.name)
     const base = catalogToDraft(c, sessions, bodyWeight)
     return last ? { ...base, reps: last.reps || base.reps } : base
+  }
+
+  /**
+   * Ramène au journal, sur une séance déjà enregistrée.
+   *
+   * Le mannequin est plus bas dans la page que la liste : rouvrir la séance ne
+   * suffit pas, il faut aussi y amener l'écran. La ligne n'existe dans le DOM
+   * qu'après le rendu qui la déplie, d'où le passage par requestAnimationFrame.
+   */
+  function ouvrirSeance(id: string) {
+    setOpenId(id)
+    requestAnimationFrame(() => {
+      lignes.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
   }
 
   /** Déclare (ou retire) des courbatures sur un groupe. */
@@ -735,6 +751,7 @@ function Journal({
           sexe={sexe}
           onSoreness={declarerCourbatures}
           onExercice={ouvrirSurExercice}
+          onSeance={ouvrirSeance}
         />
       </section>
 
@@ -743,7 +760,14 @@ function Journal({
       ) : (
         <ul className="space-y-2">
           {sessions.map((s) => (
-            <li key={s.id} className="card overflow-hidden">
+            <li
+              key={s.id}
+              ref={(el) => {
+                if (el) lignes.current.set(s.id, el)
+                else lignes.current.delete(s.id)
+              }}
+              className="card overflow-hidden"
+            >
               <button onClick={() => setOpenId(openId === s.id ? null : s.id)} className="flex w-full items-center gap-3 p-3 text-left">
                 <div className="w-16 shrink-0 text-center">
                   <div className="text-xl leading-none">{sessionEmoji(s, templates)}</div>

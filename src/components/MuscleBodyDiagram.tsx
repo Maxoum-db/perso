@@ -260,6 +260,7 @@ export function MuscleBodyDiagram({
   sexe = 'H',
   onSoreness,
   onExercice,
+  onSeance,
 }: {
   loads: Record<string, GroupLoad>
   /** Journal, pour nommer ce qui a chargé ou soulagé chaque muscle. */
@@ -270,6 +271,8 @@ export function MuscleBodyDiagram({
   onSoreness?: (group: string, extra: number) => void
   /** Ouvre une séance sur un exercice proposé depuis la fiche d'un muscle. */
   onExercice?: (name: string) => void
+  /** Ramène au journal, sur une séance déjà enregistrée. */
+  onSeance?: (sessionId: string) => void
 }) {
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
   const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
@@ -416,6 +419,14 @@ export function MuscleBodyDiagram({
           region={selected}
           info={byRegion[selected]}
           histo={histo[selected]}
+          onSeance={
+            onSeance
+              ? (id) => {
+                  setZoom(null) // remonter au journal sort du plein écran
+                  onSeance(id)
+                }
+              : undefined
+          }
           onExercice={
             onExercice
               ? (name) => {
@@ -617,20 +628,22 @@ function fmtDuree(jours: number): string {
 /**
  * Une ligne d'historique : ce qui a chargé le muscle, ou ce qui l'a soulagé.
  *
- * Cliquable quand la page sait ouvrir une séance — refaire le dernier exercice
- * est le geste le plus probable après avoir regardé d'où vient la couleur.
+ * Au clic, on retourne à la séance DÉJÀ FAITE, pas vers un exercice vierge :
+ * après avoir vu d'où vient la couleur, ce qu'on veut c'est relire ce qu'on a
+ * réellement soulevé ce jour-là. La liste « pour le travailler », en dessous,
+ * garde l'autre intention — commencer quelque chose de neuf.
  */
 function Ligne({
   emoji,
   titre,
   exo,
-  onExercice,
+  onSeance,
   onClose,
 }: {
   emoji: string
   titre: string
   exo: DernierExo
-  onExercice?: (name: string) => void
+  onSeance?: (sessionId: string) => void
   onClose: () => void
 }) {
   const corps = (
@@ -644,16 +657,17 @@ function Ligne({
     </>
   )
   const classes = 'flex w-full items-baseline gap-1.5 rounded-lg px-1.5 py-1 text-left text-xs'
-  return onExercice ? (
+  return onSeance ? (
     <button
       onClick={() => {
-        onExercice(exo.nom)
+        onSeance(exo.sessionId)
         onClose()
       }}
       className={`${classes} transition hover:bg-copper/10`}
-      title={`Séance « ${exo.seance} » · ${Math.round(exo.intensite * 100)} % de l’exercice pour ce muscle`}
+      title={`Revoir la séance « ${exo.seance} » · ${Math.round(exo.intensite * 100)} % de l’exercice pour ce muscle`}
     >
       {corps}
+      <span className="shrink-0 text-[10px] text-copper">↗</span>
     </button>
   ) : (
     <div className={classes}>{corps}</div>
@@ -666,6 +680,7 @@ function MuscleSheet({
   info,
   histo,
   onExercice,
+  onSeance,
   onClose,
 }: {
   region: MuscleRegion
@@ -674,6 +689,8 @@ function MuscleSheet({
   histo?: HistoriqueMuscle
   /** Ouvre une séance sur cet exercice, quand la page sait le faire. */
   onExercice?: (name: string) => void
+  /** Renvoie vers une séance déjà enregistrée du journal. */
+  onSeance?: (sessionId: string) => void
   onClose: () => void
 }) {
   const propositions = exercicesPourMuscle(region, 8)
@@ -746,16 +763,10 @@ function MuscleSheet({
         {histo?.travail || histo?.recup ? (
           <div className="mt-2 space-y-1">
             {histo.travail ? (
-              <Ligne
-                emoji="💪"
-                titre="Dernier travail"
-                exo={histo.travail}
-                onExercice={onExercice}
-                onClose={onClose}
-              />
+              <Ligne emoji="💪" titre="Dernier travail" exo={histo.travail} onSeance={onSeance} onClose={onClose} />
             ) : null}
             {histo.recup ? (
-              <Ligne emoji="🧘" titre="Dernière récup" exo={histo.recup} onExercice={onExercice} onClose={onClose} />
+              <Ligne emoji="🧘" titre="Dernière récup" exo={histo.recup} onSeance={onSeance} onClose={onClose} />
             ) : null}
           </div>
         ) : null}

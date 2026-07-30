@@ -12,6 +12,8 @@ import { regionsForGroup, type MuscleRegion } from './muscles'
 export interface DernierExo {
   /** Ce qu'on affiche : l'exercice, ou la séance quand il n'y a qu'un ressenti. */
   nom: string
+  /** Séance d'origine : c'est vers elle qu'on renvoie au clic. */
+  sessionId: string
   date: string
   /** Ancienneté en jours, au même pas de 12 h que le reste du module. */
   jours: number
@@ -59,7 +61,7 @@ export function historiqueParMuscle(
           const cur = out[region] ?? {}
           const champ = estRecup ? 'recup' : 'travail'
           if (cur[champ]) continue
-          cur[champ] = { nom, date: s.date, jours, intensite: g.intensity, seance: s.name }
+          cur[champ] = { nom, sessionId: s.id, date: s.date, jours, intensite: g.intensity, seance: s.name }
           out[region] = cur
         }
       }
