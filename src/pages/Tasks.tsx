@@ -12,7 +12,16 @@ import {
 } from '../lib/google'
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 
-export function Tasks() {
+/**
+ * Tâches Google.
+ *
+ * `embedded` sert à la fusion avec les notes : dans l'onglet commun, ce bloc
+ * n'est plus une page mais une section. Il perd son titre de niveau 1 et, quand
+ * Google n'est pas connecté, il se réduit à une ligne au lieu de confisquer
+ * l'écran — sinon les notes, qui n'ont rien à voir avec Google, disparaîtraient
+ * avec lui.
+ */
+export function Tasks({ embedded = false }: { embedded?: boolean } = {}) {
   const [needAuth, setNeedAuth] = useState(!hasFreshGoogleToken())
   const [lists, setLists] = useState<GTaskList[]>([])
   const [listId, setListId] = useState<string>('')
@@ -84,12 +93,23 @@ export function Tasks() {
     }
   }
 
-  if (needAuth) return <ReconnectGoogle />
+  if (needAuth) {
+    if (!embedded) return <ReconnectGoogle />
+    return (
+      <p className="text-xs text-muted">
+        ✅ Tâches : <b className="text-ink">Google non connecté</b> — va dans Réglages ⚙️ pour les récupérer ici.
+      </p>
+    )
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-extrabold text-ink">✅ Tâches</h1>
+        {embedded ? (
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">✅ À faire</h2>
+        ) : (
+          <h1 className="text-2xl font-extrabold text-ink">✅ Tâches</h1>
+        )}
         {lists.length > 1 ? (
           <select className="field max-w-[55%]" value={listId} onChange={(e) => setListId(e.target.value)}>
             {lists.map((l) => (
@@ -123,7 +143,12 @@ export function Tasks() {
       {loading ? <div className="animate-pulse text-sm text-muted">Chargement…</div> : null}
 
       {!loading && tasks.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-muted">Rien à faire ici. 🎉</div>
+        // Intégré, la grosse carte vide pousserait les notes hors de l'écran.
+        embedded ? (
+          <p className="text-xs text-muted">Rien à faire. 🎉</p>
+        ) : (
+          <div className="card p-6 text-center text-sm text-muted">Rien à faire ici. 🎉</div>
+        )
       ) : (
         <ul className="space-y-2">
           {tasks.map((t) => (
