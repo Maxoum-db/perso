@@ -234,6 +234,8 @@ export interface GroupLoad {
   recupBonus?: number
   /** Jours ajoutés (ou retirés) par l'intensité déclarée de la séance. */
   intensiteRecup?: number
+  /** Jours ajoutés (ou retirés) par le sommeil des nuits depuis la séance. */
+  sommeilDelta?: number
   /** Intensité déclarée de la séance à l'origine, pour l'expliquer sur la fiche. */
   intensiteId?: IntensiteId
 }
