@@ -130,6 +130,8 @@ export interface ReposMuscle {
   intensiteRecup?: number
   /** Intensité déclarée de cette séance, pour la nommer sur la fiche. */
   intensiteId?: IntensiteId
+  /** Jours ajoutés (ou retirés) par le sommeil depuis la séance. */
+  sommeilDelta?: number
 }
 
 /**
@@ -154,6 +156,7 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
           soreExtra: load.soreExtra,
           intensiteRecup: load.intensiteRecup,
           intensiteId: load.intensiteId,
+          sommeilDelta: load.sommeilDelta,
         }
       }
     }

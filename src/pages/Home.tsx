@@ -129,34 +129,15 @@ export function Home() {
         <p className="text-sm text-muted">{prettyDate(new Date())}</p>
       </div>
 
-      {needAuth ? (
-        <ReconnectGoogle />
-      ) : (
-        <Link to="/agenda" className="card block p-5 transition hover:shadow-lift">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Aujourd'hui
-          </div>
-          {events === null ? (
-            <div className="mt-2 animate-pulse text-sm text-muted">Chargement de l'agenda…</div>
-          ) : events.length === 0 ? (
-            <div className="mt-2 text-sm text-muted">Rien de prévu aujourd'hui. 🌤️</div>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {events.slice(0, 4).map((e) => (
-                <li key={e.calendarId + e.id} className="flex items-baseline gap-3">
-                  <span className="w-14 shrink-0 text-xs font-semibold text-copper">
-                    {isAllDay(e) ? 'jour' : timeOf(e.start.dateTime!)}
-                  </span>
-                  <span className="truncate text-sm text-ink">{e.summary || '(sans titre)'}</span>
-                </li>
-              ))}
-              {events.length > 4 ? (
-                <li className="text-xs text-muted">+ {events.length - 4} autre(s)…</li>
-              ) : null}
-            </ul>
-          )}
-        </Link>
-      )}
+      {needAuth ? <ReconnectGoogle /> : null}
+
+      {/* Ta journée en une carte : ce qui est prévu, et où en est le corps.
+          Deux cartes séparées obligeaient à faire le lien soi-même — « j'ai un
+          créneau à 18 h » d'un côté, « les jambes sont prêtes » de l'autre. Elles
+          répondent à la même question, elles tiennent au même endroit.
+          La carte n'est pas un lien : chaque moitié mène ailleurs, et un lien
+          dans un lien n'est pas du HTML valide. */}
+      <AujourdhuiCard events={events} sessions={muscu} agendaVisible={!needAuth} />
 
       {tasks.length > 0 ? (
         <div className="card p-4">
@@ -238,24 +219,73 @@ export function Home() {
         </Link>
       ) : null}
 
-      <MuscuCard sessions={muscu} />
-
       <BrassageCard brews={brews} />
 
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to="/notes" title="Notes" subtitle="Listes · notes · tâches 📝" emoji="📝" />
         <QuickCard to="/partage" title="À deux" subtitle="Mots · agenda 💕" emoji="💕" />
-        <QuickCard to="/musculation" title="Muscu" subtitle="Journal · séances · poids 💪" emoji="💪" />
+        <QuickCard to="/musculation" title="Muscu" subtitle="Journal · séances · sommeil 💪" emoji="💪" />
         <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement 🛡️" emoji="🛡️" />
         <QuickCard to="/brassage" title="Brassage" subtitle="Brassins · recettes 🍺" emoji="🍺" />
-        <QuickCard to="/reglages" title="Réglages" subtitle="Dossier & agendas" emoji="⚙️" />
       </div>
     </div>
   )
 }
 
-// Dashboard muscu : séance en cours à reprendre, sinon dernière séance + stats du mois.
-function MuscuCard({ sessions }: { sessions: MuscuSession[] }) {
+/**
+ * La carte du jour : agenda en haut, musculation en bas.
+ *
+ * Elle ne s'affiche que si l'une des deux moitiés a quelque chose à dire — une
+ * carte vide sur un accueil, c'est du bruit. La moitié agenda disparaît quand
+ * Google n'est pas connecté, sans emporter la moitié muscu avec elle : le
+ * journal de séances ne dépend pas de Google.
+ */
+function AujourdhuiCard({
+  events,
+  sessions,
+  agendaVisible,
+}: {
+  events: GEvent[] | null
+  sessions: MuscuSession[]
+  agendaVisible: boolean
+}) {
+  // Un élément JSX n'est JAMAIS null : tester `<MuscuMoitie/> === null` aurait
+  // toujours été faux et la carte se serait affichée vide. On interroge donc les
+  // données, comme le fait la moitié elle-même.
+  const aDuMuscu = loadLive() !== null || sessions.length > 0
+  if (!agendaVisible && !aDuMuscu) return null
+
+  return (
+    <div className="card divide-y divide-line/60 overflow-hidden">
+      {agendaVisible ? (
+        <Link to="/agenda" className="block p-5 transition hover:bg-copper/5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Aujourd'hui</div>
+          {events === null ? (
+            <div className="mt-2 animate-pulse text-sm text-muted">Chargement de l'agenda…</div>
+          ) : events.length === 0 ? (
+            <div className="mt-2 text-sm text-muted">Rien de prévu aujourd'hui. 🌤️</div>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {events.slice(0, 4).map((e) => (
+                <li key={e.calendarId + e.id} className="flex items-baseline gap-3">
+                  <span className="w-14 shrink-0 text-xs font-semibold text-copper">
+                    {isAllDay(e) ? 'jour' : timeOf(e.start.dateTime!)}
+                  </span>
+                  <span className="truncate text-sm text-ink">{e.summary || '(sans titre)'}</span>
+                </li>
+              ))}
+              {events.length > 4 ? <li className="text-xs text-muted">+ {events.length - 4} autre(s)…</li> : null}
+            </ul>
+          )}
+        </Link>
+      ) : null}
+      <MuscuMoitie sessions={sessions} />
+    </div>
+  )
+}
+
+// Moitié muscu : séance en cours à reprendre, sinon dernière séance + stats du mois.
+function MuscuMoitie({ sessions }: { sessions: MuscuSession[] }) {
   const live = loadLive()
   const month = new Date().toISOString().slice(0, 7)
   const monthSessions = sessions.filter((s) => s.date.startsWith(month))
@@ -264,7 +294,7 @@ function MuscuCard({ sessions }: { sessions: MuscuSession[] }) {
 
   if (live) {
     return (
-      <Link to="/musculation" className="card block border-copper/40 p-4 transition hover:shadow-lift">
+      <Link to="/musculation" className="block bg-copper/5 p-4 transition hover:bg-copper/10">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-clay" />
           💪 Musculation — séance en cours
@@ -280,7 +310,7 @@ function MuscuCard({ sessions }: { sessions: MuscuSession[] }) {
   if (!last) return null
 
   return (
-    <Link to="/musculation" className="card block p-4 transition hover:shadow-lift">
+    <Link to="/musculation" className="block p-4 transition hover:bg-copper/5">
       <div className="flex items-center justify-between">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted">💪 Musculation</div>
         <span className="text-xs font-semibold text-copper">▶️ Démarrer</span>

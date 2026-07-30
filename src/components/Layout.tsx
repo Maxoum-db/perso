@@ -14,7 +14,9 @@ const primaryTabs: Tab[] = [
   { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
 ]
-// Le menu « Plus » liste toutes les sections (lanceur complet).
+// Le menu « Plus » liste toutes les sections (lanceur complet). Réglages n'y est
+// plus : l'écrou de l'en-tête est visible depuis n'importe quel écran, alors que
+// le menu demande deux touchers. Une seule porte, toujours au même endroit.
 const moreTabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
@@ -23,7 +25,6 @@ const moreTabs: Tab[] = [
   { to: '/behourd', label: 'Béhourd', icon: IconShield },
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
-  { to: '/reglages', label: 'Réglages', icon: IconGear },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -191,7 +192,7 @@ function IconShield({ active }: IconProps) {
  *
  * L'anneau intermédiaire n'est pas décoratif : sans lui, les huit dents partent
  * du vide autour d'un petit cercle et l'icône se lit comme un soleil — flagrant
- * à 18 px dans l'en-tête, où aucun libellé ne vient corriger l'impression.
+ * à 19 px dans l'en-tête, où aucun libellé ne vient corriger l'impression.
  */
 function GearShape() {
   return (
@@ -203,17 +204,11 @@ function GearShape() {
   )
 }
 
-function IconGear({ active }: IconProps) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <GearShape />
-    </svg>
-  )
-}
 /**
- * Écrou de l'en-tête : même dessin que celui de la barre du bas, mais sur fond
- * marine — il hérite donc de la couleur du texte au lieu de la palette
- * cuivre/muted, et il est un peu plus fin pour tenir à 19 px.
+ * Écrou de l'en-tête, désormais la seule porte vers les réglages : ils ont quitté
+ * le menu « Plus » (deux touchers) alors que l'en-tête est visible partout. Sur
+ * fond marine, il hérite de la couleur du texte au lieu de la palette
+ * cuivre/muted de la barre du bas.
  */
 function IconGearHeader() {
   return (

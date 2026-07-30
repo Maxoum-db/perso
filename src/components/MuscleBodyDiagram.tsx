@@ -739,6 +739,19 @@ function MuscleSheet({
                 {` — ${fmtAjust(info.intensiteRecup)} de récupération.`}
               </>
             ) : null}
+            {/* Même raison que pour l'intensité : le sommeil change la couleur,
+                donc il doit être nommé. Sans cette phrase, un muscle qui recule
+                d'un cran après une nuit blanche serait incompréhensible. */}
+            {info.sommeilDelta ? (
+              <>
+                {' '}
+                Sommeil depuis :{' '}
+                <b style={{ color: info.sommeilDelta < 0 ? 'rgb(var(--clay))' : 'rgb(var(--sage-dark))' }}>
+                  {fmtAjust(info.sommeilDelta)}
+                </b>
+                .
+              </>
+            ) : null}
           </p>
         ) : (
           <p className="mt-2 text-xs text-muted">

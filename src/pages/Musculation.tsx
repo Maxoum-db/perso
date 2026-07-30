@@ -15,7 +15,6 @@ import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
 import { FocusPicker } from '../components/FocusPicker'
 import { FOCUS_PAR_DEFAUT, loadFocus, saveFocus, type FocusId } from '../lib/focus'
 import {
-  applyCourbatures,
   declarerAjustement,
   fmtAjust,
   loadCourbatures,
@@ -23,6 +22,9 @@ import {
   type Courbatures,
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
+import { chargesCourantes } from '../lib/charges'
+import { loadNuits, type Nuits } from '../lib/sommeil'
+import { Sommeil } from './Sommeil'
 import {
   INTENSITES,
   INTENSITE_IDS,
@@ -241,7 +243,7 @@ function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
 
 export function Musculation() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'journal' | 'types' | 'progression' | 'poids'>('journal')
+  const [tab, setTab] = useState<'journal' | 'types' | 'progression' | 'sommeil' | 'poids'>('journal')
   const [templates, setTemplates] = useState<MuscuTemplate[] | null>(null)
   const [sessions, setSessions] = useState<MuscuSession[] | null>(null)
   const [catalog, setCatalog] = useState<CatalogExercise[]>([])
@@ -259,13 +261,15 @@ export function Musculation() {
   const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
   // Intensités déclarées à la main, indexées par séance.
   const [intensites, setIntensites] = useState<Intensites>({})
+  // Nuits renseignées : elles décalent la récupération du mannequin.
+  const [nuits, setNuits] = useState<Nuits>({})
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb, pr, it] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -275,6 +279,7 @@ export function Musculation() {
         loadCourbatures(user.id).catch(() => ({})),
         loadProfil(user.id).catch(() => PROFIL_DEFAUT),
         loadIntensites(user.id).catch(() => ({}) as Intensites),
+        loadNuits(user.id).catch(() => ({}) as Nuits),
       ])
       setTemplates(t)
       setSessions(s)
@@ -287,6 +292,7 @@ export function Musculation() {
       setProfil(pr)
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
+      setNuits(nu)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -300,7 +306,7 @@ export function Musculation() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">💪 Musculation</h1>
-        <p className="text-sm text-muted">Journal · séances types · poids de corps</p>
+        <p className="text-sm text-muted">Journal · séances types · sommeil · poids</p>
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
@@ -310,6 +316,7 @@ export function Musculation() {
           { id: 'journal', label: '📒 Journal' },
           { id: 'types', label: '📋 Séances types' },
           { id: 'progression', label: '📈 Progression' },
+          { id: 'sommeil', label: '😴 Sommeil' },
           { id: 'poids', label: '⚖️ Poids' },
         ]}
         active={tab}
@@ -318,12 +325,14 @@ export function Musculation() {
 
       {tab === 'poids' ? (
         <Poids />
+      ) : tab === 'sommeil' ? (
+        <Sommeil userId={user?.id ?? ''} nuits={nuits} onChange={setNuits} />
       ) : templates === null || sessions === null ? (
         <div className="animate-pulse text-sm text-muted">Chargement…</div>
       ) : tab === 'progression' ? (
         <div className="space-y-3">
           <ProgressTab progress={exerciseProgress(sessions)} />
-          <NeglectedMuscles loads={applyCourbatures(groupLoads(sessions), courbatures)} focus={focus} />
+          <NeglectedMuscles loads={chargesCourantes(sessions, courbatures, nuits)} focus={focus} />
         </div>
       ) : tab === 'journal' ? (
         <Journal
@@ -336,6 +345,7 @@ export function Musculation() {
           groups={groups}
           focus={focus}
           courbatures={courbatures}
+          nuits={nuits}
           sexe={profil.sex}
           intensites={intensites}
           onIntensite={setIntensites}
@@ -388,6 +398,7 @@ function Journal({
   focus,
   onFocus,
   courbatures,
+  nuits,
   onCourbatures,
   intensites,
   onIntensite,
@@ -404,6 +415,8 @@ function Journal({
   focus: FocusId
   onFocus: (id: FocusId) => void
   courbatures: Courbatures
+  /** Nuits renseignées : elles décalent la récupération affichée. */
+  nuits: Nuits
   onCourbatures: (c: Courbatures) => void
   /** Intensités déclarées, indexées par séance. */
   intensites: Intensites
@@ -423,8 +436,9 @@ function Journal({
   // Séance en direct : reprise automatique si une séance est en cours (localStorage).
   const [live, setLive] = useState<LiveState | null>(() => loadLive())
 
-  // Une seule source de vérité : la récup automatique corrigée des courbatures.
-  const loads = applyCourbatures(groupLoads(sessions), courbatures)
+  // Une seule source de vérité : la récup automatique, corrigée du sommeil puis
+  // des courbatures déclarées. La composition vit dans lib/charges.
+  const loads = chargesCourantes(sessions, courbatures, nuits)
   // État de forme : charge d'entraînement + balance énergétique déduite du poids.
   // C'est lui qui dicte le volume et les charges de la séance proposée.
   const forme = evaluerForme(sessions, weighins)
