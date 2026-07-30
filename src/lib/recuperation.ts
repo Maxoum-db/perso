@@ -1,5 +1,6 @@
 import { regionsForGroup, type MuscleRegion } from './muscles'
 import type { GroupLoad } from './muscu'
+import type { IntensiteId } from './intensite'
 
 // Tous les muscles ne récupèrent pas au même rythme, et trois paliers pour
 // trente-huit muscles ne suffisaient pas : le palier moyen à lui seul en
@@ -125,6 +126,10 @@ export interface ReposMuscle {
   joursReels: number
   /** Jours ajoutés à la main (courbatures déclarées). */
   soreExtra?: number
+  /** Jours ajoutés par l'intensité déclarée de la séance, part du muscle comprise. */
+  intensiteRecup?: number
+  /** Intensité déclarée de cette séance, pour la nommer sur la fiche. */
+  intensiteId?: IntensiteId
 }
 
 /**
@@ -147,6 +152,8 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
           label,
           joursReels: load.days,
           soreExtra: load.soreExtra,
+          intensiteRecup: load.intensiteRecup,
+          intensiteId: load.intensiteId,
         }
       }
     }

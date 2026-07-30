@@ -15,6 +15,12 @@ import { fetchKv, saveKv } from './kv'
 // Règle : ce que tu déclares fait foi et REMPLACE le calcul automatique. Sans
 // déclaration, on retombe sur la densité pour la salle, et sur rien du tout
 // pour les activités.
+//
+// Ce que tu déclares vaut AUSSI pour la récupération. Le barème ne connaissait
+// que l'intensité de l'exercice pour un muscle donné — la part de l'exercice qui
+// lui revient. Il ignorait donc complètement ce que tu as réellement mis dedans :
+// une heure de sangle en cherchant l'équilibre et une heure de sangle à enchaîner
+// les traversées chargeaient le bas du dos à l'identique.
 
 export type IntensiteId = 'tranquille' | 'normal' | 'soutenu' | 'fond'
 
@@ -23,6 +29,15 @@ export interface Intensite {
   emoji: string
   /** Multiplicateur appliqué au MET de la séance. */
   coef: number
+  /**
+   * Jours de récupération ajoutés à un moteur principal, au pas de 12 h du
+   * mannequin. Négatif = le muscle revient plus tôt.
+   *
+   * Asymétrique comme la barre de la fiche muscle : une séance à fond coûte un
+   * jour de plus, une séance tranquille n'en fait gagner qu'une demi. Se tromper
+   * en s'accordant du repos ne coûte rien ; se tromper dans l'autre sens, si.
+   */
+  recup: number
   aide: string
 }
 
@@ -31,24 +46,28 @@ export const INTENSITES: Record<IntensiteId, Intensite> = {
     label: 'Tranquille',
     emoji: '🌿',
     coef: 0.7,
+    recup: -0.5,
     aide: 'Beaucoup de pauses, de la technique, on ne cherche pas l’effort.',
   },
   normal: {
     label: 'Normal',
     emoji: '🙂',
     coef: 1,
+    recup: 0,
     aide: 'Le rythme habituel — c’est la référence du barème.',
   },
   soutenu: {
     label: 'Soutenu',
     emoji: '😤',
     coef: 1.25,
+    recup: 0.5,
     aide: 'Peu de temps mort, ça souffle, on enchaîne.',
   },
   fond: {
     label: 'À fond',
     emoji: '🔥',
     coef: 1.5,
+    recup: 1,
     aide: 'Séance rare : presque aucun repos, on finit vidé.',
   },
 }
@@ -58,6 +77,18 @@ export const INTENSITE_IDS = Object.keys(INTENSITES) as IntensiteId[]
 /** Coefficient d'un identifiant, 1 pour l'absence de déclaration. */
 export function coefIntensite(id: IntensiteId | null | undefined): number {
   return id ? INTENSITES[id].coef : 1
+}
+
+/**
+ * Jours de récupération que l'intensité déclarée ajoute à un muscle, sa part
+ * dans l'exercice comprise.
+ *
+ * La pondération est linéaire, contrairement à celle des jours écoulés qui est
+ * quadratique : un jour entier de plus sur un stabilisateur à 30 % n'aurait
+ * aucun sens — c'est le moteur principal qui prend la séance.
+ */
+export function recupIntensite(id: IntensiteId | null | undefined, partDuMuscle = 1): number {
+  return id ? INTENSITES[id].recup * partDuMuscle : 0
 }
 
 // ── Stockage ────────────────────────────────────────────────────────────────

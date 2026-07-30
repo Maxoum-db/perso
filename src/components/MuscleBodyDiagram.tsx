@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
-import { AJUST_MAX, AJUST_MIN, AJUST_PAS } from '../lib/soreness'
+import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
 import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
 import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
 import { historiqueParMuscle, type DernierExo, type HistoriqueMuscle } from '../lib/historiqueMuscle'
+import { INTENSITES } from '../lib/intensite'
 import type { MuscuSession } from '../lib/muscu'
 
 export { MUSCLE_LABELS, regionsForGroup, sollicitation, SOLLICITATION_MARQUEUR } from '../lib/muscles'
@@ -464,17 +465,6 @@ function ZoomBody({
   )
 }
 
-/**
- * « +12 h », « −1 j », « +2 j ½ » — l'ajustement se lit signé, sans quoi on ne
- * sait pas si le muscle a pris du retard ou de l'avance.
- */
-function fmtAjust(jours: number): string {
-  const signe = jours < 0 ? '−' : '+'
-  const abs = Math.abs(jours)
-  if (abs < 1) return `${signe}${Math.round(abs * 24)} h`
-  const pleins = Math.floor(abs)
-  return `${signe}${pleins} j${abs - pleins >= AJUST_PAS ? ' ½' : ''}`
-}
 
 /**
  * Temps restant avant que le muscle repasse « prêt », en jours réels.
@@ -736,6 +726,19 @@ function MuscleSheet({
               : VITESSE_RECUP[region] < 1
                 ? ' Cette zone est lente à revenir.'
                 : ''}
+            {/* L'intensité déclarée agit sur la couleur : sans cette phrase, deux
+                séances identiques au journal donneraient deux teintes différentes
+                sans qu'on puisse savoir pourquoi. */}
+            {info.intensiteId && info.intensiteRecup ? (
+              <>
+                {' '}
+                Séance déclarée{' '}
+                <b className="text-ink">
+                  {INTENSITES[info.intensiteId].emoji} {INTENSITES[info.intensiteId].label.toLowerCase()}
+                </b>
+                {` — ${fmtAjust(info.intensiteRecup)} de récupération.`}
+              </>
+            ) : null}
           </p>
         ) : (
           <p className="mt-2 text-xs text-muted">

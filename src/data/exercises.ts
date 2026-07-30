@@ -251,7 +251,19 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Éversion de cheville à l’élastique', groups: 'Fibulaires:1, Soléaire:0.3', sets: 3, reps: '20/côté' },
   { name: 'Équilibre unipodal sur coussin', groups: 'Fibulaires:1, Soléaire:0.6, Tibial antérieur:0.5, Moyen fessier:0.4', sets: 3, reps: '45 s/côté' },
   { name: 'Marche sur les talons', groups: 'Tibial antérieur:1, Soléaire:0.3', sets: 3, reps: '30 m', notes: 'Orteils décollés du sol. Prévention des périostites, utile avant les longues sessions en armure.' },
+  // Extenseurs de l'avant-bras : ils n'avaient qu'un exercice, alors qu'ils
+  // encaissent tout le contrecoup de la préhension. L'anneau 40 kg, les tirages,
+  // le portage et la prise d'arme travaillent les FLÉCHISSEURS ; les extenseurs
+  // ne font que freiner, en excentrique, sans jamais être renforcés. C'est
+  // exactement le déséquilibre qui donne l'épicondylite — celle qui met un bras
+  // à l'arrêt pendant des mois, et qui se prévient en dix minutes par semaine.
   { name: 'Extensions de poignets', groups: 'Extenseurs avant-bras:1', sets: 3, reps: '20', notes: 'Compense le travail de préhension — prévention épicondylite.' },
+  { name: 'Extension de poignet à la poulie basse', groups: 'Extenseurs avant-bras:1, Brachio-radial:0.4', sets: 3, reps: '15/bras', notes: 'Prise pronation, avant-bras posé sur la cuisse. La poulie garde la tension en haut, contrairement à l’haltère.' },
+  { name: 'Extension de poignet excentrique (haltère)', groups: 'Extenseurs avant-bras:1', sets: 3, reps: '12/bras', notes: 'On monte avec l’aide de l’autre main, on redescend seul en 3 s. C’est l’excentrique lent qui remet un tendon en état — le protocole de référence sur l’épicondylite.' },
+  { name: 'Extension des doigts à l’élastique', groups: 'Extenseurs avant-bras:1', sets: 3, reps: '25', notes: 'Petit élastique autour des doigts, on ouvre la main contre la résistance. À faire juste après l’anneau de préhension.' },
+  { name: 'Torsion excentrique (barre souple ou serviette roulée)', groups: 'Extenseurs avant-bras:1, Brachio-radial:0.5, Fléchisseurs avant-bras:0.4', sets: 3, reps: '15/bras', notes: 'Type « Tyler twist » : on tord avec les deux mains, on relâche lentement avec le bras douloureux seul. À défaut de barre souple, une serviette bien roulée fait l’affaire.' },
+  { name: 'Rouleau à poignet (wrist roller)', groups: 'Extenseurs avant-bras:1, Fléchisseurs avant-bras:1, Brachio-radial:0.6, Deltoïde antérieur:0.3', sets: 2, reps: '2 montées/descentes', notes: 'Bras tendus devant soi. Monte la charge en enroulant, redescend en déroulant : les deux faces de l’avant-bras au même endroit.' },
+  { name: 'Pronation-supination à l’haltère déséquilibré', groups: 'Brachio-radial:1, Extenseurs avant-bras:0.7, Fléchisseurs avant-bras:0.5', sets: 3, reps: '15/bras', notes: 'Haltère chargé d’un seul côté, coude à 90°, on tourne paume en haut puis en bas. Le geste du maniement d’arme.' },
   { name: 'Curl concentration', groups: 'Biceps:1, Brachial:0.5', sets: 3, reps: '12/bras' },
   { name: 'Crunch inversé', groups: 'Grand droit:1, Obliques:0.4', sets: 3, reps: '15', notes: 'Bas des abdos : enrouler le bassin, ne pas tirer sur la nuque.' },
   { name: 'Relevés de jambes au sol', groups: 'Grand droit:1, Psoas-iliaque:0.7, Obliques:0.4', sets: 3, reps: '12', notes: 'Lombaires plaquées au sol : si le dos décolle, plier les genoux.' },

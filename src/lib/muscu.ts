@@ -4,7 +4,7 @@ import { MUSCU_PROGRAM } from '../data/behourd'
 import { OUTDOOR_ACTIVITIES } from '../data/activities'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
 import { regionsForGroup } from './muscles'
-import { loadIntensites, type IntensiteId, type Intensites } from './intensite'
+import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -232,6 +232,10 @@ export interface GroupLoad {
   soreExtra?: number
   /** Jours retirés par des séances de récupération active postérieures. */
   recupBonus?: number
+  /** Jours ajoutés (ou retirés) par l'intensité déclarée de la séance. */
+  intensiteRecup?: number
+  /** Intensité déclarée de la séance à l'origine, pour l'expliquer sur la fiche. */
+  intensiteId?: IntensiteId
 }
 
 /** Une séance de récupération active ne fatigue pas : elle raccourcit le délai. */
@@ -277,12 +281,23 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
         //   ≥ 0,5 → deux jours d'orange, c'est un vrai travail ;
         //   < 0,5 → un seul, la sollicitation était accessoire.
         const joursPlafonnes = g.intensity >= 0.5 ? 2 : 1
-        const raw = days / (g.intensity * g.intensity)
+        // L'intensité déclarée retarde le retour au vert : jusqu'à un jour de
+        // plus pour un moteur principal d'une séance à fond. On RETIRE des jours
+        // ressentis, exactement comme des courbatures déclarées — le muscle est
+        // traité comme s'il avait été travaillé plus récemment qu'il ne l'a été.
+        const sur = recupIntensite(s.intensite, g.intensity)
+        const raw = Math.max(0, days / (g.intensity * g.intensity) - sur)
         const effectiveDays = days <= joursPlafonnes ? Math.min(raw, 4) : raw
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
         if (!cur || effectiveDays < cur.effectiveDays) {
-          out[g.name] = { days, date: s.date, intensity: g.intensity, effectiveDays }
+          out[g.name] = {
+            days,
+            date: s.date,
+            intensity: g.intensity,
+            effectiveDays,
+            ...(sur !== 0 ? { intensiteRecup: sur, intensiteId: s.intensite } : {}),
+          }
         }
       }
     }
@@ -472,7 +487,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v19'
+const LIBRARY_SEED_KEY = 'muscu_library_v20'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
