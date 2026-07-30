@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { PALIERS } from '../lib/soreness'
-import {
-  MUSCLE_LABELS,
-  SOLLICITATION_MARQUEUR,
-  sollicitation,
-  type MuscleRegion,
-  type Sollicitation,
-} from '../lib/muscles'
+import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
 import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
@@ -275,10 +269,8 @@ export function MuscleBodyDiagram({
   onSeance?: (sessionId: string) => void
 }) {
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
-  const [groupOuvert, setGroupOuvert] = useState<string | null>(null)
   // Corps affiché en plein écran, ou null pour la vue à deux vignettes.
   const [zoom, setZoom] = useState<Face | null>(null)
-  const [listeOuverte, setListeOuverte] = useState(false)
 
   // Repos par muscle, vitesse de récupération de la zone comprise. Calcul
   // partagé avec le générateur de séance : une seule définition.
@@ -288,7 +280,6 @@ export function MuscleBodyDiagram({
 
   const fill = (r: MuscleRegion | 'neutral') =>
     r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.jours, byRegion[r]?.intensite)
-  const tracked = Object.entries(loads).sort((a, b) => a[1].effectiveDays - b[1].effectiveDays)
 
   return (
     <div className="space-y-2">
@@ -350,58 +341,11 @@ export function MuscleBodyDiagram({
         ))}
       </div>
 
-      {/* Liste des groupes suivis, repliée par défaut : une séance complète en
-          aligne une trentaine, et ce mur de pastilles repoussait tout le reste
-          de la page hors de l'écran. Le mannequin dit déjà l'essentiel ; cette
-          liste ne sert qu'à déclarer des courbatures. */}
-      {tracked.length > 0 ? (
-        <div className="space-y-1.5">
-          <button
-            onClick={() => setListeOuverte((o) => !o)}
-            className="flex w-full items-center gap-1.5 rounded-lg bg-bg px-2 py-1 text-[11px] font-semibold text-muted transition hover:text-ink"
-          >
-            <span className="shrink-0 text-[9px]">{listeOuverte ? '▾' : '▸'}</span>
-            <span className="shrink-0 whitespace-nowrap">😣 Déclarer des courbatures</span>
-            {/* Aperçu des états même replié : le corps résumé en une ligne. */}
-            <span className="ml-auto flex shrink-0 gap-px">
-              {tracked.slice(0, 8).map(([group, load]) => (
-                <span
-                  key={group}
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ background: recoveryColor(load.effectiveDays, load.intensity) }}
-                />
-              ))}
-            </span>
-            <span className="shrink-0 font-normal">{tracked.length}</span>
-          </button>
-
-          {listeOuverte ? (
-            <div className="flex flex-wrap gap-1.5">
-              {tracked.map(([group, load]) => {
-                const color = recoveryColor(load.effectiveDays, load.intensity)
-                return (
-                  <button
-                    key={group}
-                    onClick={() => setGroupOuvert(group)}
-                    className="chip flex items-center gap-1 text-[10px]"
-                    style={{ background: color + '22', color }}
-                    title="Toucher pour déclarer des courbatures"
-                  >
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-                    {group} {SOLLICITATION_MARQUEUR[sollicitation(load.intensity)]} · {fmtAnciennete(load.days)}
-                    {load.soreExtra ? ` · 😣 +${fmtPalier(load.soreExtra)}` : ''}
-                    <span className="ml-0.5 font-bold opacity-60">+</span>
-                  </button>
-                )
-              })}
-            </div>
-          ) : null}
-        </div>
-      ) : (
+      {Object.keys(loads).length === 0 ? (
         <p className="text-center text-[11px] text-muted">
           Enregistre des séances avec un groupe visé : le mannequin se colorera tout seul.
         </p>
-      )}
+      ) : null}
 
       {zoom ? (
         <ZoomBody
@@ -419,6 +363,7 @@ export function MuscleBodyDiagram({
           region={selected}
           info={byRegion[selected]}
           histo={histo[selected]}
+          onSoreness={onSoreness}
           onSeance={
             onSeance
               ? (id) => {
@@ -439,14 +384,6 @@ export function MuscleBodyDiagram({
         />
       ) : null}
 
-      {groupOuvert && loads[groupOuvert] ? (
-        <SorenessSheet
-          group={groupOuvert}
-          load={loads[groupOuvert]}
-          onSoreness={onSoreness}
-          onClose={() => setGroupOuvert(null)}
-        />
-      ) : null}
     </div>
   )
 }
@@ -532,75 +469,6 @@ function fmtPalier(jours: number): string {
   return jours < 1 ? `${Math.round(jours * 24)} h` : `${jours} j`
 }
 
-/** Menu ouvert au clic sur une pastille de groupe : déclarer des courbatures. */
-function SorenessSheet({
-  group,
-  load,
-  onSoreness,
-  onClose,
-}: {
-  group: string
-  load: GroupLoad
-  onSoreness?: (group: string, extra: number) => void
-  onClose: () => void
-}) {
-  const actuel = load.soreExtra ?? 0
-  const choisir = (extra: number) => {
-    onSoreness?.(group, extra === actuel ? 0 : extra)
-    onClose()
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
-      onClick={onClose}
-    >
-      <div className="card max-h-[88vh] w-full max-w-sm overflow-y-auto rounded-b-none p-5 sm:rounded-xl2" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-2 flex items-start justify-between gap-3">
-          <h2 className="text-base font-extrabold text-ink">{group}</h2>
-          <button onClick={onClose} className="shrink-0 text-muted hover:text-ink">
-            ✕
-          </button>
-        </div>
-
-        <p className="text-xs text-muted">
-          Travaillé <b className="text-ink">{fmtAnciennete(load.days)}</b>
-          {load.intensity < 1 ? ` en secondaire (${Math.round(load.intensity * 100)} %)` : ' en moteur principal'}.
-        </p>
-
-        <div className="mt-3 border-t border-line/60 pt-3">
-          <div className="text-sm font-bold text-ink">😣 Courbatures plus fortes que prévu ?</div>
-          <p className="mb-2 text-[11px] text-muted">
-            Ajoute du temps de récupération : le mannequin le garde en rouge plus longtemps, et le générateur de
-            séance évite ce groupe d'autant.
-          </p>
-          <div className="flex gap-1.5">
-            {PALIERS.map((n) => (
-              <button
-                key={n}
-                onClick={() => choisir(n)}
-                className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold transition ${
-                  actuel === n ? 'bg-clay text-white' : 'bg-white/5 text-muted hover:text-ink'
-                }`}
-              >
-                +{fmtPalier(n)}
-              </button>
-            ))}
-          </div>
-          {actuel > 0 ? (
-            <button
-              onClick={() => choisir(0)}
-              className="mt-2 w-full rounded-lg bg-white/5 px-2 py-1.5 text-xs font-semibold text-muted hover:text-ink"
-            >
-              Retirer les {fmtPalier(actuel)} déclarés
-            </button>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /**
  * Temps restant avant que le muscle repasse « prêt », en jours réels.
  *
@@ -681,6 +549,7 @@ function MuscleSheet({
   histo,
   onExercice,
   onSeance,
+  onSoreness,
   onClose,
 }: {
   region: MuscleRegion
@@ -691,11 +560,18 @@ function MuscleSheet({
   onExercice?: (name: string) => void
   /** Renvoie vers une séance déjà enregistrée du journal. */
   onSeance?: (sessionId: string) => void
+  /** Déclare des courbatures — sur le GROUPE qui a produit cette sollicitation. */
+  onSoreness?: (group: string, extra: number) => void
   onClose: () => void
 }) {
+  const [courbOuvert, setCourbOuvert] = useState(false)
   const propositions = exercicesPourMuscle(region, 8)
   const color = recoveryColor(info?.jours, info?.intensite)
   const reste = info ? resteAvantPret(info, region) : 0
+  const actuel = info?.soreExtra ?? 0
+  // Rien à prolonger sur un muscle jamais travaillé : sans séance d'origine, il
+  // n'y a pas de groupe auquel rattacher la déclaration.
+  const declarable = Boolean(onSoreness && info)
   // Les cinq états sont ceux de la légende du spectre, dans le même ordre.
   const etat = !info
     ? 'Froid — jamais travaillé sur les séances chargées'
@@ -719,11 +595,58 @@ function MuscleSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-start justify-between gap-3">
-          <h2 className="text-base font-extrabold text-ink">{MUSCLE_LABELS[region]}</h2>
+          {/* Le nom du muscle EST le bouton de déclaration. Le mur de pastilles
+              qui servait à ça a disparu : on tient le muscle sous le doigt, il
+              n'y a aucune raison d'aller le rechercher dans une liste. */}
+          {declarable ? (
+            <button
+              onClick={() => setCourbOuvert((o) => !o)}
+              className="min-w-0 text-left"
+              title="Toucher pour déclarer des courbatures"
+            >
+              <h2 className="text-base font-extrabold text-ink">
+                {MUSCLE_LABELS[region]} <span className="text-sm text-clay">😣</span>
+              </h2>
+              <span className="text-[10px] text-muted">
+                {actuel > 0 ? `courbatures déclarées : +${fmtPalier(actuel)}` : 'toucher pour déclarer des courbatures'}
+              </span>
+            </button>
+          ) : (
+            <h2 className="min-w-0 text-base font-extrabold text-ink">{MUSCLE_LABELS[region]}</h2>
+          )}
           <button onClick={onClose} className="shrink-0 text-muted hover:text-ink">
             ✕
           </button>
         </div>
+
+        {/* Paliers, ouverts au clic sur le nom. La déclaration porte sur le
+            GROUPE qui a produit la sollicitation — c'est lui que le journal
+            connaît —, et on le dit pour que l'effet ne surprenne pas. */}
+        {declarable && courbOuvert ? (
+          <div className="mb-2 rounded-xl2 border border-clay/40 bg-clay/5 p-2.5">
+            <div className="mb-1 text-[11px] text-muted">
+              Ça tire plus que prévu ? Ajoute du temps de récupération. S'applique à{' '}
+              <b className="text-ink">{info!.label}</b>, le groupe déclaré dans la séance.
+            </div>
+            <div className="flex gap-1.5">
+              {PALIERS.map((n) => (
+                <button
+                  key={n}
+                  // Recliquer le palier actif l'annule : un aller-retour, pas un piège.
+                  onClick={() => {
+                    onSoreness!(info!.label, n === actuel ? 0 : n)
+                    setCourbOuvert(false)
+                  }}
+                  className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold transition ${
+                    actuel === n ? 'bg-clay text-white' : 'bg-white/5 text-muted hover:text-ink'
+                  }`}
+                >
+                  +{fmtPalier(n)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* État de récupération : le libellé, sa place sur le spectre, et le
             temps qu'il reste à attendre — les trois questions qu'on se pose en
