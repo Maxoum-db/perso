@@ -115,17 +115,43 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   rotatorCuff: TRES_LENT,
 }
 
+/**
+ * Jours « ressentis » à partir desquels un muscle est prêt à retravailler.
+ *
+ * Ici et non dans le mannequin : ce n'est pas une règle de dessin mais une règle
+ * de récupération, et « totalement bon » a besoin de savoir à partir de quand un
+ * muscle est prêt pour pouvoir l'y placer.
+ *
+ * C'est la borne exacte de la quatrième case du spectre : le compte à rebours
+ * affiché et le libellé d'état basculent au même instant, sinon la fiche se
+ * contredit elle-même.
+ */
+export const SEUIL_PRET = 4.5
+
+/** La zone la plus lente du barème — celle qui fixe le pire cas. */
+export const VITESSE_MIN = Math.min(...Object.values(VITESSE_RECUP))
+
 export interface ReposMuscle {
   /** Jours ressentis, vitesse de la zone comprise. */
   jours: number
+  /**
+   * Jours ressentis que le barème prévoyait, avant déclaration manuelle. Égal à
+   * `jours` quand rien n'est déclaré. C'est l'écart entre les deux que la base
+   * d'observations mesure.
+   */
+  joursPrevus: number
   /** Intensité de la sollicitation la plus fraîche qui touche ce muscle. */
   intensite: number
   /** Libellé de groupe à l'origine, pour la fiche au clic. */
   label: string
   /** Jours réellement écoulés depuis la séance. */
   joursReels: number
+  /** Date de la séance à l'origine — la clé d'une observation. */
+  dateSeance: string
   /** Jours ajoutés à la main (courbatures déclarées). */
   soreExtra?: number
+  /** Déclaré « totalement bon » à la main. */
+  sorePret?: boolean
   /** Jours ajoutés par l'intensité déclarée de la séance, part du muscle comprise. */
   intensiteRecup?: number
   /** Intensité déclarée de cette séance, pour la nommer sur la fiche. */
@@ -150,10 +176,13 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
       if (!cur || jours < cur.jours) {
         out[region] = {
           jours,
+          joursPrevus: (load.effectiveDaysPrevus ?? load.effectiveDays) * VITESSE_RECUP[region],
           intensite: load.intensity,
           label,
           joursReels: load.days,
+          dateSeance: load.date,
           soreExtra: load.soreExtra,
+          sorePret: load.sorePret,
           intensiteRecup: load.intensiteRecup,
           intensiteId: load.intensiteId,
           sommeilDelta: load.sommeilDelta,

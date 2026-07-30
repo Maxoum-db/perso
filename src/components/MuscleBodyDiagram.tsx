@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
 import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
-import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
+import { SEUIL_PRET, VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
 import { historiqueParMuscle, type DernierExo, type HistoriqueMuscle } from '../lib/historiqueMuscle'
@@ -76,13 +76,6 @@ function positionSpectre(jours: number | undefined): number {
 
 /** Le côté du corps affiché en plein écran. */
 type Face = 'front' | 'back'
-
-/**
- * Entrée dans la bande « prêt », en jours ressentis. C'est la borne exacte de
- * la quatrième case d'ETATS : le compte à rebours affiché et le libellé d'état
- * doivent basculer au même instant, sinon la fiche se contredit elle-même.
- */
-const SEUIL_PRET = 4.5
 
 /**
  * Les cinq états, chacun large de ses propres sections — un libellé réparti à
@@ -254,6 +247,7 @@ export function MuscleBodyDiagram({
   sessions = [],
   sexe = 'H',
   onSoreness,
+  onPret,
   onExercice,
   onSeance,
 }: {
@@ -262,8 +256,14 @@ export function MuscleBodyDiagram({
   sessions?: MuscuSession[]
   /** Silhouette à dessiner — vient du sexe déclaré dans Poids › profil. */
   sexe?: Sexe
-  /** Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler). */
-  onSoreness?: (group: string, extra: number) => void
+  /**
+   * Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler).
+   * La région suit, parce que c'est elle que la base d'observations indexe — un
+   * libellé de groupe couvre plusieurs zones, aux vitesses différentes.
+   */
+  onSoreness?: (group: string, extra: number, region: MuscleRegion) => void
+  /** Déclare le muscle totalement remis (ou annule cette déclaration). */
+  onPret?: (group: string, pret: boolean, region: MuscleRegion) => void
   /** Ouvre une séance sur un exercice proposé depuis la fiche d'un muscle. */
   onExercice?: (name: string) => void
   /** Ramène au journal, sur une séance déjà enregistrée. */
@@ -365,6 +365,7 @@ export function MuscleBodyDiagram({
           info={byRegion[selected]}
           histo={histo[selected]}
           onSoreness={onSoreness}
+          onPret={onPret}
           onSeance={
             onSeance
               ? (id) => {
@@ -547,6 +548,7 @@ function MuscleSheet({
   onExercice,
   onSeance,
   onSoreness,
+  onPret,
   onClose,
 }: {
   region: MuscleRegion
@@ -558,7 +560,9 @@ function MuscleSheet({
   /** Renvoie vers une séance déjà enregistrée du journal. */
   onSeance?: (sessionId: string) => void
   /** Déclare des courbatures — sur le GROUPE qui a produit cette sollicitation. */
-  onSoreness?: (group: string, extra: number) => void
+  onSoreness?: (group: string, extra: number, region: MuscleRegion) => void
+  /** Déclare le muscle totalement remis. */
+  onPret?: (group: string, pret: boolean, region: MuscleRegion) => void
   onClose: () => void
 }) {
   const [courbOuvert, setCourbOuvert] = useState(false)
@@ -566,6 +570,7 @@ function MuscleSheet({
   const color = recoveryColor(info?.jours, info?.intensite)
   const reste = info ? resteAvantPret(info, region) : 0
   const actuel = info?.soreExtra ?? 0
+  const totalementBon = info?.sorePret === true
   // Rien à prolonger sur un muscle jamais travaillé : sans séance d'origine, il
   // n'y a pas de groupe auquel rattacher la déclaration.
   const declarable = Boolean(onSoreness && info)
@@ -608,7 +613,9 @@ function MuscleSheet({
                   d'affiché tant que rien n'est déclaré — un visage grimaçant sur
                   un muscle au barème automatique raconterait n'importe quoi. */}
               <span className="text-[10px] text-muted">
-                {actuel !== 0 ? (
+                {totalementBon ? (
+                  <span style={{ color: 'rgb(var(--sage-dark))' }}>✅ déclaré totalement bon</span>
+                ) : actuel !== 0 ? (
                   <span style={{ color: actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))' }}>
                     {actuel < 0 ? '🌿' : '😣'} ressenti ajusté : {fmtAjust(actuel)}
                   </span>
@@ -631,18 +638,36 @@ function MuscleSheet({
             journal connaît —, et on le dit pour que l'effet ne surprenne pas. */}
         {declarable && courbOuvert ? (
           <div className="mb-2 rounded-xl2 border border-line/60 p-2.5">
+            {/* Le texte suit l'état : « corrige-le » au-dessus d'une barre
+                neutralisée se lirait comme une invitation qui ne marche pas. */}
             <div className="mb-2 text-[11px] text-muted">
-              Le barème se trompe ? Corrige-le. S'applique à <b className="text-ink">{info!.label}</b>, le groupe
-              déclaré dans la séance.
+              {totalementBon ? (
+                <>
+                  Déclaré remis sur <b className="text-ink">{info!.label}</b>. Annule ci-dessous pour revenir à la
+                  barre.
+                </>
+              ) : (
+                <>
+                  Le barème se trompe ? Corrige-le. S'applique à <b className="text-ink">{info!.label}</b>, le groupe
+                  déclaré dans la séance.
+                </>
+              )}
             </div>
+            {/* Neutralisée sous « totalement bon » : la barre serait à 0, donc
+                elle afficherait « barème automatique » juste au-dessus d'un
+                bouton qui dit le contraire. Les deux répondent à la même
+                question, un seul peut parler à la fois. */}
             <input
               type="range"
               min={AJUST_MIN}
               max={AJUST_MAX}
               step={AJUST_PAS}
               value={actuel}
-              onChange={(e) => onSoreness!(info!.label, Number(e.target.value))}
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+              disabled={totalementBon}
+              onChange={(e) => onSoreness!(info!.label, Number(e.target.value), region)}
+              className={`h-1.5 w-full appearance-none rounded-full ${
+                totalementBon ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
+              }`}
               style={{
                 // Vert du côté « ça va mieux », argile du côté « ça tire » : le
                 // curseur dit dans quel sens on va avant même de lire le chiffre.
@@ -661,10 +686,35 @@ function MuscleSheet({
                 className="text-xs font-bold"
                 style={{ color: actuel === 0 ? 'rgb(var(--muted))' : actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))' }}
               >
-                {actuel === 0 ? 'barème automatique' : fmtAjust(actuel)}
+                {totalementBon ? '—' : actuel === 0 ? 'barème automatique' : fmtAjust(actuel)}
               </span>
               <span>{fmtAjust(AJUST_MAX)} · ça tire</span>
             </div>
+
+            {/* « Totalement bon » n'est pas un cran de plus à gauche de la barre :
+                −1 j ne suffit pas toujours à dire qu'un muscle est prêt, et te
+                faire tirer une barre jusqu'à une borne trop courte reviendrait à
+                te faire déclarer autre chose que ce que tu ressens. Bouton à
+                part, donc, et il court-circuite le barème au lieu de le corriger. */}
+            {onPret ? (
+              <button
+                onClick={() => onPret(info!.label, !totalementBon, region)}
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl2 border py-2 text-xs font-bold transition"
+                style={{
+                  borderColor: totalementBon ? 'rgb(var(--sage-dark))' : 'rgb(var(--line))',
+                  background: totalementBon ? 'rgb(var(--sage-dark) / .18)' : 'transparent',
+                  color: totalementBon ? 'rgb(var(--sage-dark))' : 'rgb(var(--muted))',
+                }}
+              >
+                ✅ {totalementBon ? 'Totalement bon — annuler' : 'C’est totalement bon'}
+              </button>
+            ) : null}
+            {totalementBon ? (
+              <p className="mt-1 text-[10px]" style={{ color: 'rgb(var(--sage-dark))' }}>
+                Le muscle est traité comme prêt, quel que soit le barème. La déclaration
+                s’effacera d’elle-même dès que tu retravailleras {info!.label}.
+              </p>
+            ) : null}
           </div>
         ) : null}
 

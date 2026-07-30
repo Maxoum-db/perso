@@ -230,6 +230,18 @@ export interface GroupLoad {
   effectiveDays: number
   /** Jours de récupération ajoutés à la main (courbatures déclarées). */
   soreExtra?: number
+  /** Déclaré « totalement bon » : prime sur le barème, plafond compris. */
+  sorePret?: boolean
+  /**
+   * Jours ressentis tels que le barème les donnait AVANT ta déclaration.
+   *
+   * Porté et non reconstruit : ré-ajouter l'ajustement à la valeur corrigée
+   * tombait à côté dès que la soustraction avait buté sur le plancher à 0 — un
+   * muscle corrigé de +2 j alors qu'il n'en avait qu'un affichait 0, et le calcul
+   * inverse rendait 2 au lieu de 1. C'est cette valeur que la base d'observations
+   * juge, elle doit être exacte.
+   */
+  effectiveDaysPrevus?: number
   /** Jours retirés par des séances de récupération active postérieures. */
   recupBonus?: number
   /** Jours ajoutés (ou retirés) par l'intensité déclarée de la séance. */
