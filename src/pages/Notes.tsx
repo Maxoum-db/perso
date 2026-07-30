@@ -19,20 +19,25 @@ import {
 
 type EditorState = { note: Note | null } | null
 
-export type NotesTab = 'listes' | 'notes' | 'taches' | 'humeur' | 'syntheses'
+export type NotesTab = 'listes' | 'notes' | 'humeur' | 'syntheses'
 
-// Hub Notes : listes à cocher, notes écrites, tâches Google, journal d'humeur
-// et synthèses Drive. Les anciennes routes /listes et /taches ouvrent
-// directement l'onglet correspondant.
-export function Notes({ initial = 'listes' }: { initial?: NotesTab }) {
-  const [tab, setTab] = useState<NotesTab>(initial)
+// Hub Notes : listes à cocher, notes + tâches, journal d'humeur et synthèses
+// Drive. Les anciennes routes /listes et /taches ouvrent directement l'onglet
+// correspondant.
+//
+// Notes et tâches ne font plus qu'un onglet. Deux onglets pour « ce que j'ai
+// écrit » et « ce que j'ai à faire » obligeaient à deviner de quel côté chercher,
+// alors qu'on vient ici pour la même raison : vider sa tête. `taches` reste
+// accepté en entrée pour ne pas casser la route /taches, et ouvre l'onglet
+// commun.
+export function Notes({ initial = 'listes' }: { initial?: NotesTab | 'taches' }) {
+  const [tab, setTab] = useState<NotesTab>(initial === 'taches' ? 'notes' : initial)
   return (
     <div className="space-y-4">
       <SubTabs
         tabs={[
           { id: 'listes', label: '🛒 Listes' },
-          { id: 'notes', label: '📝 Notes' },
-          { id: 'taches', label: '✅ Tâches' },
+          { id: 'notes', label: '📝 Notes & tâches' },
           { id: 'humeur', label: '😊 Humeur' },
           { id: 'syntheses', label: '📁 Synthèses' },
         ]}
@@ -43,8 +48,6 @@ export function Notes({ initial = 'listes' }: { initial?: NotesTab }) {
         <Listes />
       ) : tab === 'notes' ? (
         <NotesBoard />
-      ) : tab === 'taches' ? (
-        <Tasks />
       ) : tab === 'humeur' ? (
         <Humeur />
       ) : (
@@ -102,9 +105,12 @@ function NotesBoard() {
 
   return (
     <div className="space-y-4">
+      {/* `text-xl` et non `text-2xl` : « Notes & tâches » plus les deux boutons ne
+          tiennent pas sur une ligne de 390 px, et le titre partait à la ligne en
+          poussant les boutons. */}
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-extrabold text-ink">📝 Notes</h1>
-        <div className="flex items-center gap-2">
+        <h1 className="min-w-0 text-xl font-extrabold leading-tight text-ink">📝 Notes &amp; tâches</h1>
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={doBackup}
             disabled={backup.state === 'saving' || notes.length === 0}
@@ -122,9 +128,21 @@ function NotesBoard() {
       {backup.state === 'ok' ? <p className="text-xs text-sage-dark">{backup.msg}</p> : null}
       {backup.state === 'err' ? <p className="text-xs text-clay">{backup.msg}</p> : null}
 
+      {/* Ce qu'il y a à faire d'abord, ce qui est écrit ensuite. Les tâches
+          vivent chez Google et les notes chez nous — deux stockages, mais une
+          seule question à l'écran : qu'est-ce que j'ai en tête ? */}
+      <div className="card p-3">
+        <Tasks embedded />
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">📝 Notes</h2>
+        <span className="h-px flex-1 bg-line/60" />
+      </div>
+
       <input
         className="field"
-        placeholder="Rechercher…"
+        placeholder="Rechercher dans les notes…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />

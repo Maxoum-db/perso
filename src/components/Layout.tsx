@@ -35,7 +35,18 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col">
-      <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy/95 px-4 py-3 text-white backdrop-blur">
+      {/* La bande de l'encoche, peinte à part.
+          `body` porte un padding haut pour l'encoche, donc l'en-tête collant
+          commence SOUS elle et la page défilait dans la bande heure/batterie.
+          Une marge négative sur l'en-tête ne règle rien : son parent est un
+          conteneur flex, qui place son premier enfant au bord de sa boîte de
+          contenu sans tenir compte d'une marge négative. Un élément `fixed`, en
+          revanche, se positionne par rapport à l'écran et ignore le padding du
+          body — c'est le seul moyen simple d'atteindre ces pixels-là. */}
+      <div className="fixed inset-x-0 top-0 z-20 h-[env(safe-area-inset-top)] bg-navy" />
+
+      {/* `bg-navy` plein et non /95 : à 95 % on devinait la page derrière. */}
+      <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy px-4 py-3 text-white">
         <img src="/icon-192.png" alt="Aide" className="h-9 w-9 rounded-lg object-cover" />
         <div className="ml-auto flex items-center gap-3">
           {user?.user_metadata?.avatar_url ? (
@@ -47,6 +58,19 @@ export function Layout({ children }: { children: ReactNode }) {
           >
             Déconnexion
           </button>
+          {/* Juste l'écrou : les réglages se cherchent à l'icône, pas au mot. */}
+          <NavLink
+            to="/reglages"
+            aria-label="Réglages"
+            title="Réglages"
+            className={({ isActive }) =>
+              `flex h-8 w-8 items-center justify-center rounded-full transition ${
+                isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <IconGearHeader />
+          </NavLink>
         </div>
       </header>
 
@@ -162,14 +186,43 @@ function IconShield({ active }: IconProps) {
     </svg>
   )
 }
+/**
+ * Corps de l'écrou.
+ *
+ * L'anneau intermédiaire n'est pas décoratif : sans lui, les huit dents partent
+ * du vide autour d'un petit cercle et l'icône se lit comme un soleil — flagrant
+ * à 18 px dans l'en-tête, où aucun libellé ne vient corriger l'impression.
+ */
+function GearShape() {
+  return (
+    <>
+      <circle cx="12" cy="12" r="3.1" />
+      <circle cx="12" cy="12" r="6.6" />
+      <path d="M12 2.9v2.5M12 18.6v2.5M5.1 5.1l1.8 1.8M17.1 17.1l1.8 1.8M2.9 12h2.5M18.6 12h2.5M5.1 18.9l1.8-1.8M17.1 6.9l1.8-1.8" />
+    </>
+  )
+}
+
 function IconGear({ active }: IconProps) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <GearShape />
     </svg>
   )
 }
+/**
+ * Écrou de l'en-tête : même dessin que celui de la barre du bas, mais sur fond
+ * marine — il hérite donc de la couleur du texte au lieu de la palette
+ * cuivre/muted, et il est un peu plus fin pour tenir à 19 px.
+ */
+function IconGearHeader() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <GearShape />
+    </svg>
+  )
+}
+
 function IconDumbbell({ active }: IconProps) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
