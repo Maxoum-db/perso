@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
-import { PALIERS } from '../lib/soreness'
+import { AJUST_MAX, AJUST_MIN, AJUST_PAS } from '../lib/soreness'
 import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
 import { VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
@@ -464,9 +464,16 @@ function ZoomBody({
   )
 }
 
-/** « 12 h », « 1 j », « 2 j » — les paliers de courbature suivent le pas de 12 h. */
-function fmtPalier(jours: number): string {
-  return jours < 1 ? `${Math.round(jours * 24)} h` : `${jours} j`
+/**
+ * « +12 h », « −1 j », « +2 j ½ » — l'ajustement se lit signé, sans quoi on ne
+ * sait pas si le muscle a pris du retard ou de l'avance.
+ */
+function fmtAjust(jours: number): string {
+  const signe = jours < 0 ? '−' : '+'
+  const abs = Math.abs(jours)
+  if (abs < 1) return `${signe}${Math.round(abs * 24)} h`
+  const pleins = Math.floor(abs)
+  return `${signe}${pleins} j${abs - pleins >= AJUST_PAS ? ' ½' : ''}`
 }
 
 /**
@@ -602,13 +609,22 @@ function MuscleSheet({
             <button
               onClick={() => setCourbOuvert((o) => !o)}
               className="min-w-0 text-left"
-              title="Toucher pour déclarer des courbatures"
+              title="Toucher pour ajuster le ressenti de ce muscle"
             >
-              <h2 className="text-base font-extrabold text-ink">
-                {MUSCLE_LABELS[region]} <span className="text-sm text-clay">😣</span>
-              </h2>
+              <h2 className="text-base font-extrabold text-ink">{MUSCLE_LABELS[region]}</h2>
+              {/* Le repère du ressenti va sur la ligne du dessous, pas dans le
+                  titre : « Pectoral supérieur (faisceau claviculaire) » remplit
+                  déjà la largeur, et l'émoji finissait seul sur une ligne. Rien
+                  d'affiché tant que rien n'est déclaré — un visage grimaçant sur
+                  un muscle au barème automatique raconterait n'importe quoi. */}
               <span className="text-[10px] text-muted">
-                {actuel > 0 ? `courbatures déclarées : +${fmtPalier(actuel)}` : 'toucher pour déclarer des courbatures'}
+                {actuel !== 0 ? (
+                  <span style={{ color: actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))' }}>
+                    {actuel < 0 ? '🌿' : '😣'} ressenti ajusté : {fmtAjust(actuel)}
+                  </span>
+                ) : (
+                  'toucher pour ajuster le ressenti'
+                )}
               </span>
             </button>
           ) : (
@@ -619,31 +635,45 @@ function MuscleSheet({
           </button>
         </div>
 
-        {/* Paliers, ouverts au clic sur le nom. La déclaration porte sur le
-            GROUPE qui a produit la sollicitation — c'est lui que le journal
-            connaît —, et on le dit pour que l'effet ne surprenne pas. */}
+        {/* Curseur, ouvert au clic sur le nom. Le barème se trompe dans les deux
+            sens : on peut donc ajouter du retard OU de l'avance. La déclaration
+            porte sur le GROUPE qui a produit la sollicitation — c'est lui que le
+            journal connaît —, et on le dit pour que l'effet ne surprenne pas. */}
         {declarable && courbOuvert ? (
-          <div className="mb-2 rounded-xl2 border border-clay/40 bg-clay/5 p-2.5">
-            <div className="mb-1 text-[11px] text-muted">
-              Ça tire plus que prévu ? Ajoute du temps de récupération. S'applique à{' '}
-              <b className="text-ink">{info!.label}</b>, le groupe déclaré dans la séance.
+          <div className="mb-2 rounded-xl2 border border-line/60 p-2.5">
+            <div className="mb-2 text-[11px] text-muted">
+              Le barème se trompe ? Corrige-le. S'applique à <b className="text-ink">{info!.label}</b>, le groupe
+              déclaré dans la séance.
             </div>
-            <div className="flex gap-1.5">
-              {PALIERS.map((n) => (
-                <button
-                  key={n}
-                  // Recliquer le palier actif l'annule : un aller-retour, pas un piège.
-                  onClick={() => {
-                    onSoreness!(info!.label, n === actuel ? 0 : n)
-                    setCourbOuvert(false)
-                  }}
-                  className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold transition ${
-                    actuel === n ? 'bg-clay text-white' : 'bg-white/5 text-muted hover:text-ink'
-                  }`}
-                >
-                  +{fmtPalier(n)}
-                </button>
-              ))}
+            <input
+              type="range"
+              min={AJUST_MIN}
+              max={AJUST_MAX}
+              step={AJUST_PAS}
+              value={actuel}
+              onChange={(e) => onSoreness!(info!.label, Number(e.target.value))}
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+              style={{
+                // Vert du côté « ça va mieux », argile du côté « ça tire » : le
+                // curseur dit dans quel sens on va avant même de lire le chiffre.
+                background: `linear-gradient(to right, rgb(var(--sage)) 0%, rgb(var(--line)) ${
+                  (100 * -AJUST_MIN) / (AJUST_MAX - AJUST_MIN)
+                }%, rgb(var(--clay)) 100%)`,
+                // Neutre pile au milieu : un pouce couleur argile sur un muscle
+                // au barème automatique annoncerait des courbatures déclarées.
+                accentColor:
+                  actuel === 0 ? 'rgb(var(--muted))' : actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))',
+              }}
+            />
+            <div className="mt-1 flex items-baseline justify-between text-[10px] text-muted">
+              <span>{fmtAjust(AJUST_MIN)} · va mieux</span>
+              <span
+                className="text-xs font-bold"
+                style={{ color: actuel === 0 ? 'rgb(var(--muted))' : actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))' }}
+              >
+                {actuel === 0 ? 'barème automatique' : fmtAjust(actuel)}
+              </span>
+              <span>{fmtAjust(AJUST_MAX)} · ça tire</span>
             </div>
           </div>
         ) : null}
