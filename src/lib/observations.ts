@@ -194,6 +194,12 @@ function vitesseSuggeree(liste: Observation[], vitesse: number): number {
   const facteur = rapports / chiffrees.length
   const amorti = 1 + (facteur - 1) / 2
   const borne = Math.max(0.75, Math.min(1.25, amorti))
+  // L'arrondi ne doit jamais créer un écart à lui seul. Tant que les coefficients
+  // tombaient sur deux décimales, arrondir un barème jugé JUSTE le laissait
+  // intact ; depuis que les jambes valent 1,2857…, le même arrondi suggérait
+  // 1,29 — soit un réglage proposé alors qu'on venait de conclure qu'il n'y en
+  // avait pas à faire.
+  if (borne === 1) return vitesse
   return Math.round(vitesse * borne * 100) / 100
 }
 

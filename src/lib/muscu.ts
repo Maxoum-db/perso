@@ -3,7 +3,10 @@ import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
 import { partParDefaut, regionsForGroup } from './muscles'
-import { SEUIL_PRET, VITESSE_MAX, VITESSE_MIN } from './recuperation'
+import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
+// Ré-exportés : le pas de temps est une règle du barème, mais tout le module le
+// lit depuis ici depuis toujours.
+export { PAS_HEURES, PAS_JOURS }
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
 
@@ -184,18 +187,6 @@ export function serializeGroups(entries: GroupEntry[]): string {
 // ── Récupération : depuis combien de jours chaque groupe a-t-il été travaillé ──
 
 /**
- * Pas de temps de la récupération : une demi-journée.
- *
- * En marches de 24 h, un muscle gardait la même couleur du réveil au coucher
- * puis changeait d'un coup pendant la nuit — alors qu'entre une séance du matin
- * et le soir même il s'est passé l'essentiel de la première phase de
- * récupération. À 12 h, chaque journée porte deux états : le mannequin bouge
- * dans la journée, et l'écart matin/soir cesse d'être invisible.
- */
-export const PAS_HEURES = 12
-export const PAS_JOURS = PAS_HEURES / 24
-
-/**
  * Instant de référence d'une séance.
  *
  * Enregistrée le jour même, son heure de création fait foi — c'est le seul
@@ -316,18 +307,16 @@ export const AVANCE_MAX = SEUIL_PRET
 export const PLAFOND_FRAICHEUR = SEUIL_PRET / VITESSE_MIN
 
 /**
- * Le jour même, aucun muscle sollicité n'affiche « prêt ».
+ * Le plafond applicable à une charge.
  *
- * Un cran sous le seuil pour la zone la plus RAPIDE : même un avant-bras
- * effleuré reste au mieux « bientôt prêt » tant que la journée n'est pas
- * passée. On a beau savoir qu'une sollicitation à 40 % ne coûte presque rien,
- * l'annoncer vert le soir même de la séance ne serait pas crédible.
+ * Il n'y a plus que celui-là : le « jamais prêt le jour même » a rejoint
+ * `reposParMuscle`, où la vitesse de la zone est connue. Ici elle ne l'est pas —
+ * une charge est indexée par LIBELLÉ de groupe, qui peut couvrir des muscles de
+ * vitesses différentes —, et le plafond devait donc se caler sur la zone la plus
+ * rapide du barème, ce qui le rendait trop bas pour toutes les autres.
  */
-export const PLAFOND_JOUR_J = (SEUIL_PRET - PAS_JOURS) / VITESSE_MAX
-
-/** Le plafond applicable à une charge, selon son ancienneté. */
 export function plafondRecup(days: number): number {
-  return days < 1 ? PLAFOND_JOUR_J : Math.max(days, PLAFOND_FRAICHEUR)
+  return Math.max(days, PLAFOND_FRAICHEUR)
 }
 
 /**
