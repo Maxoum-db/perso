@@ -1,7 +1,7 @@
 import { PRIORITE_BEHOURD, type Priorite } from '../data/behourdPriority'
 import { fmtAnciennete, type GroupLoad } from '../lib/muscu'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
-import { FOCUS, type FocusId } from '../lib/focus'
+import { regionsDuFocus, type FocusId } from '../lib/focus'
 import { MUSCLE_LABELS, regionsForGroup, type MuscleRegion } from '../lib/muscles'
 
 // Le mannequin dit ce qui est FRAIS. Cette carte dit ce qui est OUBLIÉ —
@@ -21,12 +21,12 @@ function exerciceSuggere(region: MuscleRegion): string | null {
 
 export function NeglectedMuscles({
   loads,
-  focus = 'aucun',
+  focus = ['aucun'],
 }: {
   loads: Record<string, GroupLoad>
-  focus?: FocusId
+  focus?: FocusId[]
 }) {
-  const focusRegions = new Set(FOCUS[focus].regions)
+  const focusRegions = regionsDuFocus(focus)
   // Ancienneté réelle (pas pondérée) du dernier travail de chaque muscle.
   const joursParMuscle: Partial<Record<MuscleRegion, number>> = {}
   for (const [group, load] of Object.entries(loads)) {

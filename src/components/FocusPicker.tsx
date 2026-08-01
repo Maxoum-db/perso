@@ -1,4 +1,4 @@
-import { FOCUS, FOCUS_IDS, FOCUS_RECUP, type FocusId } from '../lib/focus'
+import { FOCUS, FOCUS_IDS, FOCUS_MAX, basculerFocus, estExclusif, estModeRecup, type FocusId } from '../lib/focus'
 import { DUREES, fmtDuree } from '../lib/duree'
 
 // Le point faible du moment, et le mode béhourd. Deux réglages distincts et
@@ -28,8 +28,9 @@ export function FocusPicker({
   duree,
   onDuree,
 }: {
-  value: FocusId
-  onChange: (id: FocusId) => void
+  /** Un ou deux points faibles. */
+  value: FocusId[]
+  onChange: (ids: FocusId[]) => void
   behourd: boolean
   onBehourd: (on: boolean) => void
   /** Créneau visé, en minutes. */
@@ -38,16 +39,30 @@ export function FocusPicker({
 }) {
   // En mode récupération, le générateur compose avec des étirements : le béhourd
   // n'y a pas de sens, et le laisser allumé le ferait mentir.
-  const recup = value === FOCUS_RECUP
+  const recup = estModeRecup(value)
   const actif = behourd && !recup
+  // À deux groupes, en ajouter un troisième chasse le plus ancien. On le dit
+  // plutôt que de laisser la sélection changer sans explication.
+  const plein = value.filter((id) => !estExclusif(id)).length >= FOCUS_MAX
 
   return (
     <section className="card space-y-2 p-3">
-      <h2 className="text-sm font-bold text-ink">🎯 Point faible à rattraper</h2>
+      {/* La contrainte tient en deux mots dans le titre ; l'explication complète
+          descend sur la ligne d'aide, qui change déjà avec l'état. Dans le titre,
+          elle passait sur deux lignes et alourdissait tout le bloc. */}
+      <h2 className="text-sm font-bold text-ink">
+        🎯 Point faible à rattraper
+        <span className="ml-1.5 text-[10px] font-normal text-muted">{FOCUS_MAX} max</span>
+      </h2>
 
       <div className="flex flex-wrap gap-1.5">
         {FOCUS_IDS.map((id) => (
-          <button key={id} onClick={() => onChange(id)} className={pastille(id === value)}>
+          <button
+            key={id}
+            onClick={() => onChange(basculerFocus(value, id))}
+            aria-pressed={value.includes(id)}
+            className={pastille(value.includes(id))}
+          >
             <span>{FOCUS[id].emoji}</span>
             {FOCUS[id].label}
           </button>
@@ -87,6 +102,7 @@ export function FocusPicker({
       </div>
 
       <p className="text-[10px] text-muted">
+        {plein ? 'Deux groupes visés : en toucher un troisième remplacera le plus ancien. ' : ''}
         {recup
           ? '⚔️ sans effet ici : la séance de récupération est faite d’étirements.'
           : actif

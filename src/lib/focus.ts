@@ -60,6 +60,62 @@ export const FOCUS: Record<FocusId, Focus> = {
 export const FOCUS_IDS: FocusId[] = ['core', 'prehension', 'cou', 'jambes', 'haut', 'recup', 'aucun']
 
 /**
+ * Nombre de points faibles simultanés.
+ *
+ * Deux : au-delà, « point faible » ne veut plus rien dire — quatre groupes
+ * prioritaires dans une séance de six exercices, c'est une séance sans priorité.
+ */
+export const FOCUS_MAX = 2
+
+/**
+ * Les deux entrées qui ne se cumulent avec rien.
+ *
+ * « Aucune » est l'absence de choix, et « passer les courbatures » ne désigne pas
+ * un groupe mais un ÉTAT : il fait basculer le générateur en mode récupération,
+ * où la notion de point faible n'a plus cours.
+ */
+export const FOCUS_EXCLUSIFS: FocusId[] = ['recup', 'aucun']
+
+export function estExclusif(id: FocusId): boolean {
+  return FOCUS_EXCLUSIFS.includes(id)
+}
+
+/**
+ * Ajoute ou retire un point faible de la sélection.
+ *
+ * Trois règles : un choix exclusif remplace tout ; ajouter un groupe chasse les
+ * exclusifs ; et au-delà de FOCUS_MAX, c'est le plus ancien qui part — refuser
+ * le clic obligerait à décocher avant de cocher, pour rien.
+ */
+export function basculerFocus(actuels: FocusId[], id: FocusId): FocusId[] {
+  if (estExclusif(id)) return [id]
+  const sans = actuels.filter((x) => x !== id && !estExclusif(x))
+  if (actuels.includes(id)) return sans.length > 0 ? sans : ['aucun']
+  return [...sans, id].slice(-FOCUS_MAX)
+}
+
+/**
+ * Les muscles visés par la sélection, tous groupes confondus.
+ *
+ * Tolère un identifiant seul, et ignore ce qu'elle ne connaît pas. Le format est
+ * passé d'une chaîne à une liste : une chaîne parcourue avec `for…of` rend ses
+ * LETTRES, donc `FOCUS['c']` — un plantage à l'exécution là où on attendrait
+ * simplement l'ancien comportement. Une donnée du KV écrite avant la migration
+ * n'a pas à faire tomber l'écran.
+ */
+export function regionsDuFocus(ids: FocusId[] | FocusId): Set<MuscleRegion> {
+  const liste = Array.isArray(ids) ? ids : [ids]
+  const out = new Set<MuscleRegion>()
+  for (const id of liste) for (const r of FOCUS[id]?.regions ?? []) out.add(r)
+  return out
+}
+
+/** Vrai dès qu'un des points faibles choisis est le mode récupération. */
+export function estModeRecup(ids: FocusId[] | FocusId): boolean {
+  return Array.isArray(ids) ? ids.includes(FOCUS_RECUP) : ids === FOCUS_RECUP
+}
+
+/**
  * Le point faible déclaré par défaut. La ceinture abdominale est ce qui limite
  * le plus en armure : sans elle, la force des jambes ne remonte pas aux bras.
  */
@@ -85,6 +141,22 @@ export const POIDS_FOCUS = 2.6
  * On garantit donc des places : 40 % de la séance, soit trois exercices sur six.
  */
 export const PART_FOCUS = 0.4
+
+/**
+ * Part réservée quand DEUX groupes sont visés.
+ *
+ * Plus large, sinon les deux se partageraient les trois places d'un seul et
+ * chacun n'en aurait qu'une et demie — autant n'en choisir qu'un. Quatre
+ * exercices sur six, deux par groupe.
+ */
+export const PART_FOCUS_DOUBLE = 0.6
+
+/** Places réservées au point faible, selon le nombre de groupes visés. */
+export function placesFocus(count: number, nbGroupes: number): number {
+  if (nbGroupes === 0) return 0
+  const part = nbGroupes >= 2 ? PART_FOCUS_DOUBLE : PART_FOCUS
+  return Math.max(nbGroupes + 1, Math.ceil(count * part))
+}
 
 /**
  * Nombre maximal d'exercices sur un même muscle du focus.
@@ -119,13 +191,26 @@ export const REPOS_BEHOURD_SPECIAL = 3
 const FOCUS_KEY = 'muscu_focus'
 const BEHOURD_KEY = 'muscu_behourd'
 
-export async function loadFocus(userId: string): Promise<FocusId> {
-  const id = await fetchKv<FocusId>(userId, FOCUS_KEY, FOCUS_PAR_DEFAUT)
-  return id in FOCUS ? id : FOCUS_PAR_DEFAUT
+/**
+ * Les points faibles enregistrés.
+ *
+ * Le format a changé — une chaîne autrefois, une liste maintenant. On accepte les
+ * deux en lecture : sans ça, ton réglage se serait silencieusement remis sur la
+ * valeur par défaut au premier chargement.
+ */
+export async function loadFocus(userId: string): Promise<FocusId[]> {
+  const v = await fetchKv<FocusId | FocusId[]>(userId, FOCUS_KEY, [FOCUS_PAR_DEFAUT])
+  const liste = Array.isArray(v) ? v : [v]
+  const valides = liste.filter((id) => typeof id === 'string' && id in FOCUS)
+  if (valides.length === 0) return [FOCUS_PAR_DEFAUT]
+  // Un exclusif dans la liste l'emporte : c'est la seule combinaison qui n'a pas
+  // de sens, et une valeur écrite à la main pourrait la produire.
+  const exclusif = valides.find(estExclusif)
+  return exclusif ? [exclusif] : valides.slice(0, FOCUS_MAX)
 }
 
-export async function saveFocus(userId: string, id: FocusId): Promise<void> {
-  await saveKv(userId, FOCUS_KEY, id)
+export async function saveFocus(userId: string, ids: FocusId[]): Promise<void> {
+  await saveKv(userId, FOCUS_KEY, ids)
 }
 
 // ── Mode béhourd ────────────────────────────────────────────────────────────
