@@ -489,15 +489,19 @@ function MuscuMoitie({
  */
 function Prochaine({ p, events }: { p: ReturnType<typeof prochaineSeance>; events: GEvent[] | null }) {
   if (!p) return null
-  const { session, attente, frein } = p
+  const { session, attente, frein, dejaFait } = p
   const maintenant = Date.now()
   // Les journées entières n'occupent pas de créneau : un anniversaire ne
   // t'empêche pas d'aller à la salle.
   const occupes: Occupe[] = (events ?? [])
     .filter((e) => e.start.dateTime && e.end?.dateTime)
     .map((e) => ({ debut: new Date(e.start.dateTime!).getTime(), fin: new Date(e.end!.dateTime!).getTime() }))
+  // Pas de créneau quand la journée est déjà faite : chercher une place pour une
+  // séance qu'on ne fera pas, c'est inviter à en faire une deuxième.
   const creneau =
-    attente === 0 ? premierCreneau(occupes, session.bilan.duree, maintenant, finDeJournee(maintenant)) : null
+    attente === 0 && !dejaFait
+      ? premierCreneau(occupes, session.bilan.duree, maintenant, finDeJournee(maintenant))
+      : null
 
   return (
     <div className="mt-2 border-t border-line/40 pt-2">
@@ -510,7 +514,22 @@ function Prochaine({ p, events }: { p: ReturnType<typeof prochaineSeance>; event
         <span className="min-w-0 flex-1 truncate font-semibold text-ink">{session.name}</span>
       </div>
       <div className="mt-0.5 text-[11px] text-muted">
-        {attente > 0 ? (
+        {/* Une séance par jour. Le corps a beau être frais, si c'est fait c'est
+            fait — et l'accueil affiche justement cette séance-là juste en
+            dessous. Les deux faits restent séparés : quand le corps demande plus
+            d'un jour, c'est lui qui parle, pas le calendrier. */}
+        {dejaFait ? (
+          attente > 1 ? (
+            <>
+              ✅ séance faite · la prochaine dans <b className="text-ink">{fmtDelai(attente)}</b>
+              {frein ? ` — le temps que ${frein.toLowerCase()} revienne` : ''}
+            </>
+          ) : (
+            <>
+              ✅ séance faite aujourd'hui · la prochaine <b className="text-ink">demain</b>
+            </>
+          )
+        ) : attente > 0 ? (
           <>
             ⏳ plutôt dans <b className="text-ink">{fmtDelai(attente)}</b>
             {frein ? ` — le temps que ${frein.toLowerCase()} revienne` : ''}

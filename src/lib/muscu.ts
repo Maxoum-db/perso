@@ -344,6 +344,23 @@ function estRecuperation(e: { name: string; doux?: boolean }): boolean {
   return e.doux === true || RECUPERATION_NAMES.has(e.name.trim().toLowerCase())
 }
 
+/**
+ * Une séance de TRAVAIL : elle contient au moins une ligne qui fatigue.
+ *
+ * Une séance d'étirements, ou une séance dont toutes les lignes sont cochées
+ * « version douce », n'en est pas une : elle n'occupe pas la journée et n'empêche
+ * pas d'aller à la salle. Une ligne de ressenti, elle, en est une — c'est
+ * exactement comme ça qu'un béhourd s'enregistre.
+ */
+export function estSeanceDeTravail(s: MuscuSession): boolean {
+  return s.exercises.some((e) => !estRecuperation(e))
+}
+
+/** La séance de travail faite un jour donné, s'il y en a une. */
+export function seanceDuJour(sessions: MuscuSession[], jour: string): MuscuSession | undefined {
+  return sessions.find((s) => s.date === jour && estSeanceDeTravail(s))
+}
+
 export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {
   const now = Date.now()
   const aujourdhui = new Date(now).toLocaleDateString('en-CA')
