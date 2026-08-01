@@ -12,7 +12,7 @@ import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { ObservationsCard } from '../components/ObservationsCard'
 import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
-import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
+import { type SuggestedSession } from '../lib/sessionBuilder'
 import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
 import { FocusPicker } from '../components/FocusPicker'
 import { FOCUS_PAR_DEFAUT, estModeRecup, loadBehourd, loadFocus, saveBehourd, saveFocus, type FocusId } from '../lib/focus'
@@ -26,7 +26,8 @@ import {
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
 import { chargesCourantes } from '../lib/charges'
-import { DUREE_PAR_DEFAUT, PLAFOND_EXOS, dureeLignes, fmtDuree, loadDuree, saveDuree } from '../lib/duree'
+import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '../lib/duree'
+import { composerSeance } from '../lib/prochaine'
 import {
   loadObservations,
   noterObservation,
@@ -664,38 +665,21 @@ function Journal({
 
   // ── Séance composée depuis l'état de récupération ─────────────────────────
 
+  // Le réglage du générateur vit dans `composerSeance` : l'accueil compose la
+  // même séance, et deux appels réglés à la main auraient fini par en proposer
+  // deux différentes selon l'écran.
+  const contexte = { catalog, sessions, weighins, bodyWeight, focus, behourd, duree, loads }
+
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, sessions, {
-        exclude,
-        bodyWeight,
-        focus,
-        behourd,
-        loads,
-        // Le créneau prend le relais du compte d'exercices : c'est lui qui décide
-        // de la taille. `forme` le raccourcit les jours de charge élevée, dans la
-        // même proportion qu'elle réduisait le nombre d'exercices — une séance
-        // allégée est une séance plus courte, pas seulement moins chargée.
-        count: PLAFOND_EXOS,
-        dureeCible: Math.round(duree * (forme.exos / 6)),
-        intensite: forme.intensite,
-      }), exclude })
+    setSuggest({ session: composerSeance({ ...contexte, exclude }), exclude })
   }
 
   function regenerer() {
     if (!suggest) return
     const next = new Set(suggest.exclude)
     for (const e of suggest.session?.exercises ?? []) next.add(e.exo.id)
-    const session = buildSession(catalog, sessions, {
-      exclude: next,
-      bodyWeight,
-      focus,
-      behourd,
-      loads,
-      count: PLAFOND_EXOS,
-      dureeCible: Math.round(duree * (forme.exos / 6)),
-      intensite: forme.intensite,
-    })
+    const session = composerSeance({ ...contexte, exclude: next })
     // Plus rien de neuf à proposer : on repart du catalogue complet.
     if (!session) suggerer(new Set())
     else setSuggest({ session, exclude: next })
