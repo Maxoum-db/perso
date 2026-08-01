@@ -71,11 +71,24 @@ const REGLES: Array<[Pattern, RegExp]> = [
   // Charge portée, déplacée : le tronc travaille en isométrie sous charge.
   ['portage', /marche du fermier|port valise|portage|traineau|releve turc/],
   // Charnière de hanche : le dos et la chaîne postérieure en extension.
-  ['hanche', /souleve de terre|roumain|rdl|poussee de hanches|balancier|extension (du buste|lombaire|de hanche)|superman|flexion du buste|machine a fessiers|jambes tendues/],
+  //
+  // Pas de « jambes tendues » ici : la règle était redondante — le seul exercice
+  // qu'elle visait, le soulevé jambes tendues, tombe déjà dans « souleve de
+  // terre » — et elle attrapait au passage les « relevés de jambes tendues
+  // suspendu », c'est-à-dire un relevé de jambes classé comme un soulevé de
+  // terre. Il en héritait le repos long, la place de gros mouvement dans la
+  // séance et l'appariement d'une charnière de hanche.
+  ['hanche', /souleve de terre|roumain|rdl|poussee de hanches|balancier|extension (du buste|lombaire|de hanche)|superman|flexion du buste|machine a fessiers/],
   // Flexion de genou sous charge.
   ['genou', /squat|presse a cuisses|fente|montee sur banc|hack/],
   // Tout ce qui tire vers soi, horizontalement ou verticalement.
-  ['tirage', /traction|tirage|rowing|pull-over|retraction scapulaire|oiseau|ecarte inverse|suspension a la barre/],
+  //
+  // `\btraction` et non `traction` : sans la frontière de mot, la « pompe
+  // scapulaire (PROtraction) » — qui pousse le sol pour écarter les omoplates —
+  // était classée comme un tirage. Elle en héritait le mauvais côté du ratio
+  // pousser/tirer et se retrouvait appariée en superset avec une poussée, dont
+  // elle partage pourtant les moteurs.
+  ['tirage', /\btraction|tirage|rowing|pull-over|retraction scapulaire|oiseau|ecarte inverse|suspension a la barre/],
   // Tout ce qui pousse loin de soi.
   ['poussee', /developpe|pompe|dips|ecarte|floor press/],
   // Anti-mouvement : on résiste, on ne déplace rien.

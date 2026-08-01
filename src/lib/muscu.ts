@@ -602,7 +602,7 @@ export function isBodyweightExercise(name: string): boolean {
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v21'
+const LIBRARY_SEED_KEY = 'muscu_library_v22'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {

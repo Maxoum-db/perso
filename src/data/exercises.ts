@@ -52,16 +52,16 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Pompes déclinées', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.6, Triceps:0.5, Grand droit:0.4', sets: 3, reps: '12' },
   { name: 'Dips aux barres parallèles', groups: 'Triceps:1, Grand pectoral:0.7, Pectoral supérieur:0.3, Deltoïde antérieur:0.4', sets: 3, reps: '10', notes: '⚠️ AC droite : amplitude courte, buste droit.' },
   { name: 'Dips à la machine assistée', groups: 'Triceps:1, Grand pectoral:0.6, Pectoral supérieur:0.3, Deltoïde antérieur:0.4', sets: 3, reps: '10' },
-  { name: 'Tirage bras tendus (pull-over)', groups: 'Grand dorsal:0.8, Grand pectoral:0.7, Grand rond:0.5, Triceps:0.3', sets: 3, reps: '12' },
+  { name: 'Tirage bras tendus (pull-over)', groups: 'Grand dorsal:1, Grand pectoral:0.7, Grand rond:0.5, Triceps:0.3', sets: 3, reps: '12' },
 
   // ── Dos ───────────────────────────────────────────────────────────────────
-  { name: 'Tractions pronation', groups: 'Grand dorsal:1, Grand rond:0.7, Biceps:0.6, Brachial:0.7, Brachio-radial:0.4', sets: 4, reps: '10' },
-  { name: 'Tractions supination', groups: 'Grand dorsal:1, Biceps:0.8, Brachial:0.6, Grand rond:0.5', sets: 4, reps: '10' },
-  { name: 'Traction assistée (machine)', groups: 'Grand dorsal:1, Grand rond:0.6, Biceps:0.6, Brachial:0.6', sets: 4, reps: '10' },
+  { name: 'Tractions pronation', groups: 'Grand dorsal:1, Grand rond:0.7, Brachial:0.7, Biceps:0.6, Fléchisseurs avant-bras:0.5, Brachio-radial:0.4', sets: 4, reps: '10' },
+  { name: 'Tractions supination', groups: 'Grand dorsal:1, Biceps:0.8, Brachial:0.6, Grand rond:0.5, Fléchisseurs avant-bras:0.5', sets: 4, reps: '10' },
+  { name: 'Traction assistée (machine)', groups: 'Grand dorsal:1, Grand rond:0.6, Biceps:0.6, Brachial:0.6, Fléchisseurs avant-bras:0.4', sets: 4, reps: '10' },
   { name: 'Tirage vertical prise neutre', groups: 'Grand dorsal:1, Grand rond:0.6, Biceps:0.5, Brachial:0.6', sets: 4, reps: '10' },
   { name: 'Tirage vertical devant', groups: 'Grand dorsal:1, Grand rond:0.6, Biceps:0.5, Brachial:0.5', sets: 4, reps: '10' },
-  { name: 'Tirage buste penché à la barre', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.6, Biceps:0.5, Brachial:0.5, Érecteurs du rachis:0.4', sets: 4, reps: '8' },
-  { name: 'Tirage unilatéral à l’haltère', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.5, Brachial:0.5, Obliques:0.3', sets: 3, reps: '10' },
+  { name: 'Tirage buste penché à la barre', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.6, Biceps:0.5, Brachial:0.5, Érecteurs du rachis:0.4, Fléchisseurs avant-bras:0.4', sets: 4, reps: '8' },
+  { name: 'Tirage unilatéral à l’haltère', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.5, Brachial:0.5, Fléchisseurs avant-bras:0.4, Obliques:0.3', sets: 3, reps: '10' },
   { name: 'Tirage buste appuyé', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.4, Brachial:0.4', sets: 3, reps: '10' },
   // Grand rond : le « petit grand dorsal » de l'aisselle. Bras tendus, les
   // biceps sortent du mouvement et il devient le moteur.
@@ -70,17 +70,17 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Tirage assis à la machine', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.4, Brachial:0.4', sets: 3, reps: '12' },
   { name: 'Tirage horizontal poulie prise neutre', groups: 'Grand dorsal:1, Trapèze moyen:0.5, Biceps:0.4, Brachial:0.5', sets: 3, reps: '12' },
   { name: 'Soulevé de terre', groups: 'Ischios:1, Grand fessier:1, Érecteurs du rachis:0.8, Grand dorsal:0.6, Trapèze supérieur:0.5, Fléchisseurs avant-bras:0.5', sets: 4, reps: '8' },
-  { name: 'Soulevé de terre roumain (RDL)', groups: 'Ischios:1, Grand fessier:0.8, Érecteurs du rachis:0.6, Grand dorsal:0.4', sets: 3, reps: '10' },
+  { name: 'Soulevé de terre roumain (RDL)', groups: 'Ischios:1, Grand fessier:0.8, Érecteurs du rachis:0.6, Grand dorsal:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '10' },
   { name: 'Haussements d’épaules aux haltères', groups: 'Trapèze supérieur:1, Cou:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '15' },
   { name: 'Tirage visage à la poulie haute', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.6, Coiffe des rotateurs:0.6, Rhomboïdes:0.5', sets: 3, reps: '15' },
-  { name: 'Extensions du buste (banc lombaire)', groups: 'Grand fessier:0.8, Ischios:0.7, Érecteurs du rachis:0.6', sets: 3, reps: '12' },
+  { name: 'Extensions du buste (banc lombaire)', groups: 'Érecteurs du rachis:1, Grand fessier:0.8, Ischios:0.7', sets: 3, reps: '12' },
   { name: 'Suspension à la barre', groups: 'Fléchisseurs avant-bras:1, Grand dorsal:0.5, Deltoïde postérieur:0.3', sets: 3, reps: '30 s' },
 
   // ── Épaules ───────────────────────────────────────────────────────────────
   { name: 'Développé militaire barre', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.7, Triceps:0.6, Grand droit:0.3', sets: 4, reps: '8', notes: '⚠️ AC droite : la barre force la rotation interne — préférer les haltères.' },
   { name: 'Développé militaire haltères prise neutre', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.6, Triceps:0.5, Grand droit:0.3', sets: 3, reps: '10' },
   { name: 'Développé épaules convergent (machine)', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.6, Triceps:0.5', sets: 3, reps: '10' },
-  { name: 'Développé avec impulsion, haltères prise neutre', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.6, Triceps:0.5, Quadriceps:0.4, Grand fessier:0.3', sets: 3, reps: '8' },
+  { name: 'Développé avec impulsion, haltères prise neutre', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.6, Triceps:0.5, Quadriceps:0.4, Grand droit:0.4, Grand fessier:0.3', sets: 3, reps: '8' },
   { name: 'Élévations latérales haltères', groups: 'Deltoïde latéral:1, Trapèze supérieur:0.3', sets: 4, reps: '15' },
   { name: 'Élévations latérales poulie', groups: 'Deltoïde latéral:1, Trapèze supérieur:0.3', sets: 3, reps: '15' },
   { name: 'Élévations frontales', groups: 'Deltoïde antérieur:1, Pectoral supérieur:0.3', sets: 3, reps: '12' },
@@ -88,8 +88,8 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Écarté inversé à la machine', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.5, Rhomboïdes:0.4', sets: 3, reps: '15' },
   // Rhomboïdes en moteur : les tirages les emmènent en passant, mais aucun ne
   // les isolait. La rétraction pure, sans flexion de coude, c'est eux seuls.
-  { name: 'Rétraction scapulaire à la poulie', groups: 'Rhomboïdes:1, Trapèze moyen:0.8, Trapèze inférieur:0.4', sets: 3, reps: '15', notes: 'Bras tendus : on ne tire QUE les omoplates l’une vers l’autre, 2 s de tenue.' },
-  { name: 'Rowing prise large coudes hauts', groups: 'Rhomboïdes:1, Trapèze moyen:0.9, Deltoïde postérieur:0.7, Grand dorsal:0.5', sets: 3, reps: '12' },
+  { name: 'Rétraction scapulaire à la poulie', groups: 'Rhomboïdes:1, Trapèze moyen:1, Trapèze inférieur:0.4', sets: 3, reps: '15', notes: 'Bras tendus : on ne tire QUE les omoplates l’une vers l’autre, 2 s de tenue.' },
+  { name: 'Rowing prise large coudes hauts', groups: 'Rhomboïdes:1, Trapèze moyen:0.9, Deltoïde postérieur:0.7, Grand dorsal:0.5, Biceps:0.4, Brachial:0.4', sets: 3, reps: '12' },
   // Dentelé antérieur : il plaque l'omoplate contre les côtes. Faible, l'omoplate
   // décolle et l'épaule perd sa base — critique avec une AC abîmée.
   { name: 'Pompe scapulaire (protraction)', groups: 'Dentelé antérieur:1, Grand pectoral:0.3', sets: 3, reps: '15', notes: 'En planche, coudes verrouillés : on ne bouge que les omoplates.' },
@@ -125,34 +125,34 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
 
   // ── Jambes ────────────────────────────────────────────────────────────────
   { name: 'Squat barre arrière', groups: 'Quadriceps:1, Grand fessier:0.8, Érecteurs du rachis:0.5, Ischios:0.4, Grand droit:0.4', sets: 4, reps: '8' },
-  { name: 'Squat à la barre guidée', groups: 'Quadriceps:1, Grand fessier:0.7', sets: 4, reps: '8' },
+  { name: 'Squat à la barre guidée', groups: 'Quadriceps:1, Grand fessier:0.7, Ischios:0.3, Érecteurs du rachis:0.3', sets: 4, reps: '8' },
   { name: 'Squat sur box (ou squat gobelet)', groups: 'Quadriceps:1, Grand fessier:0.8, Ischios:0.4', sets: 3, reps: '10' },
   { name: 'Squat gobelet en tempo', groups: 'Quadriceps:1, Grand fessier:0.6, Grand droit:0.4', sets: 3, reps: '10' },
-  { name: 'Squat barre devant', groups: 'Droit fémoral:1, Vaste latéral:0.8, Vaste médial:0.8, Grand droit:0.5, Grand fessier:0.5', sets: 3, reps: '8' },
+  { name: 'Squat barre devant', groups: 'Droit fémoral:1, Vaste latéral:0.8, Vaste médial:0.8, Érecteurs du rachis:0.6, Grand droit:0.5, Grand fessier:0.5', sets: 3, reps: '8' },
   { name: 'Presse à cuisses pieds hauts', groups: 'Grand fessier:1, Ischios:0.7, Quadriceps:0.6', sets: 3, reps: '12' },
   { name: 'Presse à cuisses (pieds standard)', groups: 'Vaste latéral:1, Vaste médial:0.9, Droit fémoral:0.7, Grand fessier:0.5', sets: 4, reps: '12' },
-  { name: 'Fentes marchées haltères', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.5, Ischios:0.4', sets: 3, reps: '12/jambe' },
+  { name: 'Fentes marchées haltères', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.5, Ischios:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '12/jambe' },
   { name: 'Fentes bulgares', groups: 'Quadriceps:1, Grand fessier:0.9, Moyen fessier:0.5', sets: 3, reps: '10/jambe' },
   { name: 'Montée sur banc', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.4', sets: 3, reps: '12/jambe' },
   { name: 'Extension des jambes à la machine', groups: 'Droit fémoral:1, Vaste latéral:0.8, Vaste médial:0.8', sets: 3, reps: '15' },
   { name: 'Flexion des ischios allongé (machine)', groups: 'Biceps fémoral:1, Ischios internes:0.9, Gastrocnémiens:0.3', sets: 3, reps: '12' },
   { name: 'Flexion du buste barre au dos', groups: 'Ischios:1, Érecteurs du rachis:0.8, Grand fessier:0.6', sets: 3, reps: '10' },
   { name: 'Poussée de hanches (barre ou machine)', groups: 'Grand fessier:1, Ischios:0.5', sets: 4, reps: '12' },
-  { name: 'Abducteurs (machine)', groups: 'Moyen fessier:1', sets: 3, reps: '15' },
+  { name: 'Abducteurs (machine)', groups: 'Moyen fessier:1, Tenseur du fascia lata:0.6, Grand fessier:0.3', sets: 3, reps: '15' },
   { name: 'Adducteurs (machine)', groups: 'Adducteurs:1', sets: 3, reps: '15' },
   { name: 'Mollets debout (machine)', groups: 'Gastrocnémiens:1, Soléaire:0.5', sets: 4, reps: '20' },
   { name: 'Mollets assis (machine)', groups: 'Soléaire:1, Gastrocnémiens:0.4', sets: 4, reps: '20' },
   { name: 'Mollets à la presse', groups: 'Gastrocnémiens:1, Soléaire:0.6', sets: 4, reps: '15' },
-  { name: 'Extension terminale du genou (élastique)', groups: 'Vaste médial:1', sets: 3, reps: '15' },
+  { name: 'Extension terminale du genou (élastique)', groups: 'Vaste médial:1, Vaste latéral:0.4', sets: 3, reps: '15' },
 
   // ── Core ──────────────────────────────────────────────────────────────────
   { name: 'Deadbug (gainage bras-jambes alternés)', groups: 'Grand droit:1, Obliques:0.4', sets: 3, reps: '10' },
-  { name: 'Planche frontale', groups: 'Grand droit:1, Obliques:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '45 s' },
+  { name: 'Planche frontale', groups: 'Grand droit:1, Obliques:0.5, Dentelé antérieur:0.4, Deltoïde antérieur:0.3', sets: 3, reps: '45 s' },
   // « Abdos/Core » recouvrait les obliques déjà déclarées à 1, et « Épaules »
   // allumait le deltoïde POSTÉRIEUR, qui ne fait rien ici. Ce que la planche
   // latérale tient vraiment sous le bassin, c'est le moyen fessier du dessus.
   { name: 'Planche latérale', groups: 'Obliques:1, Moyen fessier:0.6, Grand droit:0.5, Deltoïde latéral:0.4', sets: 3, reps: '45 s/côté' },
-  { name: 'Bird-dog (gainage croisé)', groups: 'Grand droit:0.8, Érecteurs du rachis:0.6, Grand fessier:0.4', sets: 3, reps: '8/côté' },
+  { name: 'Bird-dog (gainage croisé)', groups: 'Grand droit:0.8, Érecteurs du rachis:0.8, Grand fessier:0.5', sets: 3, reps: '8/côté' },
   { name: 'Crunch à la machine', groups: 'Grand droit:1, Obliques:0.3', sets: 3, reps: '15' },
   { name: 'Relevés de genoux suspendu', groups: 'Grand droit:1, Psoas-iliaque:0.8, Obliques:0.5, Fléchisseurs avant-bras:0.5', sets: 3, reps: '15' },
   { name: 'Roulette abdominale', groups: 'Grand droit:1, Obliques:0.5, Grand dorsal:0.4, Deltoïde antérieur:0.3', sets: 3, reps: '10' },
@@ -178,7 +178,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Port valise (haltère à une main)', groups: 'Obliques:1, Grand droit:0.8, Fléchisseurs avant-bras:0.8, Moyen fessier:0.7, Trapèze supérieur:0.5, Érecteurs du rachis:0.5', sets: 3, reps: '30 m/côté' },
   { name: 'Balancier à la kettlebell', groups: 'Grand fessier:1, Ischios:0.8, Érecteurs du rachis:0.5, Grand droit:0.5, Fléchisseurs avant-bras:0.4', sets: 4, reps: '15' },
   { name: 'Relevé turc', groups: 'Grand droit:1, Obliques:0.8, Deltoïde antérieur:0.8, Coiffe des rotateurs:0.6, Deltoïde latéral:0.5, Quadriceps:0.4', sets: 3, reps: '5/côté' },
-  { name: 'Burpees', groups: 'Cardio:1, Quadriceps:0.6, Grand pectoral:0.5, Triceps:0.5, Grand droit:0.5', sets: 4, reps: '10' },
+  { name: 'Burpees', groups: 'Cardio:1, Quadriceps:1, Grand pectoral:0.5, Triceps:0.5, Grand droit:0.5, Grand fessier:0.5, Deltoïde antérieur:0.4', sets: 4, reps: '10' },
   { name: 'Sauts sur box', groups: 'Quadriceps:1, Gastrocnémiens:0.7, Grand fessier:0.6, Soléaire:0.4', sets: 3, reps: '10' },
   { name: 'Lancer de ballon lesté', groups: 'Grand droit:1, Obliques:0.7, Grand dorsal:0.6, Deltoïde antérieur:0.6, Cardio:0.6', sets: 4, reps: '12' },
   { name: 'Traîneau poussé', groups: 'Quadriceps:1, Grand fessier:0.8, Gastrocnémiens:0.6, Soléaire:0.5, Grand droit:0.4, Cardio:0.7', sets: 4, reps: '20 m' },
@@ -189,7 +189,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Brasse', groups: 'Adducteurs:1, Grand pectoral:0.9, Quadriceps:0.8, Grand fessier:0.7, Grand dorsal:0.6, Ischios:0.5, Gastrocnémiens:0.4, Cardio:0.8', sets: 1, reps: '20 min', notes: 'Pectoraux + adducteurs. Mouvement symétrique : doux pour l’épaule droite.', kind: 'activite' },
   { name: 'Dos crawlé', groups: 'Grand dorsal:1, Deltoïde postérieur:0.7, Grand rond:0.6, Triceps:0.6, Obliques:0.5, Trapèze moyen:0.5, Droit fémoral:0.4, Cardio:0.7', sets: 1, reps: '15 min', notes: 'Ouvre la cage thoracique — excellent contre l’épaule tombante.', kind: 'activite' },
   { name: 'Papillon', groups: 'Grand pectoral:1, Grand dorsal:1, Deltoïde antérieur:0.7, Érecteurs du rachis:0.7, Grand droit:0.7, Triceps:0.6, Grand fessier:0.5, Quadriceps:0.5, Cardio:0.8', sets: 1, reps: '10 min', notes: '⚠️ AC droite : très exigeant pour l’épaule, à écarter à la moindre douleur.', kind: 'activite' },
-  { name: 'Jambes avec planche (natation)', groups: 'Droit fémoral:1, Grand fessier:0.7, Ischios:0.5, Gastrocnémiens:0.5, Grand droit:0.5, Vaste latéral:0.4', sets: 4, reps: '50 m', notes: 'Quadriceps + fessiers sans aucun impact — idéal rotules.', kind: 'activite' },
+  { name: 'Jambes avec planche (natation)', groups: 'Droit fémoral:1, Psoas-iliaque:0.7, Grand fessier:0.7, Ischios:0.5, Gastrocnémiens:0.5, Grand droit:0.5, Vaste latéral:0.4', sets: 4, reps: '50 m', notes: 'Quadriceps + fessiers sans aucun impact — idéal rotules.', kind: 'activite' },
   { name: 'Nage bras seuls (pull buoy)', groups: 'Grand dorsal:1, Grand pectoral:0.7, Triceps:0.6, Grand rond:0.5, Deltoïde postérieur:0.5, Fléchisseurs avant-bras:0.3', sets: 4, reps: '50 m', notes: 'Isole le haut du corps, jambes au repos.', kind: 'activite' },
   { name: 'Nage avec plaquettes', groups: 'Grand dorsal:1, Grand pectoral:0.8, Deltoïde latéral:0.8, Deltoïde postérieur:0.7, Triceps:0.6, Grand rond:0.5', sets: 4, reps: '50 m', notes: '⚠️ AC droite : augmente nettement la charge sur l’épaule, à doser.', kind: 'activite' },
   { name: 'Nage en eau libre', groups: 'Grand dorsal:1, Cardio:0.9, Grand pectoral:0.7, Obliques:0.6, Deltoïde postérieur:0.6, Cou:0.4', sets: 1, reps: '30 min', notes: 'Endurance + thermorégulation. Repères visuels réguliers.', kind: 'activite' },
@@ -200,7 +200,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Crawl en sprint (25-50 m)', groups: 'Grand dorsal:1, Cardio:1, Grand pectoral:0.8, Triceps:0.7, Obliques:0.6, Deltoïde latéral:0.5', sets: 8, reps: '25 m', notes: 'Effort maximal court, récupération complète entre les longueurs. ⚠️ AC droite : réduire la fréquence si l’épaule chauffe.', kind: 'activite' },
   { name: 'Nage indienne (récupération)', groups: 'Grand dorsal:0.6, Adducteurs:0.5, Obliques:0.4, Cardio:0.5', sets: 1, reps: '10 min', notes: 'Nage sur le côté, très souple — récupération active entre les séries.', kind: 'activite' },
   // ── Course ────────────────────────────────────────────────────────────────
-  { name: 'Course à pied — endurance (zone 2)', groups: 'Cardio:1, Gastrocnémiens:1, Soléaire:0.8, Quadriceps:0.7, Ischios:0.7, Grand fessier:0.5', sets: 1, reps: '30 min', notes: 'Allure conversation. Charge = ton poids de corps à chaque foulée.', kind: 'activite' },
+  { name: 'Course à pied — endurance (zone 2)', groups: 'Cardio:1, Gastrocnémiens:1, Soléaire:0.8, Quadriceps:0.7, Ischios:0.7, Grand fessier:0.5, Tibial antérieur:0.4', sets: 1, reps: '30 min', notes: 'Allure conversation. Charge = ton poids de corps à chaque foulée.', kind: 'activite' },
   { name: 'Fractionné 30/30', groups: 'Cardio:1, Gastrocnémiens:0.8, Quadriceps:0.7, Ischios:0.6, Soléaire:0.5', sets: 10, reps: '30 s', notes: 'Cardio anaérobie — proche de l’effort d’un round de béhourd.', kind: 'activite' },
   { name: 'Sprints en côte', groups: 'Quadriceps:1, Grand fessier:0.9, Gastrocnémiens:0.8, Cardio:0.8, Ischios:0.6', sets: 8, reps: '20 s', notes: 'Puissance jambes avec moins d’impact rotulien qu’à plat.', kind: 'activite' },
   { name: 'Course en sentier', groups: 'Quadriceps:1, Gastrocnémiens:0.8, Cardio:0.8, Fibulaires:0.6, Ischios:0.6, Grand fessier:0.6, Tibial antérieur:0.5', sets: 1, reps: '45 min', notes: '⚠️ Rotules : la descente est très excentrique — raccourcir la foulée.', kind: 'activite' },
@@ -213,7 +213,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Fendre du bois (hache)', groups: 'Obliques:0.9, Grand dorsal:0.8, Grand droit:0.8, Deltoïde antérieur:0.7, Fléchisseurs avant-bras:0.7, Grand fessier:0.6, Érecteurs du rachis:0.5', sets: 4, reps: '20 coups', notes: 'Chaîne postérieure + core + grip — le geste le plus proche du béhourd. Jambes fléchies, rotation contrôlée, alterner les côtés.', kind: 'activite' },
   { name: 'Sciage manuel (bûche)', groups: 'Grand dorsal:1, Fléchisseurs avant-bras:0.8, Biceps:0.6, Brachial:0.5, Trapèze moyen:0.4, Grand pectoral:0.4', sets: 3, reps: '5 min', notes: 'Tirage horizontal + endurance de préhension. Alterner les bras.', kind: 'activite' },
   { name: 'Portage de bûches', groups: 'Fléchisseurs avant-bras:1, Trapèze supérieur:0.8, Grand droit:0.7, Obliques:0.6, Érecteurs du rachis:0.6, Quadriceps:0.5, Moyen fessier:0.5', sets: 4, reps: '50 m', notes: 'Farmer’s walk naturel : charge près du corps, dos droit, gainage.', kind: 'activite' },
-  { name: 'Empilage / rangement de bois', groups: 'Érecteurs du rachis:0.6, Quadriceps:0.6, Grand fessier:0.6, Grand droit:0.5', sets: 1, reps: '20 min', notes: 'Squats et hinges répétés. Plier les jambes, jamais le dos (antéversion).', kind: 'activite' },
+  { name: 'Empilage / rangement de bois', groups: 'Érecteurs du rachis:0.6, Quadriceps:0.6, Grand fessier:0.6, Grand droit:0.5, Fléchisseurs avant-bras:0.5', sets: 1, reps: '20 min', notes: 'Squats et hinges répétés. Plier les jambes, jamais le dos (antéversion).', kind: 'activite' },
   { name: 'Débitage / tronçonnage', groups: 'Fléchisseurs avant-bras:0.8, Deltoïde antérieur:0.6, Grand droit:0.6, Érecteurs du rachis:0.5, Trapèze supérieur:0.4', sets: 1, reps: '30 min', notes: 'Port de charge + gainage prolongé. Pauses régulières.', kind: 'activite' },
   { name: 'Débroussaillage / élagage', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.7, Fléchisseurs avant-bras:0.7, Grand droit:0.5, Trapèze supérieur:0.4', sets: 1, reps: '30 min', notes: '⚠️ AC droite : bras en l’air prolongé — alterner les côtés souvent.', kind: 'activite' },
   { name: 'Vélo / VTT', groups: 'Quadriceps:1, Cardio:0.9, Grand fessier:0.6, Gastrocnémiens:0.5, Soléaire:0.4', sets: 1, reps: '45 min', notes: 'Sans impact — le meilleur cardio pour des rotules sensibles.', kind: 'activite' },
@@ -248,14 +248,14 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // ── Compléments : machines Basic Fit et variantes courantes ───────────────
   { name: 'Développé couché prise serrée', groups: 'Triceps:1, Grand pectoral:0.6, Pectoral supérieur:0.4, Deltoïde antérieur:0.4', sets: 3, reps: '10', notes: 'Mains à largeur d’épaules, coudes le long du corps.' },
   { name: 'Écarté incliné haltères', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.4', sets: 3, reps: '12', notes: '⚠️ AC droite : amplitude limitée, coudes jamais sous la ligne du buste.' },
-  { name: 'Tirage T-bar', groups: 'Grand dorsal:1, Trapèze moyen:0.7, Rhomboïdes:0.6, Biceps:0.5, Brachial:0.5, Érecteurs du rachis:0.4', sets: 4, reps: '10' },
+  { name: 'Tirage T-bar', groups: 'Grand dorsal:1, Trapèze moyen:0.7, Rhomboïdes:0.6, Biceps:0.5, Brachial:0.5, Érecteurs du rachis:0.4, Fléchisseurs avant-bras:0.4', sets: 4, reps: '10' },
   { name: 'Tirage menton (rowing vertical)', groups: 'Deltoïde latéral:1, Trapèze supérieur:0.8, Biceps:0.4, Brachial:0.4', sets: 3, reps: '12', notes: '⚠️ AC droite : à éviter — forte rotation interne. Ne monter que sous la ligne des épaules.' },
-  { name: 'Rameur (cardio)', groups: 'Grand dorsal:1, Cardio:0.9, Quadriceps:0.7, Trapèze moyen:0.6, Biceps:0.5, Brachial:0.4, Érecteurs du rachis:0.5', sets: 1, reps: '15 min', notes: 'Séquence jambes → buste → bras. Dos neutre.', kind: 'activite' },
+  { name: 'Rameur (cardio)', groups: 'Grand dorsal:1, Cardio:0.9, Quadriceps:0.7, Trapèze moyen:0.6, Biceps:0.5, Érecteurs du rachis:0.5, Brachial:0.4, Fléchisseurs avant-bras:0.4', sets: 1, reps: '15 min', notes: 'Séquence jambes → buste → bras. Dos neutre.', kind: 'activite' },
   { name: 'Vélo / Assault bike', groups: 'Cardio:1, Quadriceps:0.8, Grand fessier:0.5, Deltoïde antérieur:0.4', sets: 1, reps: '15 min', notes: 'Sans impact — parfait échauffement genoux.', kind: 'activite' },
   { name: 'Marche inclinée (tapis)', groups: 'Cardio:0.7, Grand fessier:0.6, Soléaire:0.6, Ischios:0.5, Quadriceps:0.4', sets: 1, reps: '20 min', notes: 'Pente 8-12 %, sans se tenir aux poignées.', kind: 'activite' },
-  { name: 'Escalier (Stairmaster)', groups: 'Quadriceps:1, Grand fessier:0.8, Gastrocnémiens:0.6, Cardio:0.8', sets: 1, reps: '15 min', notes: '⚠️ Rotules : rythme modéré, poser tout le pied.', kind: 'activite' },
+  { name: 'Escalier (Stairmaster)', groups: 'Quadriceps:1, Grand fessier:0.8, Cardio:0.8, Gastrocnémiens:0.6, Soléaire:0.5, Moyen fessier:0.4', sets: 1, reps: '15 min', notes: '⚠️ Rotules : rythme modéré, poser tout le pied.', kind: 'activite' },
   { name: 'Squat à la machine (hack squat)', groups: 'Vaste latéral:1, Vaste médial:0.9, Droit fémoral:0.7, Grand fessier:0.5', sets: 3, reps: '12', notes: 'Dos plaqué, genoux jamais verrouillés.' },
-  { name: 'Soulevé de terre sumo', groups: 'Grand fessier:1, Adducteurs:0.9, Quadriceps:0.8, Érecteurs du rachis:0.7, Trapèze supérieur:0.5, Fléchisseurs avant-bras:0.4', sets: 4, reps: '6', notes: 'Prise étroite, pieds larges : moins de flexion lombaire que le conventionnel.' },
+  { name: 'Soulevé de terre sumo', groups: 'Grand fessier:1, Adducteurs:0.9, Quadriceps:0.8, Érecteurs du rachis:0.7, Ischios:0.6, Trapèze supérieur:0.5, Fléchisseurs avant-bras:0.4', sets: 4, reps: '6', notes: 'Prise étroite, pieds larges : moins de flexion lombaire que le conventionnel.' },
   { name: 'Soulevé de terre trap bar', groups: 'Quadriceps:1, Grand fessier:1, Ischios:0.7, Trapèze supérieur:0.6, Érecteurs du rachis:0.6, Fléchisseurs avant-bras:0.5', sets: 4, reps: '8', notes: 'Barre hexagonale : dos plus vertical, excellent compromis pour les lombaires.' },
   { name: 'Fentes inversées', groups: 'Quadriceps:1, Grand fessier:0.8, Moyen fessier:0.5', sets: 3, reps: '10/jambe', notes: '⚠️ Rotules : moins de cisaillement que la fente avant.' },
   { name: 'Mollets unilatéraux', groups: 'Gastrocnémiens:1, Fibulaires:0.6, Soléaire:0.5', sets: 3, reps: '15/jambe' },
@@ -284,9 +284,9 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Crunch inversé', groups: 'Grand droit:1, Obliques:0.4', sets: 3, reps: '15', notes: 'Bas des abdos : enrouler le bassin, ne pas tirer sur la nuque.' },
   { name: 'Relevés de jambes au sol', groups: 'Grand droit:1, Psoas-iliaque:0.7, Obliques:0.4', sets: 3, reps: '12', notes: 'Lombaires plaquées au sol : si le dos décolle, plier les genoux.' },
   { name: 'Superman au sol', groups: 'Érecteurs du rachis:1, Grand fessier:0.6, Trapèze inférieur:0.4', sets: 3, reps: '12', notes: 'Extension douce, sans hyperextension lombaire.' },
-  { name: 'Planche dynamique (planche-pompe)', groups: 'Grand droit:1, Deltoïde antérieur:0.6, Triceps:0.5, Obliques:0.5', sets: 3, reps: '10' },
+  { name: 'Planche dynamique (planche-pompe)', groups: 'Grand droit:1, Deltoïde antérieur:0.6, Triceps:0.5, Obliques:0.5, Dentelé antérieur:0.4', sets: 3, reps: '10' },
   { name: 'Portage frontal (zercher carry)', groups: 'Grand droit:1, Érecteurs du rachis:0.8, Biceps:0.6, Brachial:0.6, Trapèze supérieur:0.6, Moyen fessier:0.5, Quadriceps:0.5', sets: 3, reps: '30 m', notes: 'Charge dans le pli des coudes — très proche du port de la brigantine.' },
-  { name: 'Traîneau tiré', groups: 'Ischios:1, Grand fessier:0.8, Grand dorsal:0.6, Cardio:0.7', sets: 4, reps: '20 m' },
+  { name: 'Traîneau tiré', groups: 'Ischios:1, Grand fessier:0.8, Cardio:0.7, Grand dorsal:0.6, Quadriceps:0.5, Fléchisseurs avant-bras:0.4', sets: 4, reps: '20 m' },
   { name: 'Rotation externe couché (élastique)', groups: 'Coiffe des rotateurs:1, Deltoïde postérieur:0.4', sets: 3, reps: '15/bras', notes: 'Coiffe des rotateurs : très léger, coude collé au corps.' },
   { name: 'Tirage élastique horizontal', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.4, Brachial:0.4', sets: 3, reps: '15', notes: 'Alternative maison ou échauffement du dos.' },
   { name: 'Gainage latéral dynamique (hanche)', groups: 'Obliques:1, Moyen fessier:0.6', sets: 3, reps: '12/côté' },
@@ -299,7 +299,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
 
   // Cardio
   { name: 'Vélo elliptique', groups: 'Cardio:1, Quadriceps:0.6, Grand fessier:0.5, Grand dorsal:0.4, Ischios:0.4, Triceps:0.3', sets: 1, reps: '20 min', notes: 'Sans impact : le cardio le plus tolérant pour les rotules.', kind: 'activite' },
-  { name: 'Course sur tapis', groups: 'Cardio:1, Gastrocnémiens:0.9, Quadriceps:0.7, Ischios:0.6, Soléaire:0.6, Grand fessier:0.5', sets: 1, reps: '25 min', kind: 'activite' },
+  { name: 'Course sur tapis', groups: 'Cardio:1, Gastrocnémiens:0.9, Quadriceps:0.7, Ischios:0.6, Soléaire:0.6, Grand fessier:0.5, Tibial antérieur:0.4', sets: 1, reps: '25 min', kind: 'activite' },
   { name: 'Vélo semi-allongé', groups: 'Cardio:0.9, Quadriceps:0.8, Ischios:0.4, Grand fessier:0.4', sets: 1, reps: '25 min', notes: 'Dossier : ménage les lombaires, parfait en récupération active le lendemain du béhourd.', kind: 'activite' },
   { name: 'Vélo de biking (RPM)', groups: 'Cardio:1, Quadriceps:0.9, Grand fessier:0.6, Gastrocnémiens:0.4, Ischios:0.4', sets: 1, reps: '30 min', kind: 'activite' },
 
@@ -334,22 +334,22 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Extension de hanche à la poulie', groups: 'Grand fessier:1, Ischios:0.5, Érecteurs du rachis:0.3', sets: 3, reps: '12/jambe' },
   { name: 'Abduction de hanche à la poulie', groups: 'Moyen fessier:1, Tenseur du fascia lata:0.7, Grand fessier:0.4', sets: 3, reps: '15/jambe', notes: 'Stabilité latérale du genou : directement utile en déplacement sous armure.' },
   { name: 'Crunch à la poulie haute (à genoux)', groups: 'Grand droit:1, Obliques:0.5', sets: 3, reps: '15' },
-  { name: 'Curl marteau à la corde (poulie)', groups: 'Brachio-radial:1, Brachial:0.9, Biceps:0.7', sets: 3, reps: '12' },
+  { name: 'Curl marteau à la corde (poulie)', groups: 'Brachio-radial:1, Brachial:1, Biceps:0.7', sets: 3, reps: '12' },
   { name: 'Extensions triceps poulie prise inversée', groups: 'Triceps latéral:1, Triceps longue portion:0.4', sets: 3, reps: '15' },
 
   // Haltères et barre libre
-  { name: 'Développé Arnold', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.8, Triceps:0.5', sets: 3, reps: '10', notes: '⚠️ AC droite : la rotation peut tirer — réduire l’amplitude ou rester en prise neutre.' },
+  { name: 'Développé Arnold', groups: 'Deltoïde antérieur:1, Deltoïde latéral:0.8, Triceps:0.5, Grand droit:0.3', sets: 3, reps: '10', notes: '⚠️ AC droite : la rotation peut tirer — réduire l’amplitude ou rester en prise neutre.' },
   { name: 'Développé haltères au sol (floor press)', groups: 'Grand pectoral:1, Pectoral supérieur:0.4, Triceps:0.7, Deltoïde antérieur:0.4', sets: 4, reps: '10', notes: '⚠️ AC droite : le sol bloque la descente — la variante de développé la plus sûre pour l’épaule.' },
-  { name: 'Tirage buste penché aux haltères', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.5, Brachial:0.5, Deltoïde postérieur:0.4', sets: 4, reps: '10' },
-  { name: 'Soulevé de terre jambes tendues aux haltères', groups: 'Ischios:1, Grand fessier:0.8, Érecteurs du rachis:0.6', sets: 3, reps: '12' },
-  { name: 'Squat sumo à l’haltère', groups: 'Adducteurs:1, Quadriceps:0.8, Grand fessier:0.8, Moyen fessier:0.3', sets: 3, reps: '12' },
+  { name: 'Tirage buste penché aux haltères', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Rhomboïdes:0.5, Biceps:0.5, Brachial:0.5, Deltoïde postérieur:0.4, Fléchisseurs avant-bras:0.4', sets: 4, reps: '10' },
+  { name: 'Soulevé de terre jambes tendues aux haltères', groups: 'Ischios:1, Grand fessier:0.8, Érecteurs du rachis:0.6, Fléchisseurs avant-bras:0.4', sets: 3, reps: '12' },
+  { name: 'Squat sumo à l’haltère', groups: 'Adducteurs:1, Quadriceps:0.8, Grand fessier:0.8, Fléchisseurs avant-bras:0.3, Moyen fessier:0.3', sets: 3, reps: '12' },
   { name: 'Curl incliné aux haltères', groups: 'Biceps:1, Brachial:0.5', sets: 3, reps: '12', notes: 'Bras en arrière du buste : étirement maximal de la longue portion.' },
   { name: 'Extension triceps haltère à deux mains', groups: 'Triceps longue portion:1, Triceps latéral:0.5', sets: 3, reps: '12' },
   { name: 'Haussements d’épaules à la barre', groups: 'Trapèze supérieur:1, Fléchisseurs avant-bras:0.4, Cou:0.3', sets: 4, reps: '12' },
 
   // Zone cross-training
-  { name: 'Sangles de suspension — tirage', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Biceps:0.5, Brachial:0.5, Grand droit:0.5, Deltoïde postérieur:0.4', sets: 3, reps: '12' },
-  { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Pectoral supérieur:0.4, Triceps:0.6, Deltoïde antérieur:0.5, Grand droit:0.5', sets: 3, reps: '12' },
+  { name: 'Sangles de suspension — tirage', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Biceps:0.5, Brachial:0.5, Grand droit:0.5, Deltoïde postérieur:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '12' },
+  { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Triceps:0.6, Deltoïde antérieur:0.5, Grand droit:0.5, Pectoral supérieur:0.4, Dentelé antérieur:0.4', sets: 3, reps: '12' },
   { name: 'Marche latérale élastique (mini-band)', groups: 'Moyen fessier:1, Tenseur du fascia lata:0.7, Grand fessier:0.4', sets: 3, reps: '15/côté', notes: 'Échauffement de hanche : réveille le moyen fessier avant le travail lourd de jambes.' },
   // Tenseur du fascia lata : abduction hanche TENDUE. En gainage latéral il
   // passe devant le moyen fessier, qui préfère la hanche fléchie.
@@ -373,7 +373,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Gainage ventral lesté', groups: 'Grand droit:1, Obliques:0.6, Dentelé antérieur:0.4, Deltoïde antérieur:0.3', sets: 4, reps: '45 s', notes: 'Disque sur le haut du dos. Bassin en rétroversion : les lombaires ne doivent jamais creuser.' },
   { name: 'Hollow body (bateau)', groups: 'Grand droit:1, Obliques:0.5, Droit fémoral:0.4', sets: 4, reps: '30 s', notes: 'Le meilleur test d’anti-extension : si les lombaires décollent du sol, replier les genoux.' },
   { name: 'Roulette abdominale debout', groups: 'Grand droit:1, Obliques:0.6, Grand dorsal:0.5, Dentelé antérieur:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '8', notes: 'Version dure de la roulette. À ne tenter qu’une fois 3×10 à genoux maîtrisées.' },
-  { name: 'Rowing en position de planche (renegade row)', groups: 'Obliques:1, Grand droit:0.9, Grand dorsal:0.7, Deltoïde postérieur:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '8/bras', notes: 'Anti-rotation sous charge : le bassin ne doit pas bouger d’un millimètre. Le transfert le plus direct vers le combat en armure.' },
+  { name: 'Rowing en position de planche (renegade row)', groups: 'Obliques:1, Grand droit:0.9, Grand dorsal:0.7, Biceps:0.5, Brachial:0.5, Deltoïde postérieur:0.4, Fléchisseurs avant-bras:0.4', sets: 3, reps: '8/bras', notes: 'Anti-rotation sous charge : le bassin ne doit pas bouger d’un millimètre. Le transfert le plus direct vers le combat en armure.' },
   { name: 'Planche latérale avec rotation', groups: 'Obliques:1, Grand droit:0.6, Dentelé antérieur:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '10/côté' },
   { name: 'Planche latérale danoise (copenhagen)', groups: 'Obliques:1, Adducteurs:0.9, Grand droit:0.5', sets: 3, reps: '20 s/côté', notes: 'Obliques et adducteurs ensemble. Commencer genou plié sur le banc.' },
   { name: 'Bûcheron à la poulie (haut vers bas)', groups: 'Obliques:1, Grand droit:0.7, Grand dorsal:0.5, Deltoïde antérieur:0.4, Grand fessier:0.4', sets: 3, reps: '12/côté', notes: 'La rotation part des hanches, pas des bras. C’est le geste de frappe en armure.' },
@@ -383,7 +383,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Gainage sur ballon (anti-extension)', groups: 'Grand droit:1, Obliques:0.5, Dentelé antérieur:0.5, Deltoïde antérieur:0.4', sets: 3, reps: '30 s', notes: 'L’instabilité force le transverse à travailler en continu.' },
   { name: 'Vacuum abdominal', groups: 'Grand droit:0.6', sets: 3, reps: '20 s', notes: 'Transverse profond : expirer à fond puis rentrer le ventre sous les côtes. À jeun, sans charge — c’est ce qui resserre la sangle.' },
   { name: 'Deadbug lesté', groups: 'Grand droit:1, Obliques:0.5', sets: 3, reps: '10/côté', notes: 'Un haltère léger tenu bras tendus : l’anti-extension devient beaucoup plus exigeante.' },
-  { name: 'Portage frontal unilatéral (rack sur une épaule)', groups: 'Obliques:1, Grand droit:0.8, Érecteurs du rachis:0.6, Moyen fessier:0.6, Trapèze supérieur:0.5, Quadriceps:0.4', sets: 3, reps: '30 m/côté', notes: 'Charge asymétrique en hauteur : la ceinture encaisse tout. Très proche du port du bouclier.' },
+  { name: 'Portage frontal unilatéral (rack sur une épaule)', groups: 'Obliques:1, Grand droit:0.8, Érecteurs du rachis:0.6, Moyen fessier:0.6, Trapèze supérieur:0.5, Quadriceps:0.4, Fléchisseurs avant-bras:0.3', sets: 3, reps: '30 m/côté', notes: 'Charge asymétrique en hauteur : la ceinture encaisse tout. Très proche du port du bouclier.' },
 
   // ── 🧘 Récupération active ────────────────────────────────────────────────
   // Ces séances ne fatiguent pas : elles relancent la circulation et raccourcissent
