@@ -16,6 +16,7 @@ import {
   type FocusId,
 } from './focus'
 import { clefExo, enRotation, familiarites, poidsFamiliarite } from './familiarite'
+import { apparier, dureeSeance, regrouper, type Appariable } from './duree'
 import {
   BONUS_ETIRE,
   SERIES_MAX,
@@ -109,6 +110,11 @@ export interface SuggestedExercise {
   focus: boolean
   /** Famille de mouvement — sert à équilibrer la séance. */
   pattern: Pattern
+  /**
+   * Numéro de superset, ou null si l'exercice se fait seul. Deux lignes qui
+   * partagent ce numéro s'alternent : le repos de l'une est le travail de l'autre.
+   */
+  superset: number | null
   /** Charge le muscle en position allongée : plus de croissance par série. */
   etire: boolean
 }
@@ -136,6 +142,12 @@ export interface SuggestedSession {
     budget: number
     poussees: number
     tirages: number
+    /** Durée estimée en minutes, appariement compris. */
+    duree: number
+    /** Créneau visé, quand il y en avait un. */
+    dureeCible?: number
+    /** Nombre de supersets formés. */
+    supersets: number
   }
 }
 
@@ -184,6 +196,12 @@ export interface BuildOptions {
    * touche ni au poids du corps ni aux exercices au temps.
    */
   intensite?: number
+  /**
+   * Créneau visé, en minutes. C'est le REPOS qui fait la durée d'une séance, pas
+   * le travail : sans cette contrainte, six gros mouvements dépassent l'heure et
+   * demie sans que rien ne le signale.
+   */
+  dureeCible?: number
 }
 
 /**
@@ -289,6 +307,54 @@ export function buildSession(
   let tirages = 0
   const budget = budgetSystemique(count, special)
 
+  // Ce que la séance durerait si on ajoutait cet exercice, appariement compris.
+  // On mesure APRÈS appariement parce que c'est lui qui décide : deux mouvements
+  // antagonistes appariés tiennent dans la moitié du temps de deux menés seuls,
+  // donc juger avant l'appariement écarterait des exercices qui rentraient.
+  const appariable = (e: { exo: CatalogExercise; moteurs: MuscleRegion[] }): Appariable => ({
+    nom: e.exo.name,
+    sets: e.exo.default_sets,
+    reps: e.exo.default_reps,
+    cout: coutSystemique(e.exo.name),
+    moteurs: e.moteurs,
+  })
+
+  /**
+   * L'ordre définitif de la séance. Utilisé DEUX fois — pour estimer la durée
+   * pendant la sélection, et pour trier la séance à la fin — et c'est exactement
+   * pour ça qu'il vit dans une seule fonction : `apparier` apparie le premier
+   * compatible avec le premier compatible, donc un ordre différent donne des
+   * paires différentes, donc une durée différente. Estimer sur l'ordre de
+   * sélection et apparier sur l'ordre trié faisait déborder le créneau.
+   */
+  const ordonner = <T extends { focus: boolean; moteurs: MuscleRegion[]; score: number }>(l: T[]): T[] =>
+    [...l].sort(
+      (a, b) =>
+        (a.focus ? 0 : 1) - (b.focus ? 0 : 1) ||
+        b.moteurs.length - a.moteurs.length ||
+        b.score - a.score,
+    )
+
+  const dureeAvec = (candidat?: (typeof classes)[number]): number => {
+    const liste = [
+      ...choisis.map((e) => ({ focus: e.focus, moteurs: e.moteurs, score: e.score, exo: e.exo })),
+      ...(candidat
+        ? [
+            {
+              focus: candidat.moteurs.some((r) => focusRegions.has(r)),
+              moteurs: candidat.moteurs,
+              score: candidat.score,
+              exo: candidat.exo,
+            },
+          ]
+        : []),
+    ]
+    const lignes = ordonner(liste).map(appariable)
+    return dureeSeance(lignes, apparier(lignes))
+  }
+  const tientDansLeCreneau = (c: (typeof classes)[number]) =>
+    options.dureeCible === undefined || dureeAvec(c) <= options.dureeCible
+
   const pris = new Set<string>()
   const prendre = (c: (typeof classes)[number], auTitreDuFocus = false) => {
     pris.add(c.exo.id)
@@ -309,6 +375,7 @@ export function buildSession(
       focus: auTitreDuFocus,
       pattern: c.pattern,
       etire: c.etire,
+      superset: null, // posé après le tri final, quand l'ordre est arrêté
       charge: ajusterCharge(
         suggererCharge(
           sessions,
@@ -340,6 +407,7 @@ export function buildSession(
     cout: number
   }) => {
     if (c.moteurs.some((r) => (usage.get(r) ?? 0) >= plafond(r))) return false
+    if (!tientDansLeCreneau(c as (typeof classes)[number])) return false
     if (coutTotal + c.cout > budget) return false
     for (const [region, n] of apportSeries(c.muscles, c.exo.default_sets)) {
       if ((series.get(region) ?? 0) + n > plafondSeries(region)) return false
@@ -427,10 +495,22 @@ export function buildSession(
   // changement par rapport à la règle « les gros mouvements d'abord » : elle
   // reléguait systématiquement le gainage et le cou en fin de séance, c'est-à-dire
   // exactement les points faibles qu'on cherche à rattraper.
-  const rang = (e: SuggestedExercise) => (e.focus ? 0 : 1)
-  choisis.sort(
-    (a, b) => rang(a) - rang(b) || b.moteurs.length - a.moteurs.length || b.score - a.score,
-  )
+  const tries = ordonner(choisis)
+  choisis.length = 0
+  choisis.push(...tries)
+
+  // Appariement, une fois l'ordre arrêté : le repos d'un mouvement est occupé
+  // par le travail de son antagoniste. Même volume, séance nettement plus courte.
+  const lignes: Appariable[] = choisis.map(appariable)
+  const paires = apparier(lignes)
+  // Les deux membres d'une paire se suivent à l'écran : un superset qui enjambe
+  // un exercice étranger n'est pas un superset.
+  const groupes = regrouper(choisis, paires)
+  choisis.length = 0
+  for (const [e, p] of groupes) {
+    e.superset = p
+    choisis.push(e)
+  }
 
   const evites = [...new Set(candidats.filter((c) => c.fatigue).flatMap((c) => c.moteurs))]
     .filter((r) => reposDe(r) <= 2)
@@ -457,6 +537,9 @@ export function buildSession(
       budget,
       poussees,
       tirages,
+      duree: dureeSeance(lignes, paires),
+      dureeCible: options.dureeCible,
+      supersets: new Set(paires.filter((p) => p !== null)).size,
     },
     name: modeRecup
       ? zones.length

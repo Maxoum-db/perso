@@ -1,6 +1,7 @@
 import { MUSCLE_LABELS } from '../lib/muscles'
 import { TON_STYLE } from '../lib/charge'
 import { fmtFamiliarite } from '../lib/familiarite'
+import { fmtDuree } from '../lib/duree'
 import { FormeCard } from './FormeCard'
 import type { Forme } from '../lib/forme'
 import type { SuggestedSession } from '../lib/sessionBuilder'
@@ -82,7 +83,18 @@ export function SuggestedSessionCard({
 
       <ol className="space-y-1.5">
         {suggestion.exercises.map((s, i) => (
-          <li key={s.exo.id} className="flex items-start gap-2 border-b border-line/40 pb-1.5 last:border-0">
+          <li
+            key={s.exo.id}
+            /* Un superset se lit comme un bloc : bordure gauche cuivre sur les
+               deux lignes, et pas de séparateur entre elles. Sans ce repère
+               visuel, « 🔗 » sur deux lignes éloignées ne dirait pas qu'on les
+               enchaîne. */
+            className={`flex items-start gap-2 pb-1.5 ${
+              s.superset !== null && suggestion.exercises[i + 1]?.superset === s.superset
+                ? ''
+                : 'border-b border-line/40 last:border-0'
+            } ${s.superset !== null ? 'border-l-2 border-l-copper/50 pl-1.5' : ''}`}
+          >
             <span className="w-4 shrink-0 text-xs font-bold text-copper">{i + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-ink">
@@ -99,9 +111,14 @@ export function SuggestedSessionCard({
                   déclaré, parce qu'on progresse dessus, ou parce qu'il a fait son
                   temps et qu'on commence à tourner. Sans ces mots, la rotation
                   ressemblerait à de l'instabilité du générateur. */}
-              {!suggestion.recuperation && (s.focus || s.etire || s.familiarite > 0) ? (
+              {!suggestion.recuperation && (s.focus || s.etire || s.superset !== null || s.familiarite > 0) ? (
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px]">
                   {s.focus ? <span className="font-semibold text-copper">🎯 point faible</span> : null}
+                  {s.superset !== null ? (
+                    <span className="font-semibold text-copper" title="À enchaîner avec l’exercice relié : le repos de l’un est le travail de l’autre">
+                      🔗 superset
+                    </span>
+                  ) : null}
                   {s.etire ? (
                     <span className="text-sage-dark" title="Charge le muscle en position allongée : plus de croissance par série">
                       🫱 étiré
@@ -137,9 +154,20 @@ export function SuggestedSessionCard({
           générateur en panne alors qu'elle est au bout de son budget. */}
       {!suggestion.recuperation ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-line/40 pt-1.5 text-[10px] text-muted">
+          <span title={suggestion.bilan.dureeCible ? `Créneau visé : ${fmtDuree(suggestion.bilan.dureeCible)}` : undefined}>
+            ⏱️{' '}
+            <b className="text-ink">{fmtDuree(suggestion.bilan.duree)}</b>
+            {suggestion.bilan.dureeCible ? ` / ${fmtDuree(suggestion.bilan.dureeCible)}` : ''}
+          </span>
           <span>
             <b className="text-ink">{suggestion.bilan.series}</b> séries
           </span>
+          {suggestion.bilan.supersets > 0 ? (
+            <span title="Deux mouvements antagonistes enchaînés : même volume, séance plus courte">
+              🔗 <b className="text-ink">{suggestion.bilan.supersets}</b> superset
+              {suggestion.bilan.supersets > 1 ? 's' : ''}
+            </span>
+          ) : null}
           <span title="Soulevés, squats et portages coûtent au système nerveux, et ça se cumule">
             charge nerveuse{' '}
             <b className={suggestion.bilan.cout >= suggestion.bilan.budget ? 'text-copper' : 'text-ink'}>
