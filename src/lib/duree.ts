@@ -203,10 +203,26 @@ export function regrouper<T>(exos: T[], paires: Array<number | null>): Array<[T,
   return out
 }
 
+/** Secondes → minutes : on retire la dernière transition, la séance est finie. */
+function enMinutes(secondes: number): number {
+  return Math.round(Math.max(0, secondes - TRANSITION) / 60)
+}
+
+/**
+ * Durée d'une liste d'exercices menés seuls, en MINUTES.
+ *
+ * C'est la durée « type » d'une séance : celle qu'on retient quand aucune n'a
+ * été saisie. Chaque exercice porte donc implicitement la sienne, déduite de son
+ * format de répétitions et de son coût — trois séries de soulevé de terre ne
+ * prennent pas le même temps que trois séries de flexions de poignets, alors
+ * qu'elles se comptent pareil.
+ */
+export function dureeLignes(exos: LigneDuree[]): number {
+  return enMinutes(exos.reduce((t, l) => t + dureeExercice(l), 0))
+}
+
 /**
  * Durée totale d'une séance, appariement compris, en MINUTES.
- *
- * On soustrait la dernière transition : elle n'existe pas, la séance est finie.
  */
 export function dureeSeance(exos: Appariable[], paires: Array<number | null>): number {
   let total = 0
@@ -222,7 +238,7 @@ export function dureeSeance(exos: Appariable[], paires: Array<number | null>): n
     const j = paires.findIndex((x, k) => x === p && k !== i)
     total += j === -1 ? dureeExercice(exos[i]) : dureePaire(exos[i], exos[j])
   }
-  return Math.round(Math.max(0, total - TRANSITION) / 60)
+  return enMinutes(total)
 }
 
 /** « 55 min », « 1 h 05 » — une durée de séance, lisible. */

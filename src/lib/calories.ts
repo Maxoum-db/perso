@@ -1,4 +1,5 @@
 import { estRessenti, sessionTonnage, type MuscuSession } from './muscu'
+import { dureeLignes } from './duree'
 import { ACTIVITE_NAMES } from '../data/exercises'
 import { coefIntensite } from './intensite'
 
@@ -123,9 +124,10 @@ export function densiteSeance(s: MuscuSession, bodyWeight: number | null): Densi
   const exos = s.exercises.filter((e) => !estRessenti(e.name))
   const series = exos.reduce((n, e) => n + Math.max(1, e.sets), 0)
 
-  // Durée estimée = séries × 2,5 : en tirer une densité reviendrait à mesurer
-  // la règle avec elle-même. On s'abstient plutôt que de produire un chiffre
-  // qui a l'air informé.
+  // Sans durée saisie, elle est déduite des exercices eux-mêmes : en tirer une
+  // densité reviendrait à mesurer la règle avec elle-même — le rapport
+  // séries/minute serait constant par construction. On s'abstient plutôt que de
+  // produire un chiffre qui a l'air informé.
   if (s.duration_min === null || s.duration_min <= 0 || series === 0) {
     return { coef: 1, tonnageParMin: null, seriesParMin: null, applique: false }
   }
@@ -173,14 +175,35 @@ export interface SessionCalories {
 }
 
 /**
- * Durée estimée quand elle n'a pas été saisie : ~2,5 min par série, série et
- * repos compris. Volontairement prudent — mieux vaut sous-estimer.
+ * Durée estimée quand elle n'a pas été saisie : le CUMUL des durées propres aux
+ * exercices.
+ *
+ * C'était avant « 2,5 min par série », plancher à quinze minutes. Une règle
+ * plate qui ignorait tout de ce qu'on avait fait : quatre séries de soulevé de
+ * terre — trois minutes de repos chacune — comptaient comme quatre séries de
+ * flexions de poignets, un portage de 30 m comme une série de dix, et vingt
+ * minutes de crawl comme une seule série, donc quinze minutes. Les calories
+ * suivaient.
+ *
+ * Le générateur savait déjà estimer ça exercice par exercice pour tenir un
+ * créneau d'une heure : travail déduit du format de répétitions (temps, distance
+ * ou reps), repos selon le coût du mouvement, transition entre exercices. C'est
+ * la même règle qui sert ici — une seule définition de « combien de temps prend
+ * cet exercice ».
+ *
  * Exportée pour que la charge d'entraînement estime exactement pareil.
  */
 export function dureeEstimee(s: MuscuSession): number {
-  const series = s.exercises.filter((e) => !estRessenti(e.name)).reduce((n, e) => n + Math.max(1, e.sets), 0)
-  return Math.min(150, Math.max(15, Math.round(series * 2.5)))
+  const exos = s.exercises.filter((e) => !estRessenti(e.name))
+  // Rien de mesurable — une séance qui ne porte qu'un ressenti (béhourd,
+  // kickboxing). Elle a bien duré quelque chose, mais rien ici ne dit combien :
+  // on garde le minimum prudent d'avant plutôt que d'annoncer zéro calorie.
+  if (!exos.length) return MINUTES_SANS_REPERE
+  return dureeLignes(exos.map((e) => ({ nom: e.name, sets: Math.max(1, e.sets), reps: e.reps })))
 }
+
+/** Durée retenue faute de tout repère : ni durée saisie, ni exercice chiffré. */
+const MINUTES_SANS_REPERE = 15
 
 export function sessionCalories(s: MuscuSession, bodyWeight: number | null): SessionCalories {
   const minutes = dureeSeance(s)

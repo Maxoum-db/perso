@@ -26,7 +26,7 @@ import {
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
 import { chargesCourantes } from '../lib/charges'
-import { DUREE_PAR_DEFAUT, PLAFOND_EXOS, loadDuree, saveDuree } from '../lib/duree'
+import { DUREE_PAR_DEFAUT, PLAFOND_EXOS, dureeLignes, fmtDuree, loadDuree, saveDuree } from '../lib/duree'
 import {
   loadObservations,
   noterObservation,
@@ -617,7 +617,8 @@ function Journal({
       notes: '',
       template_id: tpl.id,
       // Reps reprises de la dernière fois, charge conseillée par la progression.
-      exos: tpl.exercises.map((e) => {
+      // Même filtre qu'en direct : une ligne sans nom du modèle n'en est pas une.
+      exos: tpl.exercises.filter((e) => e.name.trim()).map((e) => {
         const last = lastExo(sessions, e.name)
         const charge = suggererCharge(sessions, { name: e.name, default_reps: e.reps }, bodyWeight)
         const base = exoToDraft(last ? { ...e, reps: last.reps || e.reps } : e)
@@ -639,7 +640,10 @@ function Journal({
       template_id: tpl?.id ?? null,
       restSec: 90,
       notes: '',
-      exos: (tpl?.exercises ?? []).map((e) => {
+      // Une ligne sans nom traîne parfois dans un modèle : elle occupe une
+      // carte, se coche, et se perd à l'enregistrement puisque `finish` la
+      // filtre. Elle n'a rien à faire dans une séance qui démarre.
+      exos: (tpl?.exercises ?? []).filter((e) => e.name.trim()).map((e) => {
         const last = lastExo(sessions, e.name)
         const charge = suggererCharge(sessions, { name: e.name, default_reps: e.reps }, bodyWeight)
         const weight = charge.weight ?? e.weight_kg
@@ -853,7 +857,15 @@ function Journal({
               Fermer
             </button>
           </div>
+          {/* La séance vierge d'abord, les modèles ensuite : une séance saisie
+              après coup part presque toujours de rien — on note ce qu'on a fait,
+              on ne déroule pas un programme. En dernière case, il fallait
+              parcourir toute la grille pour trouver le cas le plus fréquent. */}
           <div className="grid grid-cols-2 gap-2">
+            <button onClick={startBlank} className="card p-2 text-left text-sm hover:shadow-lift">
+              ✍️ <span className="font-semibold text-ink">Séance vierge</span>
+              <div className="text-[11px] text-muted">repartir de zéro</div>
+            </button>
             {templates.map((t) => (
               <button key={t.id} onClick={() => startFromTemplate(t)} className="card p-2 text-left text-sm hover:shadow-lift">
                 <span className="mr-1">{t.icon}</span>
@@ -863,10 +875,6 @@ function Journal({
                 </div>
               </button>
             ))}
-            <button onClick={startBlank} className="card p-2 text-left text-sm hover:shadow-lift">
-              ✍️ <span className="font-semibold text-ink">Séance vierge</span>
-              <div className="text-[11px] text-muted">repartir de zéro</div>
-            </button>
           </div>
           <p className="text-[11px] text-muted">💡 Les charges et reps sont pré-remplies depuis ta dernière séance.</p>
         </div>
@@ -1060,7 +1068,7 @@ function IntensitePicker({
   )
 }
 
-function SessionEditor({
+export function SessionEditor({
   draft,
   groups,
   catalog,
@@ -1078,6 +1086,13 @@ function SessionEditor({
   onSave: (d: SessionDraft) => Promise<void>
 }) {
   const [d, setD] = useState(draft)
+  // Le cumul des durées propres aux exercices — la même règle que le générateur
+  // emploie pour tenir un créneau d'une heure.
+  const dureeDesExos = dureeLignes(
+    d.exos
+      .filter((e) => e.name.trim() && !estRessenti(e.name))
+      .map((e) => ({ nom: e.name, sets: Math.max(1, parseInt(e.sets, 10) || 1), reps: e.reps })),
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -1120,6 +1135,20 @@ function SessionEditor({
             min au total
           </label>
         </div>
+        {/* Laissée vide, la durée est déduite du cumul des exercices. On l'annonce
+            plutôt que de la calculer en silence : c'est elle qui fera les
+            calories, et la voir donne l'occasion de la corriger. La saisie reste
+            prioritaire dès qu'elle est renseignée. */}
+        {!parseInt(d.duration, 10) && dureeDesExos > 0 ? (
+          <button
+            type="button"
+            onClick={() => setD({ ...d, duration: String(dureeDesExos) })}
+            className="w-fit text-[11px] text-muted transition hover:text-copper"
+            title="Cumul des durées propres aux exercices — toucher pour l’inscrire"
+          >
+            ⏱️ estimée à <b className="text-ink">{fmtDuree(dureeDesExos)}</b> d’après les exercices
+          </button>
+        ) : null}
         <IntensitePicker value={d.intensite} onChange={(intensite) => setD({ ...d, intensite })} />
         <div className="flex items-start gap-2">
           <textarea
@@ -1443,7 +1472,10 @@ function TypesTab({
         + Nouvelle séance type
       </button>
 
-      <Section title="📋 Mes séances types" subtitle={`${templates.length} modèles`} accent="#B87333" defaultOpen>
+      {/* Repliée comme les deux autres : l'onglet s'ouvre sur trois titres et on
+          déplie celui qu'on vient chercher, au lieu d'une liste de modèles qui
+          pousse le catalogue et les groupes hors de l'écran. */}
+      <Section title="📋 Mes séances types" subtitle={`${templates.length} modèles`} accent="#B87333">
       <ul className="space-y-2">
         {templates.map((t) => (
           <li key={t.id} className="card p-3">
