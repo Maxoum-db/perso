@@ -33,3 +33,6 @@ yarn-error.log*
 
 # TS build info
 *.tsbuildinfo
+
+# Bancs d’essai locaux (hors dépôt)
+.bench

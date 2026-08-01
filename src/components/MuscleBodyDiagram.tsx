@@ -471,14 +471,16 @@ function ZoomBody({
  * Temps restant avant que le muscle repasse « prêt », en jours réels.
  *
  * On repart de l'état courant plutôt que de refaire le calcul depuis la séance :
- * il porte déjà les courbatures déclarées et les récups actives. Au-delà du
- * plateau, les jours ressentis avancent de `vitesse ÷ intensité²` par jour réel
- * — il suffit d'inverser ce rapport.
+ * il porte déjà les courbatures déclarées et les récups actives. La part du
+ * muscle n'entre plus ici : elle donne une avance de DÉPART, pas un temps qui
+ * s'écoule plus vite, et les jours ressentis avancent donc de `vitesse` par jour
+ * réel quelle qu'elle soit. Le palier « jamais plus frais que le calendrier » ne
+ * peut pas retenir un muscle sous le seuil (cf. PLAFOND_FRAICHEUR), il n'a donc
+ * pas à figurer ici non plus.
  */
 function resteAvantPret(info: ReposMuscle, region: MuscleRegion): number {
   if (info.jours >= SEUIL_PRET) return 0
-  const i = Math.max(0.1, Math.min(1, info.intensite))
-  const reste = ((SEUIL_PRET - info.jours) * i * i) / VITESSE_RECUP[region]
+  const reste = (SEUIL_PRET - info.jours) / VITESSE_RECUP[region]
   // Arrondi à la section supérieure : mieux vaut annoncer une demi-journée de
   // trop qu'envoyer quelqu'un sur un muscle qui n'est pas encore revenu.
   return Math.max(PAS_JOURS, Math.ceil(reste / PAS_JOURS) * PAS_JOURS)
@@ -768,9 +770,20 @@ function MuscleSheet({
           <p className="mt-2 text-xs text-muted">
             Compté <b className="text-ink">{fmtAnciennete(info.joursReels)}</b> via{' '}
             <b className="text-ink">{info.label}</b>
+            {/* « Récupération plus rapide » était faux depuis que la part donne
+                une avance de départ et non un temps accéléré : le muscle ne
+                revient pas plus vite, il avait moins à réparer. La nuance compte
+                — c'est elle qui explique pourquoi la couleur bouge peu ensuite. */}
             {info.intensite < 1
-              ? ` — en secondaire (${Math.round(info.intensite * 100)} %), donc récupération plus rapide.`
+              ? ` — en secondaire (${Math.round(info.intensite * 100)} %), donc bien moins entamé : il part avec de l’avance.`
               : ' — en moteur principal.'}
+            {/* Le muscle a pu être retouché depuis, plus légèrement : la ligne
+                « Dernier travail » au-dessus le dit, et sans cette phrase les deux
+                dates se contredisent à l'écran. C'est la sollicitation la plus
+                lourde qui commande, pas la plus récente. */}
+            {histo?.travail && histo.travail.date > info.dateSeance
+              ? ' Depuis, la zone n’a été reprise que légèrement : c’est cette séance-là qui commande encore.'
+              : ''}
             {VITESSE_RECUP[region] > 1
               ? ' Cette zone récupère vite.'
               : VITESSE_RECUP[region] < 1

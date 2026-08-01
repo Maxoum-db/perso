@@ -113,6 +113,19 @@ function norm(s: string): string {
 // ── Correspondance libellé → muscles ────────────────────────────────────────
 // La recherche se fait par égalité sur le libellé normalisé : plus de piège de
 // sous-chaîne (« Abdos » contient « dos »).
+//
+// Un libellé PRÉCIS ne doit pas recouvrir un autre libellé précis. Quand deux
+// libellés d'un même exercice retombent sur le même muscle, c'est la part la
+// PLUS FORTE qui est retenue partout — donc écrire « Grand pectoral:1, Pectoral
+// supérieur:0.5 » pour dire que le faisceau claviculaire ne prend que la moitié
+// n'avait aucun effet : il en prenait 1. La précision était écrite dans la
+// bibliothèque et appliquée nulle part.
+//
+// Deux libellés étaient dans ce cas, et tous deux contredisaient MUSCLE_LABELS,
+// qui nomme « Grand pectoral » le seul faisceau sternal et « Biceps brachial »
+// le seul biceps. Ils ne couvrent donc plus que leur propre muscle, et les
+// exercices qui travaillent aussi le voisin le DISENT désormais, avec leur part.
+// Le groupe large « Pectoraux » reste là pour viser les deux faisceaux d'un coup.
 
 const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
 const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow']
@@ -143,7 +156,9 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   mollets: CALVES,
   lombaires: ['erectors'],
   cou: ['neck'],
-  biceps: ['biceps', 'brachialis'],
+  // « Biceps » ne couvre plus le brachial, et « Grand pectoral » plus le
+  // faisceau claviculaire (cf. le commentaire au-dessus de MUSCLE_MAP).
+  biceps: ['biceps'],
   obliques: ['obliques'],
   adducteurs: ['adductors'],
   // Muscles précis
@@ -155,7 +170,7 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'trapeze inferieur': ['trapsLow'],
   rhomboides: ['rhomboids'],
   'pectoral superieur': ['pecUpper'],
-  'grand pectoral': PECS,
+  'grand pectoral': ['pecLower'],
   'grand dorsal': ['lats'],
   'grand rond': ['teres'],
   'dentele anterieur': ['serratus'],
