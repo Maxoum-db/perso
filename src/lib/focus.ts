@@ -95,7 +95,29 @@ export const PART_FOCUS = 0.4
  */
 export const MAX_USAGE_FOCUS = 3
 
+/**
+ * Places réservées aux priorités béhourd en mode spécial, en part de la séance.
+ *
+ * Un tiers, contre une ou deux places fixes hors mode. Avec 40 % pour le point
+ * faible, il reste de quoi composer : les deux réserves se recouvrent largement —
+ * la ceinture abdominale est à la fois un focus et une priorité béhourd — et la
+ * réserve béhourd ne prend que des muscles que la séance n'a pas encore touchés.
+ */
+export const PART_BEHOURD = 1 / 3
+
+/**
+ * Fraîcheur exigée pour qu'une place béhourd se déclenche.
+ *
+ * 5 jours ressentis hors mode spécial : on ne réservait une place au cou que
+ * s'il était franchement disponible. En mode spécial on descend à 3 — « bientôt
+ * prêt » —, sinon la case ne changerait presque jamais rien, ces muscles étant
+ * sollicités par à peu près tout.
+ */
+export const REPOS_BEHOURD = 5
+export const REPOS_BEHOURD_SPECIAL = 3
+
 const FOCUS_KEY = 'muscu_focus'
+const BEHOURD_KEY = 'muscu_behourd'
 
 export async function loadFocus(userId: string): Promise<FocusId> {
   const id = await fetchKv<FocusId>(userId, FOCUS_KEY, FOCUS_PAR_DEFAUT)
@@ -104,4 +126,18 @@ export async function loadFocus(userId: string): Promise<FocusId> {
 
 export async function saveFocus(userId: string, id: FocusId): Promise<void> {
   await saveKv(userId, FOCUS_KEY, id)
+}
+
+// ── Mode béhourd ────────────────────────────────────────────────────────────
+// Indépendant du point faible, et cumulable avec lui : le point faible dit QUEL
+// groupe pousser, le mode béhourd dit POUR QUOI on s'entraîne. Les priorités
+// béhourd pèsent déjà en fond de tableau ; la case les fait passer au premier
+// plan.
+
+export async function loadBehourd(userId: string): Promise<boolean> {
+  return (await fetchKv<boolean>(userId, BEHOURD_KEY, false)) === true
+}
+
+export async function saveBehourd(userId: string, on: boolean): Promise<void> {
+  await saveKv(userId, BEHOURD_KEY, on)
 }

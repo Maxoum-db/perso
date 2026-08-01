@@ -14,7 +14,7 @@ import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
 import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
 import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
 import { FocusPicker } from '../components/FocusPicker'
-import { FOCUS_PAR_DEFAUT, loadFocus, saveFocus, type FocusId } from '../lib/focus'
+import { FOCUS_PAR_DEFAUT, loadBehourd, loadFocus, saveBehourd, saveFocus, type FocusId } from '../lib/focus'
 import {
   declarerAjustement,
   declarerPret,
@@ -266,6 +266,8 @@ export function Musculation() {
   const [weighins, setWeighins] = useState<Weighin[]>([])
   // Point faible à rattraper : pèse sur le générateur et sur l'alerte des négligés.
   const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
+  // Mode « spécial béhourd » : cumulable avec le point faible.
+  const [behourd, setBehourd] = useState(false)
   // Courbatures déclarées à la main, en plus du calcul automatique.
   const [courbatures, setCourbatures] = useState<Courbatures>({})
   // Profil morphologique : seul le sexe sert ici, pour la silhouette du mannequin.
@@ -282,7 +284,7 @@ export function Musculation() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -294,6 +296,7 @@ export function Musculation() {
         loadIntensites(user.id).catch(() => ({}) as Intensites),
         loadNuits(user.id).catch(() => ({}) as Nuits),
         loadObservations(user.id).catch(() => [] as Observations),
+        loadBehourd(user.id).catch(() => false),
       ])
       setTemplates(t)
       setSessions(s)
@@ -308,6 +311,7 @@ export function Musculation() {
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setNuits(nu)
       setObservations(ob)
+      setBehourd(bh)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -380,6 +384,11 @@ export function Musculation() {
             setFocus(id)
             if (user) saveFocus(user.id, id).catch(() => {})
           }}
+          behourd={behourd}
+          onBehourd={(on) => {
+            setBehourd(on)
+            if (user) saveBehourd(user.id, on).catch(() => {})
+          }}
           onChange={reload}
         />
       ) : (
@@ -420,6 +429,8 @@ function Journal({
   weighins,
   focus,
   onFocus,
+  behourd,
+  onBehourd,
   courbatures,
   nuits,
   observations,
@@ -439,6 +450,9 @@ function Journal({
   weighins: Weighin[]
   focus: FocusId
   onFocus: (id: FocusId) => void
+  /** Mode « spécial béhourd », cumulable avec le point faible. */
+  behourd: boolean
+  onBehourd: (on: boolean) => void
   courbatures: Courbatures
   /** Nuits renseignées : elles décalent la récupération affichée. */
   nuits: Nuits
@@ -614,7 +628,7 @@ function Journal({
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus, loads, count: forme.exos, intensite: forme.intensite }), exclude })
+    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus, behourd, loads, count: forme.exos, intensite: forme.intensite }), exclude })
   }
 
   function regenerer() {
@@ -625,6 +639,7 @@ function Journal({
       exclude: next,
       bodyWeight,
       focus,
+      behourd,
       loads,
       count: forme.exos,
       intensite: forme.intensite,
@@ -800,7 +815,7 @@ function Journal({
         </div>
       )}
 
-      <FocusPicker value={focus} onChange={onFocus} />
+      <FocusPicker value={focus} onChange={onFocus} behourd={behourd} onBehourd={onBehourd} />
 
       {suggest ? (
         <SuggestedSessionCard

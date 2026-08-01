@@ -1,10 +1,20 @@
 import { EXERCISE_LIBRARY } from '../data/exercises'
-import { PRIORITE_BEHOURD, poidsBehourd } from '../data/behourdPriority'
+import { poidsBehourd, rangsBehourd } from '../data/behourdPriority'
 import { regionsForGroup, type MuscleRegion } from './muscles'
 import { reposParMuscle } from './recuperation'
 import { estRessenti, groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
-import { FOCUS, FOCUS_RECUP, MAX_USAGE_FOCUS, PART_FOCUS, POIDS_FOCUS, type FocusId } from './focus'
+import {
+  FOCUS,
+  FOCUS_RECUP,
+  MAX_USAGE_FOCUS,
+  PART_BEHOURD,
+  PART_FOCUS,
+  POIDS_FOCUS,
+  REPOS_BEHOURD,
+  REPOS_BEHOURD_SPECIAL,
+  type FocusId,
+} from './focus'
 import { clefExo, enRotation, familiarites, poidsFamiliarite } from './familiarite'
 
 // Générateur de séance : compose une séance à partir de ce que le corps a déjà
@@ -135,6 +145,15 @@ export interface BuildOptions {
   /** Point faible à rattraper : ses muscles pèsent plus et ont une place réservée. */
   focus?: FocusId
   /**
+   * Mode « spécial béhourd », cumulable avec le point faible.
+   *
+   * Les priorités béhourd pèsent déjà en fond de tableau sur toutes les séances.
+   * Cochée, la case double leur écart au neutre, réserve un tiers de la séance et
+   * abaisse la fraîcheur exigée — le cou et la préhension sortent alors vraiment,
+   * au lieu de perdre au score contre un soulevé de terre.
+   */
+  behourd?: boolean
+  /**
    * Récupération déjà calculée (courbatures déclarées comprises). Sans elle,
    * elle est recalculée depuis les séances — mais sans les courbatures.
    */
@@ -161,6 +180,7 @@ export function buildSession(
   const loads: Record<string, GroupLoad> = options.loads ?? groupLoads(sessions)
   const repos = reposParMuscle(loads)
   const modeRecup = options.focus === FOCUS_RECUP
+  const special = options.behourd === true && !modeRecup
   const focusRegions = new Set(FOCUS[options.focus ?? 'aucun'].regions)
 
   // Exercices déjà pratiqués : eux seuls ont un historique de charge. À score
@@ -191,7 +211,7 @@ export function buildSession(
           continue
         }
         const focus = focusRegions.has(region) ? POIDS_FOCUS : 1
-        score += intensity * poidsRepos(reposDe(region)) * poidsBehourd(region) * focus
+        score += intensity * poidsRepos(reposDe(region)) * poidsBehourd(region, special) * focus
       }
       // En récupération on retient la courbature MOYENNE des muscles visés, pas
       // la somme : sinon un « étirements complets » qui couvre tout le corps
@@ -272,16 +292,26 @@ export function buildSession(
   // Réserve béhourd : le cou et la préhension se travaillent en isolation, donc
   // ils perdent toujours au score face à un soulevé de terre. Deux places leur
   // sont réservées quand ils sont reposés — sinon ils ne sortiraient jamais.
-  // Une seule place quand un focus est déclaré, deux sinon : la priorité béhourd
-  // est un biais de fond, le focus est une intention. Sans ce recul, focus et
-  // béhourd occupaient cinq places sur six et il ne restait plus rien pour
-  // composer une séance cohérente.
-  const placesBehourd = placesFocus > 0 ? 1 : 2
+  // Hors mode spécial : une seule place quand un focus est déclaré, deux sinon.
+  // La priorité béhourd est alors un biais de fond, le focus est une intention —
+  // sans ce recul, les deux occupaient cinq places sur six.
+  //
+  // En mode spécial, c'est l'inverse : le béhourd EST l'intention, il prend un
+  // tiers de la séance. Les deux réserves tiennent ensemble parce qu'elles se
+  // recouvrent (la ceinture abdominale est des deux côtés) et parce que celle-ci
+  // ne vise que des muscles encore intacts dans la séance.
+  const placesBehourd = special
+    ? Math.max(2, Math.ceil(count * PART_BEHOURD))
+    : placesFocus > 0
+      ? 1
+      : 2
+  const seuilRepos = special ? REPOS_BEHOURD_SPECIAL : REPOS_BEHOURD
   const prioritaires: MuscleRegion[] = modeRecup
     ? [] // en récupération, la priorité est la courbature, pas le béhourd
-    : (Object.keys(PRIORITE_BEHOURD) as MuscleRegion[])
-        .filter((r) => reposDe(r) >= 5)
-        .sort((a, b) => PRIORITE_BEHOURD[a]!.rang - PRIORITE_BEHOURD[b]!.rang)
+    : rangsBehourd()
+        // Un muscle déjà pris par la réserve du focus n'a pas besoin d'une
+        // seconde place : la réserve béhourd comble les trous, elle ne double pas.
+        .filter((r) => reposDe(r) >= seuilRepos && (usage.get(r) ?? 0) === 0)
         .slice(0, placesBehourd)
   for (const region of prioritaires) {
     const best = classes.find((c) => !pris.has(c.exo.id) && c.moteurs.includes(region) && sousLePlafond(c))
