@@ -68,8 +68,32 @@ export const FOCUS_PAR_DEFAUT: FocusId = 'core'
 /** Le focus « récupération » change le mode du générateur, pas sa pondération. */
 export const FOCUS_RECUP: FocusId = 'recup'
 
-/** Multiplicateur de score appliqué aux muscles du focus. */
-export const POIDS_FOCUS = 1.8
+/**
+ * Multiplicateur de score appliqué aux muscles du focus.
+ *
+ * 2,6 et non 1,8 : à 1,8 un exercice de gainage perdait encore contre n'importe
+ * quel polyarticulaire qui touche cinq muscles au passage. Le focus est un choix
+ * explicite, il doit peser plus qu'une somme de sollicitations accessoires.
+ */
+export const POIDS_FOCUS = 2.6
+
+/**
+ * Part de la séance réservée au focus.
+ *
+ * Le multiplicateur seul ne suffit pas — il agit sur un classement, donc un
+ * exercice qui ne vise qu'un ou deux muscles reste battu par un mouvement large.
+ * On garantit donc des places : 40 % de la séance, soit trois exercices sur six.
+ */
+export const PART_FOCUS = 0.4
+
+/**
+ * Nombre maximal d'exercices sur un même muscle du focus.
+ *
+ * La règle générale en autorise deux, ce qui empêche justement de « marquer » un
+ * groupe. Sur le focus, on monte à trois : c'est la différence entre une séance
+ * équilibrée qui l'effleure et une séance qui le vise.
+ */
+export const MAX_USAGE_FOCUS = 3
 
 const FOCUS_KEY = 'muscu_focus'
 

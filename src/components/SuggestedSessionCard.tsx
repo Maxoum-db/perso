@@ -1,5 +1,6 @@
 import { MUSCLE_LABELS } from '../lib/muscles'
 import { TON_STYLE } from '../lib/charge'
+import { fmtFamiliarite } from '../lib/familiarite'
 import { FormeCard } from './FormeCard'
 import type { Forme } from '../lib/forme'
 import type { SuggestedSession } from '../lib/sessionBuilder'
@@ -94,6 +95,21 @@ export function SuggestedSessionCard({
                 {s.exo.default_sets}×{s.exo.default_reps} ·{' '}
                 {s.moteurs.slice(0, 3).map((r) => MUSCLE_LABELS[r].split(' (')[0]).join(', ')}
               </div>
+              {/* Pourquoi CET exercice-là : parce qu'il vise le point faible
+                  déclaré, parce qu'on progresse dessus, ou parce qu'il a fait son
+                  temps et qu'on commence à tourner. Sans ces mots, la rotation
+                  ressemblerait à de l'instabilité du générateur. */}
+              {!suggestion.recuperation && (s.focus || s.familiarite > 0) ? (
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px]">
+                  {s.focus ? <span className="font-semibold text-copper">🎯 point faible</span> : null}
+                  {s.familiarite > 0 ? (
+                    <span className={s.rotation ? 'font-semibold text-plum' : 'text-muted'}>
+                      {s.rotation ? '🔄 ' : '📈 '}
+                      {fmtFamiliarite(s.familiarite)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               {s.charge.raison ? (
                 <div className={`text-[11px] font-semibold ${TON_STYLE[s.charge.ton].classe}`}>
                   {TON_STYLE[s.charge.ton].icone} {s.charge.raison}
