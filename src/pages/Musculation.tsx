@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
 import { Section } from '../components/training-ui'
 import { Poids } from './Carnet'
@@ -263,6 +264,12 @@ function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
 export function Musculation() {
   const { user } = useAuth()
   const [tab, setTab] = useState<'journal' | 'types' | 'progression' | 'sommeil' | 'poids'>('journal')
+  // Arrivée depuis la séance proposée sur l'accueil : on la recompose ici plutôt
+  // que de la transporter. Elle serait sinon figée à l'instant du clic, et le
+  // module afficherait une séance calculée sur un état du corps périmé.
+  const { state } = useLocation()
+  const navigate = useNavigate()
+  const composerAuto = (state as { composer?: boolean } | null)?.composer === true
   const [templates, setTemplates] = useState<MuscuTemplate[] | null>(null)
   const [sessions, setSessions] = useState<MuscuSession[] | null>(null)
   const [catalog, setCatalog] = useState<CatalogExercise[]>([])
@@ -374,6 +381,10 @@ export function Musculation() {
         </div>
       ) : tab === 'journal' ? (
         <Journal
+          composerAuto={composerAuto}
+          // Consommée une fois : sans ça, revenir en arrière ou rafraîchir
+          // relancerait une composition qu'on n'a pas demandée.
+          onComposeConsomme={() => navigate('.', { replace: true, state: null })}
           userId={user?.id ?? ''}
           sessions={sessions}
           templates={templates}
@@ -467,6 +478,8 @@ function Journal({
   onDouceurs,
   sexe,
   onChange,
+  composerAuto,
+  onComposeConsomme,
 }: {
   userId: string
   sessions: MuscuSession[]
@@ -499,6 +512,9 @@ function Journal({
   /** Silhouette du mannequin — déclarée dans Poids › profil. */
   sexe: Profil['sex']
   onChange: () => void
+  /** Arrivée depuis l'accueil : composer la séance dès l'affichage. */
+  composerAuto?: boolean
+  onComposeConsomme?: () => void
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
   const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
@@ -674,6 +690,16 @@ function Journal({
     setPicking(null)
     setSuggest({ session: composerSeance({ ...contexte, exclude }), exclude })
   }
+
+  // Une seule fois, à l'arrivée : les données sont là — le journal ne s'affiche
+  // qu'une fois séances et catalogue chargés — et la demande est consommée dans
+  // la foulée.
+  useEffect(() => {
+    if (!composerAuto) return
+    suggerer()
+    onComposeConsomme?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composerAuto])
 
   function regenerer() {
     if (!suggest) return
