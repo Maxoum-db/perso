@@ -3,7 +3,7 @@ import { evaluerForme } from './forme'
 import { PLAFOND_EXOS } from './duree'
 import type { EtatZone } from './recuperation'
 import type { FocusId } from './focus'
-import type { CatalogExercise, GroupLoad, MuscuSession } from './muscu'
+import { seanceDuJour, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import type { Weighin } from './workouts'
 
 // La prochaine séance : laquelle, et quand.
@@ -56,6 +56,14 @@ export interface Prochaine {
   attente: number
   /** La zone qui fait attendre, quand il y en a une. */
   frein?: string
+  /**
+   * Une séance de travail a DÉJÀ été faite aujourd'hui.
+   *
+   * Séparé de `attente`, qui ne parle que du corps : ce sont deux faits
+   * distincts — le corps peut être frais et la journée déjà prise. Les mélanger
+   * dans un seul nombre aurait fait dire au barème une règle de calendrier.
+   */
+  dejaFait: boolean
 }
 
 /**
@@ -67,10 +75,18 @@ export interface Prochaine {
  * moment-là que la situation change, et c'est donc la seule date qu'on puisse
  * annoncer sans inventer.
  */
-export function prochaineSeance(ctx: ContexteSeance, zones: EtatZone[]): Prochaine | null {
+export function prochaineSeance(
+  ctx: ContexteSeance,
+  zones: EtatZone[],
+  aujourdhui = new Date().toLocaleDateString('en-CA'),
+): Prochaine | null {
   const session = composerSeance(ctx)
   if (!session) return null
-  if (!session.degrade) return { session, attente: 0 }
+  // UNE séance par jour. Le corps a beau être frais, si la journée est déjà
+  // faite la proposition est pour demain — sinon l'accueil inviterait à une
+  // deuxième séance à côté de la première qu'il vient d'afficher en pied.
+  const dejaFait = seanceDuJour(ctx.sessions, aujourdhui) !== undefined
+  if (!session.degrade) return { session, attente: 0, dejaFait }
   const premier = zones.filter((z) => !z.pret).sort((a, b) => a.reste - b.reste)[0]
-  return { session, attente: premier?.reste ?? 0, frein: premier?.zone }
+  return { session, attente: premier?.reste ?? 0, frein: premier?.zone, dejaFait }
 }
