@@ -1,5 +1,5 @@
 import { fetchKv, saveKv } from './kv'
-import { PAS_JOURS, type GroupLoad } from './muscu'
+import { PAS_JOURS, plafondRecup, type GroupLoad } from './muscu'
 
 // Le sommeil, et ce qu'il fait à la récupération.
 //
@@ -122,9 +122,11 @@ export function effetDepuis(nuits: Nuits, dateSeance: string, aujourdhui: string
  * Applique le sommeil aux charges par groupe.
  *
  * Même mécanique que les courbatures déclarées : on ajoute aux jours ressentis,
- * en négatif quand le sommeil a manqué. Le plafond orange est REPOSÉ après coup —
- * un bon sommeil ne doit pas faire sauter la journée qui vient de se passer, pas
- * plus qu'une récup active ne le fait.
+ * en négatif quand le sommeil a manqué. Le plafond est REPOSÉ après coup — un
+ * bon sommeil ne doit pas faire sauter la journée qui vient de se passer, pas
+ * plus qu'une récup active ne le fait —, et c'est le plafond du barème
+ * (`plafondRecup`) et non une deuxième version recopiée ici : c'est en le
+ * recopiant qu'il avait déjà divergé une fois.
  */
 export function applySommeil(
   loads: Record<string, GroupLoad>,
@@ -138,11 +140,10 @@ export function applySommeil(
       out[group] = load
       continue
     }
-    const joursPlafonnes = load.intensity >= 0.5 ? 2 : 1
     const cumul = Math.max(0, load.effectiveDays + delta)
     out[group] = {
       ...load,
-      effectiveDays: load.days <= joursPlafonnes ? Math.min(cumul, 4) : cumul,
+      effectiveDays: Math.min(cumul, plafondRecup(load.days)),
       sommeilDelta: delta,
     }
   }

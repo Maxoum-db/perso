@@ -83,7 +83,6 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   vastusLat: MOYEN,
   vastusMed: MOYEN,
   gluteMax: MOYEN,
-  adductors: MOYEN,
   // La longue portion du triceps est bi-articulaire, contrairement à la
   // latérale : elle encaisse davantage.
   tricepsLong: MOYEN,
@@ -95,6 +94,15 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // dans une journée ordinaire ne fait travailler un grand dorsal.
   pecLower: PLUTOT_LENT,
   lats: PLUTOT_LENT,
+
+  // Les adducteurs étaient au palier moyen avec les quadriceps. Ils n'y ont pas
+  // leur place : l'insertion haute sur le pubis est le point le plus lent à
+  // récupérer de la cuisse, et une élongation même légère se compte en semaines
+  // là où un quadriceps se compte en jours. C'est aussi la blessure la plus
+  // fréquente dans les sports de contact et de changement d'appui — donc
+  // exactement le profil du béhourd.
+  // https://complete-physio.co.uk/groin-strain-adductor-tendinopathy/
+  adductors: PLUTOT_LENT,
 
   // Les ischios sont bi-articulaires et prennent l'essentiel de l'excentrique
   // — soulevé roumain, freinage de course —, le mode qui abîme le plus. Ils
@@ -130,6 +138,9 @@ export const SEUIL_PRET = 4.5
 
 /** La zone la plus lente du barème — celle qui fixe le pire cas. */
 export const VITESSE_MIN = Math.min(...Object.values(VITESSE_RECUP))
+
+/** La plus rapide — celle qui atteint « prêt » en premier, à barème égal. */
+export const VITESSE_MAX = Math.max(...Object.values(VITESSE_RECUP))
 
 export interface ReposMuscle {
   /** Jours ressentis, vitesse de la zone comprise. */

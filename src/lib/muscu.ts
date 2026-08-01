@@ -4,6 +4,7 @@ import { MUSCU_PROGRAM } from '../data/behourd'
 import { OUTDOOR_ACTIVITIES } from '../data/activities'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
 import { regionsForGroup } from './muscles'
+import { SEUIL_PRET, VITESSE_MAX, VITESSE_MIN } from './recuperation'
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
@@ -220,13 +221,7 @@ export interface GroupLoad {
   date: string
   /** Intensité de cette sollicitation (1 = principal). */
   intensity: number
-  /**
-   * Jours « ressentis » : un muscle sollicité en secondaire récupère nettement
-   * plus vite qu'un moteur principal. La pondération est quadratique
-   * (jours ÷ intensité²) : à pleine intensité rien ne change, et l'accélération
-   * s'accentue à mesure que le ratio baisse. Garde-fou : le lendemain d'une
-   * séance, un muscle reste au minimum orange — jamais vert d'emblée.
-   */
+  /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
   /** Jours de récupération ajoutés à la main (courbatures déclarées). */
   soreExtra?: number
@@ -250,6 +245,83 @@ export interface GroupLoad {
   sommeilDelta?: number
   /** Intensité déclarée de la séance à l'origine, pour l'expliquer sur la fiche. */
   intensiteId?: IntensiteId
+}
+
+// ── Part du muscle dans l'exercice → jours ressentis ────────────────────────
+//
+// La règle précédente DIVISAIT les jours écoulés par la part au carré. Elle
+// avait deux défauts, l'un à chaque bout, et ils se voyaient tous les deux sur
+// une marche du fermier :
+//
+//   • le jour même, `0 ÷ part²` vaut zéro QUELLE QUE SOIT la part. Un quadriceps
+//     touché à 40 % s'affichait donc aussi brûlant que l'avant-bras qui, lui,
+//     avait vraiment lâché. Un exercice à cinq groupes allumait le mannequin
+//     entier au maximum — c'est exactement ce qui paraissait excessif ;
+//   • le surlendemain, la division explose : 1,5 ÷ 0,4² = 9,4 jours ressentis.
+//     Le même quadriceps passait d'« ambre » à « froid, jamais travaillé » en
+//     douze heures, et se retrouvait annoncé plus frais qu'un muscle réellement
+//     au repos depuis neuf jours.
+//
+// La part ne change pas la VITESSE du temps, elle change la PROFONDEUR du trou.
+// C'est ce que dit la littérature : quand la perte de force immédiate reste
+// sous ~20 %, tout est revenu en deux jours — le muscle ne récupère pas plus
+// vite, il avait simplement moins à réparer.
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6628445/
+//
+// D'où une AVANCE DE DÉPART plutôt qu'une division : une sollicitation légère
+// commence déjà à mi-chemin, puis avance au rythme du calendrier, un jour par
+// jour. Le temps reste le temps.
+
+/**
+ * Avance maximale accordée à une sollicitation nulle, en jours ressentis.
+ *
+ * Vaut le seuil de « prêt » : une part qui tend vers zéro n'a jamais rien coûté
+ * et démarre donc au vert. Entre les deux, l'avance suit `1 − part²`, si bien
+ * qu'un moteur principal n'en reçoit aucune et qu'un stabilisateur à 40 % en
+ * reçoit 84 %.
+ */
+export const AVANCE_MAX = SEUIL_PRET
+
+/**
+ * Jamais plus frais que le calendrier.
+ *
+ * Passé ce plafond, l'avance de départ cesse de compter : sans lui, un muscle
+ * effleuré hier serait classé devant un muscle qu'on n'a pas touché depuis une
+ * semaine, et le générateur irait chercher le mauvais.
+ *
+ * La valeur est celle qui rend « prêt » la zone la plus lente du barème
+ * (7,5 j × 0,6 = 4,5) : le palier ne peut donc jamais retenir un muscle EN
+ * DEÇÀ du seuil, et le compte à rebours de la fiche reste une simple division.
+ */
+export const PLAFOND_FRAICHEUR = SEUIL_PRET / VITESSE_MIN
+
+/**
+ * Le jour même, aucun muscle sollicité n'affiche « prêt ».
+ *
+ * Un cran sous le seuil pour la zone la plus RAPIDE : même un avant-bras
+ * effleuré reste au mieux « bientôt prêt » tant que la journée n'est pas
+ * passée. On a beau savoir qu'une sollicitation à 40 % ne coûte presque rien,
+ * l'annoncer vert le soir même de la séance ne serait pas crédible.
+ */
+export const PLAFOND_JOUR_J = (SEUIL_PRET - PAS_JOURS) / VITESSE_MAX
+
+/** Le plafond applicable à une charge, selon son ancienneté. */
+export function plafondRecup(days: number): number {
+  return days < 1 ? PLAFOND_JOUR_J : Math.max(days, PLAFOND_FRAICHEUR)
+}
+
+/**
+ * Jours ressentis d'une sollicitation : ancienneté réelle + avance de départ,
+ * le tout sous plafond.
+ *
+ * `avanceSup` porte ce qui s'ajoute par-dessus le barème (récupération active),
+ * pour que le plafond s'applique une seule fois, au même endroit, plutôt qu'une
+ * fois par correction.
+ */
+export function joursRessentis(days: number, part: number, avanceSup = 0): number {
+  const i = Math.max(0, Math.min(1, part))
+  const avance = (1 - i * i) * AVANCE_MAX
+  return Math.min(days + avance + avanceSup, plafondRecup(days))
 }
 
 /** Une séance de récupération active ne fatigue pas : elle raccourcit le délai. */
@@ -289,19 +361,16 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     for (const e of s.exercises) {
       if (estRecuperation(e.name)) continue
       for (const g of parseGroupEntries(e.muscle_group)) {
-        // Pondération quadratique, plafonnée au palier orange les premiers
-        // jours — sans ce plafond une sollicitation légère saute du rouge au
-        // vert sans transition. La durée du plafond suit l'intensité :
-        //   ≥ 0,5 → deux jours d'orange, c'est un vrai travail ;
-        //   < 0,5 → un seul, la sollicitation était accessoire.
-        const joursPlafonnes = g.intensity >= 0.5 ? 2 : 1
         // L'intensité déclarée retarde le retour au vert : jusqu'à un jour de
         // plus pour un moteur principal d'une séance à fond. On RETIRE des jours
         // ressentis, exactement comme des courbatures déclarées — le muscle est
         // traité comme s'il avait été travaillé plus récemment qu'il ne l'a été.
+        //
+        // Passée EN AVANCE et non soustraite au résultat : une séance déclarée
+        // « tranquille » rend des jours au lieu d'en prendre, et retranchée après
+        // coup elle passait par-dessus le plafond du jour J.
         const sur = recupIntensite(s.intensite, g.intensity)
-        const raw = Math.max(0, days / (g.intensity * g.intensity) - sur)
-        const effectiveDays = days <= joursPlafonnes ? Math.min(raw, 4) : raw
+        const effectiveDays = Math.max(0, joursRessentis(days, g.intensity, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
         if (!cur || effectiveDays < cur.effectiveDays) {
@@ -327,16 +396,14 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     }
     if (dates.size === 0) continue
     const bonus = Math.min(2, dates.size)
-    // Le plafond orange est REPOSÉ après le bonus. Ajouté par-dessus un plafond
-    // déjà atteint, il le faisait sauter : une sollicitation légère de la veille
-    // suivie d'une marche passait directement au vert, alors que le plafond
-    // existe précisément pour interdire ce saut. Une récup active raccourcit le
-    // délai, elle n'efface pas la journée qui vient de se passer.
-    const joursPlafonnes = load.intensity >= 0.5 ? 2 : 1
-    const cumul = load.effectiveDays + bonus
+    // On repasse par `joursRessentis` au lieu d'ajouter au résultat : le bonus
+    // rentre alors sous le même plafond que l'avance de départ, appliqué une
+    // seule fois. Ajouté par-dessus un plafond déjà atteint, il le faisait
+    // sauter — une récup active raccourcit le délai, elle n'efface pas la
+    // journée qui vient de se passer.
     out[group] = {
       ...load,
-      effectiveDays: load.days <= joursPlafonnes ? Math.min(cumul, 4) : cumul,
+      effectiveDays: Math.max(0, joursRessentis(load.days, load.intensity, bonus - (load.intensiteRecup ?? 0))),
       recupBonus: bonus,
     }
   }
@@ -526,7 +593,7 @@ const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v20'
+const LIBRARY_SEED_KEY = 'muscu_library_v21'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
