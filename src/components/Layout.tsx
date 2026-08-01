@@ -48,7 +48,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* `bg-navy` plein et non /95 : à 95 % on devinait la page derrière. */}
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy px-4 py-3 text-white">
-        <img src="/icon-192.png" alt="Aide" className="h-9 w-9 rounded-lg object-cover" />
+        {/* Le logo ramène à l'accueil. C'est le geste attendu de toute application
+            — on touche le titre pour revenir au début —, et il ne coûtait rien
+            puisque l'en-tête est visible partout. */}
+        <NavLink to="/" end aria-label="Retour à l'accueil" title="Accueil" className="shrink-0 rounded-lg transition hover:opacity-80">
+          <img src="/icon-192.png" alt="" className="h-9 w-9 rounded-lg object-cover" />
+        </NavLink>
         <div className="ml-auto flex items-center gap-3">
           {user?.user_metadata?.avatar_url ? (
             <img src={user.user_metadata.avatar_url} alt="" className="h-7 w-7 rounded-full border border-white/30" />

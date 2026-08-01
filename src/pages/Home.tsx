@@ -221,13 +221,11 @@ export function Home() {
 
       <BrassageCard brews={brews} />
 
-      <div className="grid grid-cols-2 gap-3">
-        <QuickCard to="/notes" title="Notes" subtitle="Listes · notes · tâches 📝" emoji="📝" />
-        <QuickCard to="/partage" title="À deux" subtitle="Mots · agenda 💕" emoji="💕" />
-        <QuickCard to="/musculation" title="Muscu" subtitle="Journal · séances · sommeil 💪" emoji="💪" />
-        <QuickCard to="/behourd" title="Béhourd" subtitle="Armure · entraînement 🛡️" emoji="🛡️" />
-        <QuickCard to="/brassage" title="Brassage" subtitle="Brassins · recettes 🍺" emoji="🍺" />
-      </div>
+      {/* La grille de raccourcis a disparu. Elle menait exactement où mènent déjà
+          la barre du bas et le menu « Plus » : trois chemins pour les mêmes
+          destinations, occupant le tiers bas de l'écran sans porter la moindre
+          information. L'accueil ne montre plus que ce qui a quelque chose à
+          dire — ta journée, ce qu'il reste à faire, et ce qui est en cours. */}
     </div>
   )
 }
@@ -355,26 +353,6 @@ function BrassageCard({ brews }: { brews: Brew[] }) {
         ))}
         {active.length > 4 ? <li className="text-xs text-muted">+ {active.length - 4} autre(s)…</li> : null}
       </ul>
-    </Link>
-  )
-}
-
-function QuickCard({
-  to,
-  title,
-  subtitle,
-  emoji,
-}: {
-  to: string
-  title: string
-  subtitle: string
-  emoji: string
-}) {
-  return (
-    <Link to={to} className="card flex flex-col p-4 transition hover:shadow-lift">
-      <span className="text-xl">{emoji}</span>
-      <span className="mt-1 text-sm font-bold text-ink">{title}</span>
-      <span className="text-xs text-muted">{subtitle}</span>
     </Link>
   )
 }
