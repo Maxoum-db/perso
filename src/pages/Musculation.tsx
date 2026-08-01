@@ -5,6 +5,7 @@ import { Section } from '../components/training-ui'
 import { Poids } from './Carnet'
 import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
+import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
@@ -196,6 +197,8 @@ interface ExoDraft {
   /** Justification de la charge proposée (« 10 reps la dernière fois : +2,5 kg »). */
   hint?: string
   hintTon?: TonCharge
+  /** Fait à vide, en amplitude : la ligne compte comme récupération. */
+  doux?: boolean
 }
 
 function emptyExo(group = ''): ExoDraft {
@@ -210,6 +213,7 @@ function exoToDraft(e: MuscuExo): ExoDraft {
     reps: e.reps,
     weight: e.weight_kg === null ? '' : String(e.weight_kg),
     notes: e.notes,
+    doux: e.doux,
   }
 }
 
@@ -279,6 +283,8 @@ export function Musculation() {
   const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
   // Intensités déclarées à la main, indexées par séance.
   const [intensites, setIntensites] = useState<Intensites>({})
+  // Exercices déclarés faits en version douce, indexés par séance + exercice.
+  const [douceurs, setDouceurs] = useState<Douceurs>({})
   // Nuits renseignées : elles décalent la récupération du mannequin.
   const [nuits, setNuits] = useState<Nuits>({})
   // Base des ressentis déclarés : elle servira à affiner le barème.
@@ -289,7 +295,7 @@ export function Musculation() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -303,6 +309,7 @@ export function Musculation() {
         loadObservations(user.id).catch(() => [] as Observations),
         loadBehourd(user.id).catch(() => false),
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
+        loadDouceurs(user.id).catch(() => ({}) as Douceurs),
       ])
       setTemplates(t)
       setSessions(s)
@@ -315,6 +322,7 @@ export function Musculation() {
       setProfil(pr)
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
+      setDouceurs(nettoyerDouceurs(dx, new Set(s.map((x) => x.id))))
       setNuits(nu)
       setObservations(ob)
       setBehourd(bh)
@@ -383,6 +391,8 @@ export function Musculation() {
           sexe={profil.sex}
           intensites={intensites}
           onIntensite={setIntensites}
+          douceurs={douceurs}
+          onDouceurs={setDouceurs}
           onCourbatures={(next) => {
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
@@ -452,6 +462,8 @@ function Journal({
   onCourbatures,
   intensites,
   onIntensite,
+  douceurs,
+  onDouceurs,
   sexe,
   onChange,
 }: {
@@ -480,6 +492,9 @@ function Journal({
   /** Intensités déclarées, indexées par séance. */
   intensites: Intensites
   onIntensite: (i: Intensites) => void
+  /** Exercices déclarés faits en version douce, indexés par séance + exercice. */
+  douceurs: Douceurs
+  onDouceurs: (d: Douceurs) => void
   /** Silhouette du mannequin — déclarée dans Poids › profil. */
   sexe: Profil['sex']
   onChange: () => void
@@ -697,6 +712,9 @@ function Journal({
         weight: x.charge.weight === null ? '' : String(x.charge.weight),
         hint: x.charge.raison || undefined,
         hintTon: x.charge.ton,
+        // Proposé à vide : la case arrive cochée, sinon la séance de
+        // récupération coûterait de la récupération.
+        doux: x.doux || undefined,
       }
     })
     setSuggest(null)
@@ -794,6 +812,14 @@ function Journal({
           )
           // Après la séance : une création n'a son identifiant qu'à ce moment-là.
           onIntensite(await saveIntensite(userId, id, d.intensite, intensites))
+          onDouceurs(
+            await saveDouceurs(
+              userId,
+              id,
+              d.exos.filter((e) => e.doux && e.name.trim()).map((e) => e.name),
+              douceurs,
+            ),
+          )
           setDraft(null)
           onChange()
         }}
@@ -1308,6 +1334,23 @@ function ExoListEditor({
               </span>
             ) : null}
           </div>
+          {/* La case n'apparaît que sur les exercices qui ONT une version douce
+              — la bibliothèque le dit. La proposer partout laisserait croire
+              qu'un squat allégé se compte comme de la récupération : il ne se
+              compte pas, il reste un squat. */}
+          {estAdaptable(e.name) ? (
+            <button
+              onClick={() => update(i, { doux: !e.doux })}
+              aria-pressed={e.doux === true}
+              title="Fait à vide, en amplitude, sans forcer : compte comme de la récupération au lieu de coûter des jours"
+              className={`chip flex w-fit items-center gap-1 text-[11px] transition ${
+                e.doux ? 'bg-sage/25 text-sage ring-1 ring-sage' : 'bg-bg text-muted'
+              }`}
+            >
+              <span>🌙</span>
+              Version douce
+            </button>
+          ) : null}
             </>
           )}
           <input

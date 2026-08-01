@@ -5,6 +5,7 @@ import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/
 import { partParDefaut, regionsForGroup } from './muscles'
 import { SEUIL_PRET, VITESSE_MAX, VITESSE_MIN } from './recuperation'
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
+import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -23,6 +24,15 @@ export interface ExoInput {
 export interface MuscuExo extends ExoInput {
   id: string
   position: number
+  /**
+   * Déclaré fait en VERSION DOUCE : à vide, en amplitude, sans forcer. La ligne
+   * compte alors comme de la récupération et non comme du travail.
+   *
+   * Recollée depuis le KV au chargement, comme l'intensité de la séance : la
+   * table des exercices n'a pas de colonne pour ça, et le reste du module n'a
+   * pas à le savoir.
+   */
+  doux?: boolean
 }
 
 export interface MuscuTemplate {
@@ -334,9 +344,15 @@ export function joursRessentis(days: number, part: number, avanceSup = 0): numbe
   return Math.min(days + avance + avanceSup, plafondRecup(days))
 }
 
-/** Une séance de récupération active ne fatigue pas : elle raccourcit le délai. */
-function estRecuperation(name: string): boolean {
-  return RECUPERATION_NAMES.has(name.trim().toLowerCase())
+/**
+ * Une séance de récupération active ne fatigue pas : elle raccourcit le délai.
+ *
+ * Deux façons d'en être une : l'exercice EST un étirement (la bibliothèque le
+ * dit), ou bien c'est un exercice adaptable qu'on a déclaré fait en version
+ * douce. Prend la ligne entière et non le nom, précisément pour voir la seconde.
+ */
+function estRecuperation(e: { name: string; doux?: boolean }): boolean {
+  return e.doux === true || RECUPERATION_NAMES.has(e.name.trim().toLowerCase())
 }
 
 export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {
@@ -352,7 +368,7 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     if (s.date > aujourdhui) continue
     const d = ancienneteEnJours(s, now)
     for (const e of s.exercises) {
-      if (!estRecuperation(e.name)) continue
+      if (!estRecuperation(e)) continue
       for (const g of parseGroupEntries(e.muscle_group)) {
         for (const region of regionsForGroup(g.name)) {
           const l = recups.get(region) ?? []
@@ -369,7 +385,7 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
     const days = ancienneteEnJours(s, now)
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
-      if (estRecuperation(e.name)) continue
+      if (estRecuperation(e)) continue
       for (const g of parseGroupEntries(e.muscle_group)) {
         // L'intensité déclarée retarde le retour au vert : jusqu'à un jour de
         // plus pour un moteur principal d'une séance à fond. On RETIRE des jours
@@ -602,7 +618,7 @@ export function isBodyweightExercise(name: string): boolean {
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v22'
+const LIBRARY_SEED_KEY = 'muscu_library_v23'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
@@ -794,10 +810,13 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
     }
   }
   const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
+  const douceurs: Douceurs = await loadDouceurs(userId).catch(() => ({}))
   return (sessions ?? []).map((s) => ({
     ...s,
     notes: s.notes ?? '',
-    exercises: bySession.get(s.id) ?? [],
+    exercises: (bySession.get(s.id) ?? []).map((e) =>
+      douceurs[clefDouceur(s.id as string, e.name)] ? { ...e, doux: true } : e,
+    ),
     intensite: intensites[s.id],
   })) as MuscuSession[]
 }

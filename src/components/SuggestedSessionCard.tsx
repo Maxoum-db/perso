@@ -107,6 +107,18 @@ export function SuggestedSessionCard({
                 {s.exo.default_sets}×{s.exo.default_reps} ·{' '}
                 {s.moteurs.slice(0, 3).map((r) => MUSCLE_LABELS[r].split(' (')[0]).join(', ')}
               </div>
+              {/* En récupération, la liste mélange des étirements et des
+                  exercices ordinaires proposés À VIDE. Sans ce mot, « rotation
+                  externe à la poulie » au milieu d'étirements se lirait comme
+                  une série normale — et c'est l'inverse du but. */}
+              {s.doux ? (
+                <div
+                  className="mt-0.5 text-[10px] font-semibold text-sage-dark"
+                  title="Fait à vide, en amplitude, sans jamais forcer : la case « version douce » arrive déjà cochée, et la ligne compte comme de la récupération"
+                >
+                  🌙 version douce
+                </div>
+              ) : null}
               {/* Pourquoi CET exercice-là : parce qu'il vise le point faible
                   déclaré, parce qu'on progresse dessus, ou parce qu'il a fait son
                   temps et qu'on commence à tourner. Sans ces mots, la rotation
