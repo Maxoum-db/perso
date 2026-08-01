@@ -139,7 +139,52 @@ const QUADS: MuscleRegion[] = ['rectusFemoris', 'vastusLat', 'vastusMed']
 const HAMS: MuscleRegion[] = ['bicepsFemoris', 'hamsInner']
 const CALVES: MuscleRegion[] = ['gastroc', 'soleus']
 const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'tibialis', 'fibularis', 'tfl', 'hipFlexors']
-const UPPER: MuscleRegion[] = [...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff']
+// Dédoublonné : BACK et TRAPS contiennent tous deux les trapèzes moyen et
+// inférieur, et le dentelé n'était dans aucune des deux listes — « Haut du
+// corps » l'oubliait donc en silence, alors qu'il plaque l'omoplate sur à peu
+// près tout ce qui pousse.
+const UPPER: MuscleRegion[] = [
+  ...new Set<MuscleRegion>([...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'serratus', 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff']),
+]
+
+/**
+ * Tout le corps — la liste des muscles eux-mêmes, et non une somme de blocs.
+ *
+ * Recomposé à la main, « corps entier » couvrait 36 muscles sur 38 avec trois
+ * doublons, et les deux oubliés étaient le dentelé et LES ÉRECTEURS DU RACHIS —
+ * alors que les exercices qui portaient ce libellé sont tous des charnières de
+ * hanche ou des portages, c'est-à-dire précisément du travail d'érecteurs. Un
+ * libellé qui dit « tout » doit être dérivé de la liste des muscles, pas
+ * réassemblé à côté d'elle.
+ */
+const CORPS_ENTIER = Object.keys(MUSCLE_LABELS) as MuscleRegion[]
+
+/**
+ * Part retenue quand un libellé PARAPLUIE est écrit sans coefficient.
+ *
+ * Un libellé qui couvre un bloc entier ne peut pas prétendre que chacun de ses
+ * muscles est moteur. « Full body » sans coefficient, c'était 36 muscles à 100 %
+ * — là où le vrai étiquetage des exercices qui le portaient donne cinq à neuf
+ * muscles à 0,6-1,0. Quarante-cinq minutes de bêchage valaient donc, pour la
+ * coiffe des rotateurs comme pour les mollets, une séance maximale.
+ *
+ * Les valeurs disent ce que le libellé signifie vraiment : « tout, mais rien en
+ * particulier » pour le corps entier, « un demi-corps, sans moteur désigné »
+ * pour les deux blocs. Un coefficient ÉCRIT l'emporte toujours — les séances de
+ * récupération, qui déclarent « Haut du corps:1 » à dessein, ne changent pas.
+ */
+const PART_PARAPLUIE: Array<[cle: string, part: number]> = [
+  ['full body', 0.5],
+  ['corps entier', 0.5],
+  ['haut du corps', 0.7],
+  ['jambes', 0.7],
+]
+
+export function partParDefaut(label: string): number {
+  const n = norm(label)
+  for (const [cle, part] of PART_PARAPLUIE) if (n.includes(cle)) return part
+  return 1
+}
 
 const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   // Groupes larges
@@ -214,7 +259,7 @@ export function regionsForGroup(label: string): MuscleRegion[] {
   if (!n) return []
   const exact = MUSCLE_MAP[n]
   if (exact) return exact
-  if (n.includes('full body') || n.includes('corps entier')) return [...LEGS, ...UPPER, ...ABS, 'neck', ...FOREARMS]
+  if (n.includes('full body') || n.includes('corps entier')) return CORPS_ENTIER
   if (n.includes('jambes')) return LEGS
   if (n.includes('haut du corps')) return UPPER
   // Repli tolérant pour les libellés personnalisés — mais sur des MOTS entiers,
