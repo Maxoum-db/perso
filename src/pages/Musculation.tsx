@@ -25,6 +25,7 @@ import {
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
 import { chargesCourantes } from '../lib/charges'
+import { DUREE_PAR_DEFAUT, PLAFOND_EXOS, loadDuree, saveDuree } from '../lib/duree'
 import {
   loadObservations,
   noterObservation,
@@ -268,6 +269,8 @@ export function Musculation() {
   const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
   // Mode « spécial béhourd » : cumulable avec le point faible.
   const [behourd, setBehourd] = useState(false)
+  // Créneau visé pour la séance composée.
+  const [duree, setDuree] = useState(DUREE_PAR_DEFAUT)
   // Courbatures déclarées à la main, en plus du calcul automatique.
   const [courbatures, setCourbatures] = useState<Courbatures>({})
   // Profil morphologique : seul le sexe sert ici, pour la silhouette du mannequin.
@@ -284,7 +287,7 @@ export function Musculation() {
     if (!user) return
     try {
       await ensureSeeded(user.id)
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -297,6 +300,7 @@ export function Musculation() {
         loadNuits(user.id).catch(() => ({}) as Nuits),
         loadObservations(user.id).catch(() => [] as Observations),
         loadBehourd(user.id).catch(() => false),
+        loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
       ])
       setTemplates(t)
       setSessions(s)
@@ -312,6 +316,7 @@ export function Musculation() {
       setNuits(nu)
       setObservations(ob)
       setBehourd(bh)
+      setDuree(du)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -389,6 +394,11 @@ export function Musculation() {
             setBehourd(on)
             if (user) saveBehourd(user.id, on).catch(() => {})
           }}
+          duree={duree}
+          onDuree={(m) => {
+            setDuree(m)
+            if (user) saveDuree(user.id, m).catch(() => {})
+          }}
           onChange={reload}
         />
       ) : (
@@ -431,6 +441,8 @@ function Journal({
   onFocus,
   behourd,
   onBehourd,
+  duree,
+  onDuree,
   courbatures,
   nuits,
   observations,
@@ -453,6 +465,9 @@ function Journal({
   /** Mode « spécial béhourd », cumulable avec le point faible. */
   behourd: boolean
   onBehourd: (on: boolean) => void
+  /** Créneau visé pour la séance composée, en minutes. */
+  duree: number
+  onDuree: (m: number) => void
   courbatures: Courbatures
   /** Nuits renseignées : elles décalent la récupération affichée. */
   nuits: Nuits
@@ -628,7 +643,20 @@ function Journal({
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
-    setSuggest({ session: buildSession(catalog, sessions, { exclude, bodyWeight, focus, behourd, loads, count: forme.exos, intensite: forme.intensite }), exclude })
+    setSuggest({ session: buildSession(catalog, sessions, {
+        exclude,
+        bodyWeight,
+        focus,
+        behourd,
+        loads,
+        // Le créneau prend le relais du compte d'exercices : c'est lui qui décide
+        // de la taille. `forme` le raccourcit les jours de charge élevée, dans la
+        // même proportion qu'elle réduisait le nombre d'exercices — une séance
+        // allégée est une séance plus courte, pas seulement moins chargée.
+        count: PLAFOND_EXOS,
+        dureeCible: Math.round(duree * (forme.exos / 6)),
+        intensite: forme.intensite,
+      }), exclude })
   }
 
   function regenerer() {
@@ -641,7 +669,8 @@ function Journal({
       focus,
       behourd,
       loads,
-      count: forme.exos,
+      count: PLAFOND_EXOS,
+      dureeCible: Math.round(duree * (forme.exos / 6)),
       intensite: forme.intensite,
     })
     // Plus rien de neuf à proposer : on repart du catalogue complet.
@@ -815,7 +844,14 @@ function Journal({
         </div>
       )}
 
-      <FocusPicker value={focus} onChange={onFocus} behourd={behourd} onBehourd={onBehourd} />
+      <FocusPicker
+        value={focus}
+        onChange={onFocus}
+        behourd={behourd}
+        onBehourd={onBehourd}
+        duree={duree}
+        onDuree={onDuree}
+      />
 
       {suggest ? (
         <SuggestedSessionCard

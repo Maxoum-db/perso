@@ -1,4 +1,5 @@
 import { FOCUS, FOCUS_IDS, FOCUS_RECUP, type FocusId } from '../lib/focus'
+import { DUREES, fmtDuree } from '../lib/duree'
 
 // Le point faible du moment, et le mode béhourd. Deux réglages distincts et
 // cumulables : le premier dit QUEL groupe pousser, le second POUR QUOI on
@@ -24,11 +25,16 @@ export function FocusPicker({
   onChange,
   behourd,
   onBehourd,
+  duree,
+  onDuree,
 }: {
   value: FocusId
   onChange: (id: FocusId) => void
   behourd: boolean
   onBehourd: (on: boolean) => void
+  /** Créneau visé, en minutes. */
+  duree: number
+  onDuree: (m: number) => void
 }) {
   // En mode récupération, le générateur compose avec des étirements : le béhourd
   // n'y a pas de sens, et le laisser allumé le ferait mentir.
@@ -66,6 +72,18 @@ export function FocusPicker({
             Spécial béhourd
           </button>
         </span>
+      </div>
+
+      {/* Le créneau. C'est le repos entre séries qui fait la durée d'une séance,
+          pas le travail : sans cette contrainte le générateur composait des
+          séances d'une heure et demie sans le dire. */}
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-line/40 pt-2">
+        <span className="text-[11px] font-bold text-ink">⏱️ Créneau</span>
+        {DUREES.map((d) => (
+          <button key={d} onClick={() => onDuree(d)} className={pastille(d === duree)}>
+            {fmtDuree(d)}
+          </button>
+        ))}
       </div>
 
       <p className="text-[10px] text-muted">
