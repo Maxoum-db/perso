@@ -87,6 +87,56 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   fibularis: 'Fibulaires (péroniers)',
 }
 
+/**
+ * Zone large d'appartenance : le mot qu'on emploie en parlant, pas le nom
+ * anatomique. Sert à nommer une séance et à résumer l'état du corps sans
+ * énumérer trente-huit muscles.
+ *
+ * Complet, et non partiel : une zone manquante voulait dire un muscle qui
+ * n'apparaît nulle part dès qu'on résume. La coiffe a la sienne — c'est la plus
+ * lente à revenir et celle qu'il faut voir venir de loin.
+ */
+export const ZONE_LARGE: Record<MuscleRegion, string> = {
+  pecUpper: 'Pectoraux',
+  pecLower: 'Pectoraux',
+  lats: 'Dos',
+  teres: 'Dos',
+  rhomboids: 'Dos',
+  trapsMid: 'Dos',
+  trapsLow: 'Dos',
+  trapsUpper: 'Trapèzes',
+  erectors: 'Lombaires',
+  deltAnt: 'Épaules',
+  deltLat: 'Épaules',
+  deltPost: 'Épaules',
+  rotatorCuff: 'Coiffe',
+  biceps: 'Bras',
+  brachialis: 'Bras',
+  tricepsLong: 'Bras',
+  tricepsLat: 'Bras',
+  brachioradialis: 'Avant-bras',
+  forearmFlex: 'Avant-bras',
+  forearmExt: 'Avant-bras',
+  rectus: 'Core',
+  obliques: 'Core',
+  serratus: 'Core',
+  neck: 'Cou',
+  gluteMax: 'Jambes',
+  gluteMed: 'Jambes',
+  tfl: 'Jambes',
+  hipFlexors: 'Jambes',
+  rectusFemoris: 'Jambes',
+  vastusLat: 'Jambes',
+  vastusMed: 'Jambes',
+  adductors: 'Jambes',
+  bicepsFemoris: 'Jambes',
+  hamsInner: 'Jambes',
+  gastroc: 'Mollets',
+  soleus: 'Mollets',
+  tibialis: 'Mollets',
+  fibularis: 'Mollets',
+}
+
 /** Trois degrés de sollicitation, pour la légende et les pastilles. */
 export type Sollicitation = 'principal' | 'secondaire' | 'leger'
 
