@@ -271,24 +271,34 @@ export interface EtatZone {
  * absent des charges n'a pas été travaillé sur la période : il est prêt.
  */
 export function etatParZone(repos: Partial<Record<MuscleRegion, ReposMuscle>>): EtatZone[] {
-  const pires = new Map<string, { jours: number; region: MuscleRegion }>()
+  const pires = new Map<string, EtatZone>()
   for (const region of Object.keys(ZONE_LARGE) as MuscleRegion[]) {
     const zone = ZONE_LARGE[region]
     // Jamais travaillé = totalement disponible, mais borné : sinon une zone
     // oubliée depuis des mois écraserait le tri des zones réellement fraîches.
     const jours = repos[region]?.jours ?? SEUIL_PRET * 2
-    const cur = pires.get(zone)
-    if (!cur || jours < cur.jours) pires.set(zone, { jours, region })
-  }
-  return [...pires.entries()]
-    .map(([zone, { jours, region }]) => ({
+    const candidat: EtatZone = {
       zone,
       jours,
       region,
       pret: jours >= SEUIL_PRET,
       reste: resteAvantPret(jours, region),
-    }))
-    .sort((a, b) => a.jours - b.jours)
+    }
+    const cur = pires.get(zone)
+    // Le muscle qui commande, c'est celui qui fera ATTENDRE LE PLUS LONGTEMPS —
+    // pas celui qui affiche le moins de jours. Les deux ne se confondent que si
+    // toute la zone récupère à la même vitesse, et c'est rarement le cas : le
+    // matin d'une séance de pecs, le grand et le petit pectoral sont tous deux à
+    // zéro jour, mais l'un revient en 3 j ¾ et l'autre en 5 j ¼. En triant sur
+    // les jours, l'égalité était départagée par l'ordre de déclaration des
+    // muscles, et la zone annonçait « prêt dans 4 j » alors qu'il en fallait 5 ½.
+    if (!cur || candidat.reste > cur.reste || (candidat.reste === cur.reste && jours < cur.jours)) {
+      pires.set(zone, candidat)
+    }
+  }
+  // Les plus fatiguées d'abord ; à égalité de jours, celle qui fera attendre le
+  // plus longtemps passe devant.
+  return [...pires.values()].sort((a, b) => a.jours - b.jours || b.reste - a.reste)
 }
 
 /**

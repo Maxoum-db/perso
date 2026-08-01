@@ -9,7 +9,7 @@ import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
-import { MuscleBodyDiagram } from '../components/MuscleBodyDiagram'
+import { RecuperationCard } from '../components/RecuperationCard'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { ObservationsCard } from '../components/ObservationsCard'
 import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
@@ -924,18 +924,17 @@ function Journal({
         />
       ) : null}
 
-      <section className="card space-y-2 p-3">
-        <h2 className="text-sm font-bold text-ink">🫀 Récupération musculaire</h2>
-        <MuscleBodyDiagram
-          loads={loads}
-          sessions={sessions}
-          sexe={sexe}
-          onSoreness={declarerCourbatures}
-          onPret={declarerTotalementBon}
-          onExercice={ouvrirSurExercice}
-          onSeance={ouvrirSeance}
-        />
-      </section>
+      <RecuperationCard
+        sessions={sessions}
+        courbatures={courbatures}
+        nuits={nuits}
+        loads={loads}
+        sexe={sexe}
+        onSoreness={declarerCourbatures}
+        onPret={declarerTotalementBon}
+        onExercice={ouvrirSurExercice}
+        onSeance={ouvrirSeance}
+      />
 
       {sessions.length === 0 ? (
         <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>
