@@ -18,7 +18,14 @@ import {
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 import { BREW_STATUSES, listBrews, type Brew } from '../lib/brews'
 import { getMySpace, listSharedEvents, type SharedEvent } from '../lib/space'
-import { FENETRE_STATS, fmtTonnage, listSessions, seancesRecentes, sessionTonnage, type MuscuSession } from '../lib/muscu'
+import { fmtTonnage, listSessions, sessionTonnage, type MuscuSession } from '../lib/muscu'
+import { chargesCourantes } from '../lib/charges'
+// Le même formateur que pour la durée d'une séance : « 45 min », « 1 h 30 ».
+import { fmtDuree } from '../lib/duree'
+import { etatParZone, fmtDelai, reposParMuscle, type EtatZone } from '../lib/recuperation'
+import { loadCourbatures, type Courbatures } from '../lib/soreness'
+import { loadNuits, type Nuits } from '../lib/sommeil'
+import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
 
 export function Home() {
@@ -31,6 +38,10 @@ export function Home() {
   const [error, setError] = useState<string | null>(null)
   const [brews, setBrews] = useState<Brew[]>([])
   const [muscu, setMuscu] = useState<MuscuSession[]>([])
+  // Les mêmes corrections que dans le module Musculation : sans elles, l'accueil
+  // annoncerait « prêt » sur un muscle que tu viens de déclarer courbaturé.
+  const [courbatures, setCourbatures] = useState<Courbatures>({})
+  const [nuits, setNuits] = useState<Nuits>({})
 
   useEffect(() => {
     if (!user) return
@@ -40,6 +51,8 @@ export function Home() {
     listSessions(user.id, 40)
       .then(setMuscu)
       .catch(() => {})
+    loadCourbatures(user.id).then(setCourbatures).catch(() => {})
+    loadNuits(user.id).then(setNuits).catch(() => {})
     // Prochains événements du couple (espace partagé).
     getMySpace()
       .then((s) => (s ? listSharedEvents(s.spaceId) : []))
@@ -137,7 +150,7 @@ export function Home() {
           répondent à la même question, elles tiennent au même endroit.
           La carte n'est pas un lien : chaque moitié mène ailleurs, et un lien
           dans un lien n'est pas du HTML valide. */}
-      <AujourdhuiCard events={events} sessions={muscu} agendaVisible={!needAuth} />
+      <AujourdhuiCard events={events} sessions={muscu} courbatures={courbatures} nuits={nuits} agendaVisible={!needAuth} />
 
       {tasks.length > 0 ? (
         <div className="card p-4">
@@ -238,13 +251,17 @@ export function Home() {
  * Google n'est pas connecté, sans emporter la moitié muscu avec elle : le
  * journal de séances ne dépend pas de Google.
  */
-function AujourdhuiCard({
+export function AujourdhuiCard({
   events,
   sessions,
+  courbatures,
+  nuits,
   agendaVisible,
 }: {
   events: GEvent[] | null
   sessions: MuscuSession[]
+  courbatures: Courbatures
+  nuits: Nuits
   agendaVisible: boolean
 }) {
   // Un élément JSX n'est JAMAIS null : tester `<MuscuMoitie/> === null` aurait
@@ -263,32 +280,96 @@ function AujourdhuiCard({
           ) : events.length === 0 ? (
             <div className="mt-2 text-sm text-muted">Rien de prévu aujourd'hui. 🌤️</div>
           ) : (
-            <ul className="mt-3 space-y-2">
-              {events.slice(0, 4).map((e) => (
-                <li key={e.calendarId + e.id} className="flex items-baseline gap-3">
-                  <span className="w-14 shrink-0 text-xs font-semibold text-copper">
-                    {isAllDay(e) ? 'jour' : timeOf(e.start.dateTime!)}
-                  </span>
-                  <span className="truncate text-sm text-ink">{e.summary || '(sans titre)'}</span>
-                </li>
-              ))}
-              {events.length > 4 ? <li className="text-xs text-muted">+ {events.length - 4} autre(s)…</li> : null}
-            </ul>
+            <Journee events={events} />
           )}
         </Link>
       ) : null}
-      <MuscuMoitie sessions={sessions} />
+      <MuscuMoitie sessions={sessions} courbatures={courbatures} nuits={nuits} />
     </div>
   )
 }
 
-// Moitié muscu : séance en cours à reprendre, sinon dernière séance + stats du mois.
-function MuscuMoitie({ sessions }: { sessions: MuscuSession[] }) {
+/**
+ * La journée, détaillée.
+ *
+ * Une heure de début et un titre ne suffisaient pas à décider quoi que ce soit :
+ * il manquait ce qui est DÉJÀ passé, ce qui est en cours, dans combien de temps
+ * arrive la prochaine chose, et combien de temps elle prend. C'est précisément
+ * ce qu'on regarde pour savoir s'il reste un créneau pour aller à la salle.
+ */
+function Journee({ events }: { events: GEvent[] }) {
+  const maintenant = Date.now()
+  const lignes = events.slice(0, 5).map((e) => {
+    const debut = e.start.dateTime ? new Date(e.start.dateTime).getTime() : null
+    const fin = e.end?.dateTime ? new Date(e.end.dateTime).getTime() : null
+    return {
+      e,
+      debut,
+      passe: fin !== null && fin < maintenant,
+      encours: debut !== null && fin !== null && debut <= maintenant && fin >= maintenant,
+      minutes: debut !== null && fin !== null ? Math.round((fin - debut) / 60000) : null,
+    }
+  })
+  // Le prochain, et lui seul, porte le compte à rebours : le mettre sur tous
+  // reviendrait à afficher une colonne de plus, pas à mettre en avant.
+  const prochain = lignes.find((l) => !l.passe && !l.encours && l.debut !== null)
+
+  return (
+    <ul className="mt-3 space-y-2">
+      {lignes.map((l) => (
+        <li key={l.e.calendarId + l.e.id} className={l.passe ? 'opacity-45' : ''}>
+          <div className="flex items-baseline gap-3">
+            <span className={`w-14 shrink-0 text-xs font-semibold ${l.encours ? 'text-clay' : 'text-copper'}`}>
+              {isAllDay(l.e) ? 'jour' : timeOf(l.e.start.dateTime!)}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm text-ink">{l.e.summary || '(sans titre)'}</span>
+            {l.encours ? (
+              <span className="shrink-0 text-xs font-semibold text-clay">en cours</span>
+            ) : l === prochain ? (
+              <span className="shrink-0 text-xs font-semibold text-copper">{dansCombien(l.debut! - maintenant)}</span>
+            ) : null}
+          </div>
+          {l.minutes !== null || l.e.location ? (
+            <div className="ml-[4.25rem] truncate text-[11px] text-muted">
+              {l.minutes !== null ? fmtDuree(l.minutes) : ''}
+              {l.minutes !== null && l.e.location ? ' · ' : ''}
+              {l.e.location ?? ''}
+            </div>
+          ) : null}
+        </li>
+      ))}
+      {events.length > 5 ? <li className="text-xs text-muted">+ {events.length - 5} autre(s)…</li> : null}
+    </ul>
+  )
+}
+
+/** « dans 25 min », « dans 2 h 10 » — au-delà de la journée ça ne sert plus. */
+function dansCombien(ms: number): string {
+  const min = Math.max(0, Math.round(ms / 60000))
+  if (min < 1) return 'maintenant'
+  return `dans ${fmtDuree(min)}`
+}
+
+/**
+ * Moitié muscu : séance en cours à reprendre, sinon dernière séance + ÉTAT DU
+ * CORPS.
+ *
+ * Elle affichait avant le cumul des trente derniers jours — nombre de séances et
+ * tonnage. C'était de l'histoire : vrai, mais sans effet sur ce qu'on décide en
+ * ouvrant l'application le matin. La question qu'on se pose est « je peux faire
+ * quoi aujourd'hui », et l'application connaît la réponse muscle par muscle sans
+ * jamais la dire ailleurs que dans le mannequin, à deux écrans d'ici.
+ */
+function MuscuMoitie({
+  sessions,
+  courbatures,
+  nuits,
+}: {
+  sessions: MuscuSession[]
+  courbatures: Courbatures
+  nuits: Nuits
+}) {
   const live = loadLive()
-  // Fenêtre glissante, comme dans le module Musculation : le premier du mois, un
-  // compteur calendaire annonce « 0 séance » sans que rien n'ait changé.
-  const recentes = seancesRecentes(sessions)
-  const recentTonnage = recentes.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
   const last = sessions[0]
 
   if (live) {
@@ -308,26 +389,73 @@ function MuscuMoitie({ sessions }: { sessions: MuscuSession[] }) {
 
   if (!last) return null
 
+  const zones = etatParZone(reposParMuscle(chargesCourantes(sessions, courbatures, nuits)))
+  // Les prêtes, la plus fraîche d'abord : c'est celle qu'on a le plus négligée,
+  // donc la meilleure candidate du jour.
+  const pretes = zones.filter((z) => z.pret).sort((a, b) => b.jours - a.jours)
+  // Celles qui reviennent, par DÉLAI et non par état : « revient » annonce une
+  // date, et les zones ne récupèrent pas à la même vitesse — trier sur les jours
+  // ressentis aurait mis en tête une zone qui revient plus tard qu'une autre
+  // affichée en dessous. Trois suffisent : les suivantes ne cadrent plus rien.
+  const enRecup = zones.filter((z) => !z.pret).sort((a, b) => a.reste - b.reste).slice(0, 3)
+
   return (
     <Link to="/musculation" className="block p-4 transition hover:bg-copper/5">
       <div className="flex items-center justify-between">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted">💪 Musculation</div>
         <span className="text-xs font-semibold text-copper">▶️ Démarrer</span>
       </div>
-      <div className="mt-2 flex items-baseline gap-3 text-sm">
-        <span className="w-20 shrink-0 text-xs font-semibold text-copper">
-          {new Date(last.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+
+      {pretes.length > 0 ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span className="shrink-0 text-xs font-semibold text-sage-dark">✅ Prêt</span>
+          {pretes.map((z) => (
+            <Pastille key={z.zone} etat={z} />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-2 text-sm text-muted">Tout est encore en récupération. 🌙</div>
+      )}
+
+      {enRecup.length > 0 ? (
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span className="shrink-0 text-xs font-semibold text-muted">⏳ Revient</span>
+          {enRecup.map((z) => (
+            <Pastille key={z.zone} etat={z} delai />
+          ))}
+        </div>
+      ) : null}
+
+      {/* La dernière séance reste en pied : elle situe l'état du corps dans le
+          temps. Sans elle, « jambes prêtes » ne dit pas si c'est parce qu'elles
+          ont récupéré ou parce qu'on ne les a pas touchées depuis trois semaines. */}
+      <div className="mt-2 flex items-baseline gap-2 border-t border-line/40 pt-2 text-xs text-muted">
+        <span className="shrink-0">
+          Dernière · {new Date(last.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
         </span>
         <span className="min-w-0 flex-1 truncate text-ink">{last.name}</span>
         {sessionTonnage(last.exercises) > 0 ? (
-          <span className="shrink-0 text-xs text-muted">🏋️ {fmtTonnage(sessionTonnage(last.exercises))}</span>
+          <span className="shrink-0">🏋️ {fmtTonnage(sessionTonnage(last.exercises))}</span>
         ) : null}
       </div>
-      <div className="mt-1 text-xs text-muted">
-        {FENETRE_STATS} derniers jours : {recentes.length} séance{recentes.length > 1 ? 's' : ''}
-        {recentTonnage > 0 ? ` · ${fmtTonnage(recentTonnage)} soulevés` : ''}
-      </div>
     </Link>
+  )
+}
+
+/**
+ * Une zone, avec la couleur qu'elle a sur le mannequin.
+ *
+ * La pastille n'est pas décorative : c'est le même barème et la même rampe qu'à
+ * deux écrans d'ici, donc le vert d'ici est le vert de là-bas. Une couleur
+ * inventée pour l'accueil aurait obligé à réapprendre l'échelle.
+ */
+function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <span className="inline-block h-2 w-2 rounded-full" style={{ background: recoveryColor(etat.jours) }} />
+      <span className="text-ink">{etat.zone}</span>
+      {delai ? <span className="text-xs text-muted">{fmtDelai(etat.reste)}</span> : null}
+    </span>
   )
 }
 

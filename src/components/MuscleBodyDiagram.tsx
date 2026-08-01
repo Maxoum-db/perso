@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
 import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
-import { SEUIL_PRET, VITESSE_RECUP, reposParMuscle, type ReposMuscle } from '../lib/recuperation'
+import { VITESSE_RECUP, fmtDelai, reposParMuscle, resteAvantPret, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
 import { historiqueParMuscle, type DernierExo, type HistoriqueMuscle } from '../lib/historiqueMuscle'
@@ -468,32 +468,6 @@ function ZoomBody({
 
 
 /**
- * Temps restant avant que le muscle repasse « prêt », en jours réels.
- *
- * On repart de l'état courant plutôt que de refaire le calcul depuis la séance :
- * il porte déjà les courbatures déclarées et les récups actives. La part du
- * muscle n'entre plus ici : elle donne une avance de DÉPART, pas un temps qui
- * s'écoule plus vite, et les jours ressentis avancent donc de `vitesse` par jour
- * réel quelle qu'elle soit. Le palier « jamais plus frais que le calendrier » ne
- * peut pas retenir un muscle sous le seuil (cf. PLAFOND_FRAICHEUR), il n'a donc
- * pas à figurer ici non plus.
- */
-function resteAvantPret(info: ReposMuscle, region: MuscleRegion): number {
-  if (info.jours >= SEUIL_PRET) return 0
-  const reste = (SEUIL_PRET - info.jours) / VITESSE_RECUP[region]
-  // Arrondi à la section supérieure : mieux vaut annoncer une demi-journée de
-  // trop qu'envoyer quelqu'un sur un muscle qui n'est pas encore revenu.
-  return Math.max(PAS_JOURS, Math.ceil(reste / PAS_JOURS) * PAS_JOURS)
-}
-
-/** « 12 h », « 1 j », « 2 j ½ » — la même échelle que partout ailleurs. */
-function fmtDuree(jours: number): string {
-  if (jours < 1) return `${Math.round(jours * 24)} h`
-  const pleins = Math.floor(jours)
-  return `${pleins} j${jours - pleins >= PAS_JOURS ? ' ½' : ''}`
-}
-
-/**
  * Une ligne d'historique : ce qui a chargé le muscle, ou ce qui l'a soulagé.
  *
  * Au clic, on retourne à la séance DÉJÀ FAITE, pas vers un exercice vierge :
@@ -570,7 +544,7 @@ function MuscleSheet({
   const [courbOuvert, setCourbOuvert] = useState(false)
   const propositions = exercicesPourMuscle(region, 8)
   const color = recoveryColor(info?.jours, info?.intensite)
-  const reste = info ? resteAvantPret(info, region) : 0
+  const reste = info ? resteAvantPret(info.jours, region) : 0
   const actuel = info?.soreExtra ?? 0
   const totalementBon = info?.sorePret === true
   // Rien à prolonger sur un muscle jamais travaillé : sans séance d'origine, il
@@ -733,7 +707,7 @@ function MuscleSheet({
               {!info
                 ? 'disponible'
                 : reste > 0
-                  ? `prêt dans ~${fmtDuree(reste)}`
+                  ? `prêt dans ~${fmtDelai(reste)}`
                   : 'prêt à travailler'}
             </span>
           </div>

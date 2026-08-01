@@ -1,4 +1,4 @@
-import { regionsForGroup, type MuscleRegion } from './muscles'
+import { regionsForGroup, ZONE_LARGE, type MuscleRegion } from './muscles'
 import type { GroupLoad } from './muscu'
 import type { IntensiteId } from './intensite'
 
@@ -221,6 +221,74 @@ export interface ReposMuscle {
   intensiteId?: IntensiteId
   /** Jours ajoutés (ou retirés) par le sommeil depuis la séance. */
   sommeilDelta?: number
+}
+
+/**
+ * Temps restant avant que le muscle repasse « prêt », en jours RÉELS.
+ *
+ * On repart de l'état courant plutôt que de refaire le calcul depuis la séance :
+ * il porte déjà les courbatures déclarées, les récups actives et le sommeil. La
+ * part du muscle n'entre pas ici — elle donne une avance de DÉPART, pas un temps
+ * qui s'écoule plus vite —, et les jours ressentis avancent donc de `vitesse` par
+ * jour réel, quelle qu'elle soit.
+ *
+ * Ici et non dans le mannequin : l'accueil pose la même question, et deux
+ * réponses au même calcul finissent par diverger.
+ */
+export function resteAvantPret(jours: number, region: MuscleRegion): number {
+  if (jours >= SEUIL_PRET) return 0
+  const reste = (SEUIL_PRET - jours) / VITESSE_RECUP[region]
+  // Arrondi à la section supérieure : mieux vaut annoncer une demi-journée de
+  // trop qu'envoyer quelqu'un sur un muscle qui n'est pas encore revenu.
+  return Math.max(PAS_JOURS, Math.ceil(reste / PAS_JOURS) * PAS_JOURS)
+}
+
+/** « 12 h », « 1 j », « 2 j ½ » — un délai, à l'échelle du reste du module. */
+export function fmtDelai(jours: number): string {
+  if (jours < 1) return `${Math.round(jours * 24)} h`
+  const pleins = Math.floor(jours)
+  return `${pleins} j${jours - pleins >= PAS_JOURS ? ' ½' : ''}`
+}
+
+/** L'état d'une zone large : son muscle le plus en retard, et rien d'autre. */
+export interface EtatZone {
+  zone: string
+  /** Jours ressentis du muscle le PLUS fatigué de la zone. */
+  jours: number
+  /** Ce muscle-là — c'est lui qui commande le délai. */
+  region: MuscleRegion
+  pret: boolean
+  /** Jours réels avant que la zone entière soit prête (0 si elle l'est). */
+  reste: number
+}
+
+/**
+ * Résumé du corps par zone large, de la plus fatiguée à la plus fraîche.
+ *
+ * Une zone prend l'état de son muscle le PLUS en retard, jamais une moyenne :
+ * annoncer « jambes prêtes » parce que les mollets le sont, alors que les
+ * ischios ne le sont pas, c'est exactement l'erreur qu'on veut éviter. Un muscle
+ * absent des charges n'a pas été travaillé sur la période : il est prêt.
+ */
+export function etatParZone(repos: Partial<Record<MuscleRegion, ReposMuscle>>): EtatZone[] {
+  const pires = new Map<string, { jours: number; region: MuscleRegion }>()
+  for (const region of Object.keys(ZONE_LARGE) as MuscleRegion[]) {
+    const zone = ZONE_LARGE[region]
+    // Jamais travaillé = totalement disponible, mais borné : sinon une zone
+    // oubliée depuis des mois écraserait le tri des zones réellement fraîches.
+    const jours = repos[region]?.jours ?? SEUIL_PRET * 2
+    const cur = pires.get(zone)
+    if (!cur || jours < cur.jours) pires.set(zone, { jours, region })
+  }
+  return [...pires.entries()]
+    .map(([zone, { jours, region }]) => ({
+      zone,
+      jours,
+      region,
+      pret: jours >= SEUIL_PRET,
+      reste: resteAvantPret(jours, region),
+    }))
+    .sort((a, b) => a.jours - b.jours)
 }
 
 /**

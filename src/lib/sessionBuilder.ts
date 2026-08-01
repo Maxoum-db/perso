@@ -1,6 +1,6 @@
 import { EXERCISE_LIBRARY } from '../data/exercises'
 import { poidsBehourd, rangsBehourd } from '../data/behourdPriority'
-import type { MuscleRegion } from './muscles'
+import { ZONE_LARGE, type MuscleRegion } from './muscles'
 import { reposParMuscle } from './recuperation'
 import { estRessenti, groupLoads, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
@@ -71,42 +71,6 @@ const ADAPTABLES = new Set(
 
 /** Muscle jamais travaillé : totalement disponible. */
 const JAMAIS = 99
-
-/** Zone large d'appartenance, pour nommer la séance. */
-const ZONE: Partial<Record<MuscleRegion, string>> = {
-  pecUpper: 'Pectoraux',
-  pecLower: 'Pectoraux',
-  lats: 'Dos',
-  teres: 'Dos',
-  trapsMid: 'Dos',
-  trapsLow: 'Dos',
-  trapsUpper: 'Trapèzes',
-  erectors: 'Lombaires',
-  deltAnt: 'Épaules',
-  deltLat: 'Épaules',
-  deltPost: 'Épaules',
-  biceps: 'Bras',
-  brachialis: 'Bras',
-  tricepsLong: 'Bras',
-  tricepsLat: 'Bras',
-  forearmFlex: 'Avant-bras',
-  forearmExt: 'Avant-bras',
-  rectus: 'Core',
-  obliques: 'Core',
-  serratus: 'Core',
-  neck: 'Cou',
-  gluteMax: 'Jambes',
-  gluteMed: 'Jambes',
-  rectusFemoris: 'Jambes',
-  vastusLat: 'Jambes',
-  vastusMed: 'Jambes',
-  adductors: 'Jambes',
-  bicepsFemoris: 'Jambes',
-  hamsInner: 'Jambes',
-  gastroc: 'Mollets',
-  soleus: 'Mollets',
-  tibialis: 'Mollets',
-}
 
 export interface SuggestedExercise {
   exo: CatalogExercise
@@ -569,7 +533,7 @@ export function buildSession(
   const parZone = new Map<string, number>()
   for (const c of choisis) {
     for (const r of c.moteurs) {
-      const z = ZONE[r]
+      const z = ZONE_LARGE[r]
       if (z) parZone.set(z, (parZone.get(z) ?? 0) + 1)
     }
   }
