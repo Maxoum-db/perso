@@ -1,9 +1,8 @@
 import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
-import { OUTDOOR_ACTIVITIES } from '../data/activities'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
-import { regionsForGroup } from './muscles'
+import { partParDefaut, regionsForGroup } from './muscles'
 import { SEUIL_PRET, VITESSE_MAX, VITESSE_MIN } from './recuperation'
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 
@@ -131,8 +130,11 @@ export interface GroupEntry {
 
 /**
  * « Pectoraux, Triceps:0.5 » → [{Pectoraux, 1}, {Triceps, 0.5}]
- * Un groupe sans coefficient vaut 1 : les valeurs saisies avant l'arrivée des
- * intensités restent donc valides.
+ *
+ * Un groupe sans coefficient vaut 1 — les valeurs saisies avant l'arrivée des
+ * intensités restent donc valides —, SAUF les libellés parapluie, qui valent ce
+ * que `partParDefaut` leur accorde : « Full body » n'a jamais voulu dire que les
+ * trente-huit muscles étaient moteurs.
  */
 export function parseGroupEntries(value: string): GroupEntry[] {
   return value
@@ -142,7 +144,7 @@ export function parseGroupEntries(value: string): GroupEntry[] {
       const name = (rawName ?? '').trim()
       if (!name) return null
       const n = parseFloat((rawIntensity ?? '').trim())
-      const intensity = Number.isFinite(n) && n > 0 ? Math.min(1, n) : 1
+      const intensity = Number.isFinite(n) && n > 0 ? Math.min(1, n) : partParDefaut(name)
       return { name, intensity }
     })
     .filter((e): e is GroupEntry => e !== null)
@@ -153,11 +155,19 @@ export function parseGroups(value: string): string[] {
   return parseGroupEntries(value).map((e) => e.name)
 }
 
-/** Sérialise en omettant le coefficient quand il vaut 1 (valeur par défaut). */
+/**
+ * Sérialise en omettant le coefficient quand il vaut déjà la valeur par défaut
+ * du libellé — donc 1 pour un muscle, moins pour un parapluie.
+ *
+ * C'est ce qui garde l'aller-retour cohérent : cocher « Full body » en principal
+ * dans le sélecteur écrit « Full body:1 » et se relit en principal. Omis, il se
+ * serait relu en secondaire, et le sélecteur aurait affiché autre chose que ce
+ * qu'on venait d'y cocher.
+ */
 export function serializeGroups(entries: GroupEntry[]): string {
   return entries
     .filter((e) => e.name.trim())
-    .map((e) => (e.intensity >= 1 ? e.name.trim() : `${e.name.trim()}:${e.intensity}`))
+    .map((e) => (e.intensity === partParDefaut(e.name.trim()) ? e.name.trim() : `${e.name.trim()}:${e.intensity}`))
     .join(', ')
 }
 
@@ -592,7 +602,6 @@ export function isBodyweightExercise(name: string): boolean {
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
-const ACTIVITIES_SEED_KEY = 'muscu_activities_seeded'
 const LIBRARY_SEED_KEY = 'muscu_library_v21'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 
@@ -914,29 +923,14 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
     didSeed = true
   }
 
-  // Activités hors salle (natation, course, bois, extérieur) : ajoutées une
-  // fois au catalogue, sans toucher aux exercices déjà présents.
-  const actSeeded = await fetchKv<boolean>(userId, ACTIVITIES_SEED_KEY, false)
-  if (!actSeeded) {
-    const existing = await listCatalog(userId)
-    const have = new Set(existing.map((e) => e.name.trim().toLowerCase()))
-    const rows = OUTDOOR_ACTIVITIES.filter((a) => !have.has(a.name.trim().toLowerCase())).map((a, i) => ({
-      user_id: userId,
-      name: a.name,
-      muscle_group: a.muscle_group,
-      default_sets: a.sets,
-      default_reps: a.reps,
-      default_weight_kg: null,
-      notes: a.notes,
-      position: 200 + i,
-    }))
-    if (rows.length) {
-      const { error } = await supabase.from('perso_muscu_exercises').insert(rows)
-      if (error) throw new Error(error.message)
-    }
-    await saveKv(userId, ACTIVITIES_SEED_KEY, true)
-    didSeed = true
-  }
+  // Les activités hors salle (natation, course, bois, extérieur) avaient leur
+  // propre table, avec leurs propres groupes musculaires. C'était une SECONDE
+  // source de vérité pour les mêmes vingt-huit exercices, et elle contredisait
+  // la bibliothèque : là où celle-ci dit « Obliques:0.9, Grand dorsal:0.8… »
+  // pour fendre du bois, la table disait « Full body », soit trente-six muscles
+  // à 100 %. C'est de là que venait le libellé. Elle a été supprimée, ses
+  // consignes de sécurité rapatriées dans la bibliothèque, et c'est
+  // `ensureLibrary` ci-dessous qui ajoute ces exercices — au bon étiquetage.
 
   if (await ensureLibrary(userId)) didSeed = true
   if (await ensureRecoveryTemplates(userId)) didSeed = true
