@@ -1,8 +1,8 @@
 import { EXERCISE_LIBRARY } from '../data/exercises'
 import { poidsBehourd, rangsBehourd } from '../data/behourdPriority'
-import { regionsForGroup, type MuscleRegion } from './muscles'
+import type { MuscleRegion } from './muscles'
 import { reposParMuscle } from './recuperation'
-import { estRessenti, groupLoads, parseGroupEntries, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
+import { estRessenti, groupLoads, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
 import {
   FOCUS,
@@ -16,6 +16,20 @@ import {
   type FocusId,
 } from './focus'
 import { clefExo, enRotation, familiarites, poidsFamiliarite } from './familiarite'
+import {
+  BONUS_ETIRE,
+  SERIES_MAX,
+  SERIES_MAX_FOCUS,
+  apportSeries,
+  budgetSystemique,
+  coutSystemique,
+  estEtire,
+  estPoussee,
+  estTirage,
+  musclesDeLExercice,
+  patternDe,
+  type Pattern,
+} from './composition'
 
 // Générateur de séance : compose une séance à partir de ce que le corps a déjà
 // encaissé. Le principe est celui du mannequin, appliqué à l'envers — au lieu
@@ -93,6 +107,10 @@ export interface SuggestedExercise {
   rotation: boolean
   /** Vrai quand il a été retenu au titre du point faible visé. */
   focus: boolean
+  /** Famille de mouvement — sert à équilibrer la séance. */
+  pattern: Pattern
+  /** Charge le muscle en position allongée : plus de croissance par série. */
+  etire: boolean
 }
 
 export interface SuggestedSession {
@@ -104,6 +122,21 @@ export interface SuggestedSession {
   evites: MuscleRegion[]
   /** Vrai si tout était encore rouge et qu'on a dû assouplir la règle. */
   degrade: boolean
+  /**
+   * Ce que la séance pèse, une fois composée. Affiché en pied de carte : sans
+   * ça, les règles de volume et de fatigue seraient invisibles, et une séance de
+   * quatre exercices passerait pour un générateur qui n'a rien trouvé alors
+   * qu'elle est simplement au bout de son budget.
+   */
+  bilan: {
+    /** Séries totales, toutes lignes confondues. */
+    series: number
+    /** Charge nerveuse cumulée et son budget. */
+    cout: number
+    budget: number
+    poussees: number
+    tirages: number
+  }
 }
 
 /** Un muscle en récupération pénalise, un muscle prêt rapporte. */
@@ -121,18 +154,6 @@ function poidsCourbature(jours: number): number {
   if (jours <= 2) return 3
   if (jours <= 4) return 1.5
   return 0.2
-}
-
-/** Intensité maximale par muscle pour un exercice donné. */
-function musclesDeLExercice(groups: string): Map<MuscleRegion, number> {
-  const out = new Map<MuscleRegion, number>()
-  for (const entry of parseGroupEntries(groups)) {
-    for (const region of regionsForGroup(entry.name)) {
-      const cur = out.get(region)
-      if (cur === undefined || entry.intensity > cur) out.set(region, entry.intensity)
-    }
-  }
-  return out
 }
 
 export interface BuildOptions {
@@ -218,13 +239,30 @@ export function buildSession(
       // bat systématiquement l'étirement précis de ce qui fait mal.
       if (modeRecup && muscles.size > 0) score /= muscles.size
       const familiarite = familiariteDe(c.name)
-      // Sur un score négatif, multiplier par un bonus l'aggraverait : la
-      // familiarité ne joue que sur ce qui est déjà retenu comme jouable.
-      if (!modeRecup && score > 0) score *= poidsFamiliarite(familiarite)
+      const etire = estEtire(c.name)
+      // Sur un score négatif, multiplier par un bonus l'aggraverait : ni la
+      // familiarité ni la position étirée ne jouent sur ce qui est déjà écarté.
+      if (!modeRecup && score > 0) {
+        score *= poidsFamiliarite(familiarite)
+        // Charger un muscle en position allongée rend plus par série. En mode
+        // récupération on ne s'en sert pas : le but n'est plus de faire pousser.
+        if (etire) score *= BONUS_ETIRE
+      }
       // En récupération, viser un muscle chaud est le but : aucun veto.
       const fatigue = !modeRecup && moteurs.some((r) => reposDe(r) <= 2)
       const reposMin = moteurs.length ? Math.min(...moteurs.map(reposDe)) : JAMAIS
-      return { exo: c, muscles, moteurs, score, fatigue, reposMin, familiarite }
+      return {
+        exo: c,
+        muscles,
+        moteurs,
+        score,
+        fatigue,
+        reposMin,
+        familiarite,
+        etire,
+        pattern: patternDe(c.name),
+        cout: coutSystemique(c.name),
+      }
     })
     // Un exercice sans muscle identifié (« Cardio » seul) ne compose pas une séance.
     .filter((c) => c.moteurs.length > 0)
@@ -242,10 +280,25 @@ export function buildSession(
   const usage = new Map<MuscleRegion, number>()
   const classes = [...pool].sort((a, b) => b.score - a.score)
 
+  // Volume déjà posé sur chaque muscle, en séries EFFECTIVES : une série compte
+  // au prorata de la part du muscle dans l'exercice. Quatre séries de développé
+  // couché valent quatre séries de pectoral et deux de triceps.
+  const series = new Map<MuscleRegion, number>()
+  let coutTotal = 0
+  let poussees = 0
+  let tirages = 0
+  const budget = budgetSystemique(count, special)
+
   const pris = new Set<string>()
   const prendre = (c: (typeof classes)[number], auTitreDuFocus = false) => {
     pris.add(c.exo.id)
+    coutTotal += c.cout
+    if (estPoussee(c.exo.name)) poussees++
+    if (estTirage(c.exo.name)) tirages++
     for (const r of c.moteurs) usage.set(r, (usage.get(r) ?? 0) + 1)
+    for (const [region, n] of apportSeries(c.muscles, c.exo.default_sets)) {
+      series.set(region, (series.get(region) ?? 0) + n)
+    }
     choisis.push({
       exo: c.exo,
       moteurs: c.moteurs,
@@ -254,6 +307,8 @@ export function buildSession(
       familiarite: c.familiarite,
       rotation: enRotation(c.familiarite),
       focus: auTitreDuFocus,
+      pattern: c.pattern,
+      etire: c.etire,
       charge: ajusterCharge(
         suggererCharge(
           sessions,
@@ -268,14 +323,29 @@ export function buildSession(
   // Réserve du point faible : deux exercices garantis dessus quand il est
   // reposé. Le multiplicateur de score ne suffit pas — un exercice de gainage
   // ne vise qu'un ou deux muscles et perd contre n'importe quel polyarticulaire.
-  // Deux exercices par muscle, trois sur les muscles du point faible. Défini ici
-  // et pas seulement dans la boucle finale : les réserves choisissaient sans en
-  // tenir compte, et un exercice pris « au titre du focus » pouvait faire monter
-  // à trois un muscle qui n'est PAS dans le focus — le droit fémoral se
-  // retrouvait travaillé trois fois par une séance jambes.
+  // Deux garde-fous, et non plus un seul compte d'exercices.
+  //
+  // 1. Le nombre d'exercices par muscle : deux, trois sur le point faible. Il
+  //    évite trois variantes du même mouvement à la suite.
+  // 2. Le VOLUME en séries effectives. C'est le vrai garde-fou physiologique :
+  //    trois exercices de quatre séries sur un même muscle font douze séries, là
+  //    où la croissance plafonne vers six à huit et où le reste ne fait plus
+  //    qu'ajouter de la fatigue. Compter les exercices ne pouvait pas voir ça.
   const plafond = (r: MuscleRegion) => (focusRegions.has(r) ? MAX_USAGE_FOCUS : 2)
-  const sousLePlafond = (c: { moteurs: MuscleRegion[] }) =>
-    !c.moteurs.some((r) => (usage.get(r) ?? 0) >= plafond(r))
+  const plafondSeries = (r: MuscleRegion) => (focusRegions.has(r) ? SERIES_MAX_FOCUS : SERIES_MAX)
+  const sousLePlafond = (c: {
+    moteurs: MuscleRegion[]
+    muscles: Map<MuscleRegion, number>
+    exo: CatalogExercise
+    cout: number
+  }) => {
+    if (c.moteurs.some((r) => (usage.get(r) ?? 0) >= plafond(r))) return false
+    if (coutTotal + c.cout > budget) return false
+    for (const [region, n] of apportSeries(c.muscles, c.exo.default_sets)) {
+      if ((series.get(region) ?? 0) + n > plafondSeries(region)) return false
+    }
+    return true
+  }
 
   const placesFocus = !modeRecup && focusRegions.size > 0 ? Math.max(2, Math.ceil(count * PART_FOCUS)) : 0
   for (let n = 0; n < placesFocus; n++) {
@@ -318,30 +388,49 @@ export function buildSession(
     if (best) prendre(best)
   }
 
-  // Puis deux règles de composition, sinon la séance dérive vers trois variantes
-  // du même mouvement : chaque exercice doit apporter un muscle moteur que la
-  // séance ne couvre pas encore, et aucun muscle n'est attaqué plus de deux fois.
-  for (const c of classes) {
-    if (choisis.length >= count) break
-    if (pris.has(c.exo.id)) continue
-    // Règle générale : apporter un muscle que la séance ne couvre pas encore,
-    // sinon elle dérive vers trois variantes du même mouvement. EXCEPTION pour
-    // le point faible — sans elle, un troisième exercice ciblé était refusé ici
-    // avant même d'atteindre le plafond relevé, et le focus ne « marquait »
-    // jamais rien.
-    const apporteDuNeuf = c.moteurs.some((r) => !usage.has(r))
-    const renforceLeFocus = c.moteurs.some(
-      (r) => focusRegions.has(r) && (usage.get(r) ?? 0) < MAX_USAGE_FOCUS,
-    )
-    if (!apporteDuNeuf && !renforceLeFocus) continue
-    if (!sousLePlafond(c)) continue
-    prendre(c, c.moteurs.some((r) => focusRegions.has(r)))
+  // Remplissage, en deux passes.
+  //
+  // La première tient l'équilibre pousser/tirer : une séance qui empile les
+  // poussées entretient l'épaule tombante au lieu de la corriger, et l'AC droite
+  // n'a pas besoin de ça. On vise au moins autant de tirages que de poussées.
+  // La seconde comble ce qui reste sans cette contrainte — mieux vaut une
+  // poussée de plus qu'un trou dans la séance.
+  const remplir = (equilibrer: boolean) => {
+    for (const c of classes) {
+      if (choisis.length >= count) break
+      if (pris.has(c.exo.id)) continue
+      // Règle générale : apporter un muscle que la séance ne couvre pas encore,
+      // sinon elle dérive vers trois variantes du même mouvement. EXCEPTION pour
+      // le point faible — sans elle, un troisième exercice ciblé était refusé ici
+      // avant même d'atteindre le plafond relevé, et le focus ne « marquait »
+      // jamais rien.
+      const apporteDuNeuf = c.moteurs.some((r) => !usage.has(r))
+      const renforceLeFocus = c.moteurs.some(
+        (r) => focusRegions.has(r) && (usage.get(r) ?? 0) < MAX_USAGE_FOCUS,
+      )
+      if (!apporteDuNeuf && !renforceLeFocus) continue
+      if (!sousLePlafond(c)) continue
+      if (equilibrer && estPoussee(c.exo.name) && poussees >= tirages) continue
+      prendre(c, c.moteurs.some((r) => focusRegions.has(r)))
+    }
   }
+  remplir(true)
+  remplir(false)
 
   if (choisis.length === 0) return null
 
-  // Les polyarticulaires d'abord, l'isolation en fin de séance.
-  choisis.sort((a, b) => b.moteurs.length - a.moteurs.length || b.score - a.score)
+  // L'ordre de la séance.
+  //
+  // Ce qui est fait en premier progresse le plus, la fatigue nerveuse
+  // s'accumulant au fil de la séance. La littérature est explicite : on place le
+  // muscle prioritaire d'abord, QU'IL SOIT polyarticulaire ou non. C'est un
+  // changement par rapport à la règle « les gros mouvements d'abord » : elle
+  // reléguait systématiquement le gainage et le cou en fin de séance, c'est-à-dire
+  // exactement les points faibles qu'on cherche à rattraper.
+  const rang = (e: SuggestedExercise) => (e.focus ? 0 : 1)
+  choisis.sort(
+    (a, b) => rang(a) - rang(b) || b.moteurs.length - a.moteurs.length || b.score - a.score,
+  )
 
   const evites = [...new Set(candidats.filter((c) => c.fatigue).flatMap((c) => c.moteurs))]
     .filter((r) => reposDe(r) <= 2)
@@ -362,6 +451,13 @@ export function buildSession(
     .map(([z]) => z)
 
   return {
+    bilan: {
+      series: choisis.reduce((t, e) => t + e.exo.default_sets, 0),
+      cout: coutTotal,
+      budget,
+      poussees,
+      tirages,
+    },
     name: modeRecup
       ? zones.length
         ? `Récup ${zones.join(' · ')}`

@@ -99,9 +99,14 @@ export function SuggestedSessionCard({
                   déclaré, parce qu'on progresse dessus, ou parce qu'il a fait son
                   temps et qu'on commence à tourner. Sans ces mots, la rotation
                   ressemblerait à de l'instabilité du générateur. */}
-              {!suggestion.recuperation && (s.focus || s.familiarite > 0) ? (
+              {!suggestion.recuperation && (s.focus || s.etire || s.familiarite > 0) ? (
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px]">
                   {s.focus ? <span className="font-semibold text-copper">🎯 point faible</span> : null}
+                  {s.etire ? (
+                    <span className="text-sage-dark" title="Charge le muscle en position allongée : plus de croissance par série">
+                      🫱 étiré
+                    </span>
+                  ) : null}
                   {s.familiarite > 0 ? (
                     <span className={s.rotation ? 'font-semibold text-plum' : 'text-muted'}>
                       {s.rotation ? '🔄 ' : '📈 '}
@@ -126,6 +131,31 @@ export function SuggestedSessionCard({
           </li>
         ))}
       </ol>
+
+      {/* Ce que la séance pèse. Sans cette ligne, les budgets de volume et de
+          fatigue resteraient invisibles, et une séance courte passerait pour un
+          générateur en panne alors qu'elle est au bout de son budget. */}
+      {!suggestion.recuperation ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-line/40 pt-1.5 text-[10px] text-muted">
+          <span>
+            <b className="text-ink">{suggestion.bilan.series}</b> séries
+          </span>
+          <span title="Soulevés, squats et portages coûtent au système nerveux, et ça se cumule">
+            charge nerveuse{' '}
+            <b className={suggestion.bilan.cout >= suggestion.bilan.budget ? 'text-copper' : 'text-ink'}>
+              {suggestion.bilan.cout}/{suggestion.bilan.budget}
+            </b>
+          </span>
+          {suggestion.bilan.poussees + suggestion.bilan.tirages > 0 ? (
+            <span title="Au moins autant de tirages que de poussées — pour l’épaule">
+              pousser/tirer{' '}
+              <b className="text-ink">
+                {suggestion.bilan.poussees}:{suggestion.bilan.tirages}
+              </b>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {suggestion.evites.length > 0 ? (
         <p className="text-[11px] text-muted">
