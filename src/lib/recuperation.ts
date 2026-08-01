@@ -18,6 +18,59 @@ import type { IntensiteId } from './intensite'
 // Sept paliers, de 2,5 à 7,5 jours avant le vert. Le coefficient multiplie les
 // jours « ressentis » : au-dessus de 1 le muscle est prêt plus tôt.
 
+/**
+ * Jours « ressentis » à partir desquels un muscle est prêt à retravailler.
+ *
+ * Ici et non dans le mannequin : ce n'est pas une règle de dessin mais une règle
+ * de récupération, et « totalement bon » a besoin de savoir à partir de quand un
+ * muscle est prêt pour pouvoir l'y placer.
+ *
+ * C'est la borne exacte de la quatrième case du spectre : le compte à rebours
+ * affiché et le libellé d'état basculent au même instant, sinon la fiche se
+ * contredit elle-même. Déclaré avant les paliers parce que ce sont EUX qui
+ * s'expriment par rapport à lui, et non l'inverse.
+ */
+export const SEUIL_PRET = 4.5
+
+/**
+ * Pas de temps de la récupération : une demi-journée.
+ *
+ * En marches de 24 h, un muscle gardait la même couleur du réveil au coucher
+ * puis changeait d'un coup pendant la nuit — alors qu'entre une séance du matin
+ * et le soir même il s'est passé l'essentiel de la première phase de
+ * récupération. À 12 h, chaque journée porte deux états.
+ *
+ * Vit ici et non dans le journal des séances : c'est le pas du BARÈME, et le
+ * plafond du jour J s'exprime avec (muscu.ts les ré-exporte pour ne rien casser).
+ */
+export const PAS_HEURES = 12
+export const PAS_JOURS = PAS_HEURES / 24
+
+/**
+ * Le jour même, aucun muscle sollicité n'affiche « prêt » : on le bloque au
+ * dernier cran avant le seuil, quelle que soit sa part dans l'exercice.
+ *
+ * Appliqué ICI, par muscle, et non sur les jours ressentis : là-bas la vitesse
+ * de la zone n'est pas encore connue, il fallait donc caler le plafond sur la
+ * zone la PLUS RAPIDE du barème, et toutes les autres en héritaient d'un
+ * plafond trop bas. Depuis que les jambes descendent à 1,5 j, ça tirait tout le
+ * corps vers le rouge le jour de la séance. Exprimé en jours ressentis finaux,
+ * le plafond vaut pour chaque zone exactement ce qu'il annonce.
+ */
+export const PLAFOND_JOUR_J = SEUIL_PRET - PAS_JOURS
+
+/**
+ * Le coefficient qui rend un muscle prêt EXACTEMENT un jour plus tôt que le
+ * palier donné.
+ *
+ * Les paliers ne sont pas espacés d'un jour — 0,6 j en haut de l'échelle, 1,1 j
+ * en bas —, donc « descendre d'un cran » ne veut pas dire « gagner un jour ».
+ * Quand on veut le jour, on le calcule.
+ */
+function unJourDeMoins(palier: number): number {
+  return SEUIL_PRET / (SEUIL_PRET / palier - 1)
+}
+
 /** ~2,5 j — minuscules, posturaux, en service du matin au soir. */
 const TRES_RAPIDE = 1.8
 /** ~3,1 j — petits et endurants, forte proportion de fibres lentes. */
@@ -33,6 +86,21 @@ const LENT = 0.7
 /** ~7,5 j — petit mais très tendineux et mal vascularisé. */
 const TRES_LENT = 0.6
 
+// Les jambes, un jour plus tôt que le barème général.
+//
+// Le barème sortait de la littérature générale ; le ressenti sur le terrain,
+// lui, est que les jambes reviennent plus vite que ça — et c'est le ressenti qui
+// tranche, puisque c'est la seule mesure directe qu'on ait. On garde donc les
+// paliers, avec le même classement relatif entre muscles, mais on retire un jour
+// plein à tout le bas du corps. Les ischios restent les derniers à revenir, les
+// stabilisateurs de cheville les premiers : c'est l'échelle qui glisse, pas
+// l'ordre.
+const JAMBES_TRES_RAPIDE = unJourDeMoins(TRES_RAPIDE) //   2,5 j → 1,5 j
+const JAMBES_RAPIDE = unJourDeMoins(RAPIDE) //             3,1 j → 2,1 j
+const JAMBES_PLUTOT_RAPIDE = unJourDeMoins(PLUTOT_RAPIDE) // 3,8 j → 2,8 j
+const JAMBES_MOYEN = unJourDeMoins(MOYEN) //               4,5 j → 3,5 j
+const JAMBES_PLUTOT_LENT = unJourDeMoins(PLUTOT_LENT) //   5,3 j → 4,3 j
+
 export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // ── Très rapides ────────────────────────────────────────────────────────
   // Quelques dizaines de grammes, posturaux, sollicités en permanence : la
@@ -40,20 +108,20 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // stabilisent chaque pas, le tenseur du fascia lata aussi.
   forearmFlex: TRES_RAPIDE,
   forearmExt: TRES_RAPIDE,
-  tibialis: TRES_RAPIDE,
-  fibularis: TRES_RAPIDE,
-  tfl: TRES_RAPIDE,
+  tibialis: JAMBES_TRES_RAPIDE,
+  fibularis: JAMBES_TRES_RAPIDE,
+  tfl: JAMBES_TRES_RAPIDE,
 
   // ── Rapides ─────────────────────────────────────────────────────────────
   // Petits, très oxydatifs, en service continu. Le soléaire est ici et non
   // avec les jumeaux : c'est le muscle le plus riche en fibres lentes du
   // corps, et il tient debout toute la journée.
-  soleus: RAPIDE,
+  soleus: JAMBES_RAPIDE,
   rectus: RAPIDE,
   obliques: RAPIDE,
   serratus: RAPIDE,
   deltLat: RAPIDE,
-  gluteMed: RAPIDE,
+  gluteMed: JAMBES_RAPIDE,
   brachioradialis: RAPIDE,
   // Le cou est minuscule et postural, mais sous le heaume il prend cher :
   // on ne le pousse pas au palier au-dessus.
@@ -71,18 +139,18 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   rhomboids: PLUTOT_RAPIDE,
   trapsMid: PLUTOT_RAPIDE,
   trapsLow: PLUTOT_RAPIDE,
-  hipFlexors: PLUTOT_RAPIDE,
+  hipFlexors: JAMBES_PLUTOT_RAPIDE,
   // Bi-articulaires : les jumeaux prennent de l'excentrique à chaque foulée,
   // et ils sont bien plus riches en fibres rapides que le soléaire.
-  gastroc: PLUTOT_RAPIDE,
+  gastroc: JAMBES_PLUTOT_RAPIDE,
 
   // ── Moyens ──────────────────────────────────────────────────────────────
   // Grosses masses, mais parmi les mieux vascularisées et les plus utilisées
   // du corps : le quadriceps et le fessier travaillent à chaque pas.
-  rectusFemoris: MOYEN,
-  vastusLat: MOYEN,
-  vastusMed: MOYEN,
-  gluteMax: MOYEN,
+  rectusFemoris: JAMBES_MOYEN,
+  vastusLat: JAMBES_MOYEN,
+  vastusMed: JAMBES_MOYEN,
+  gluteMax: JAMBES_MOYEN,
   // La longue portion du triceps est bi-articulaire, contrairement à la
   // latérale : elle encaisse davantage.
   tricepsLong: MOYEN,
@@ -102,13 +170,13 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // fréquente dans les sports de contact et de changement d'appui — donc
   // exactement le profil du béhourd.
   // https://complete-physio.co.uk/groin-strain-adductor-tendinopathy/
-  adductors: PLUTOT_LENT,
+  adductors: JAMBES_PLUTOT_LENT,
 
   // Les ischios sont bi-articulaires et prennent l'essentiel de l'excentrique
   // — soulevé roumain, freinage de course —, le mode qui abîme le plus. Ils
   // restent les derniers à revenir après une séance de jambes, d'un palier.
-  bicepsFemoris: PLUTOT_LENT,
-  hamsInner: PLUTOT_LENT,
+  bicepsFemoris: JAMBES_PLUTOT_LENT,
+  hamsInner: JAMBES_PLUTOT_LENT,
 
   // ── Lents ───────────────────────────────────────────────────────────────
   // Cas à part : les érecteurs travaillent en isométrie sur presque tous les
@@ -123,24 +191,8 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   rotatorCuff: TRES_LENT,
 }
 
-/**
- * Jours « ressentis » à partir desquels un muscle est prêt à retravailler.
- *
- * Ici et non dans le mannequin : ce n'est pas une règle de dessin mais une règle
- * de récupération, et « totalement bon » a besoin de savoir à partir de quand un
- * muscle est prêt pour pouvoir l'y placer.
- *
- * C'est la borne exacte de la quatrième case du spectre : le compte à rebours
- * affiché et le libellé d'état basculent au même instant, sinon la fiche se
- * contredit elle-même.
- */
-export const SEUIL_PRET = 4.5
-
 /** La zone la plus lente du barème — celle qui fixe le pire cas. */
 export const VITESSE_MIN = Math.min(...Object.values(VITESSE_RECUP))
-
-/** La plus rapide — celle qui atteint « prêt » en premier, à barème égal. */
-export const VITESSE_MAX = Math.max(...Object.values(VITESSE_RECUP))
 
 export interface ReposMuscle {
   /** Jours ressentis, vitesse de la zone comprise. */
@@ -182,12 +234,18 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
   const out: Partial<Record<MuscleRegion, ReposMuscle>> = {}
   for (const [label, load] of Object.entries(loads)) {
     for (const region of regionsForGroup(label)) {
-      const jours = load.effectiveDays * VITESSE_RECUP[region]
+      // Le plafond du jour J : le muscle a beau n'avoir été qu'effleuré, on ne
+      // l'annonce pas prêt le soir même de la séance.
+      const brut = load.effectiveDays * VITESSE_RECUP[region]
+      const jours = load.days < 1 ? Math.min(brut, PLAFOND_JOUR_J) : brut
       const cur = out[region]
       if (!cur || jours < cur.jours) {
         out[region] = {
           jours,
-          joursPrevus: (load.effectiveDaysPrevus ?? load.effectiveDays) * VITESSE_RECUP[region],
+          joursPrevus: Math.min(
+            (load.effectiveDaysPrevus ?? load.effectiveDays) * VITESSE_RECUP[region],
+            load.days < 1 ? PLAFOND_JOUR_J : Infinity,
+          ),
           intensite: load.intensity,
           label,
           joursReels: load.days,
