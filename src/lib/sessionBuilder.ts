@@ -6,13 +6,14 @@ import { estRessenti, groupLoads, type CatalogExercise, type GroupLoad, type Mus
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
 import {
   FOCUS,
-  FOCUS_RECUP,
   MAX_USAGE_FOCUS,
   PART_BEHOURD,
-  PART_FOCUS,
   POIDS_FOCUS,
   REPOS_BEHOURD,
   REPOS_BEHOURD_SPECIAL,
+  estModeRecup,
+  placesFocus,
+  regionsDuFocus,
   type FocusId,
 } from './focus'
 import { clefExo, enRotation, familiarites, poidsFamiliarite } from './familiarite'
@@ -175,8 +176,12 @@ export interface BuildOptions {
   exclude?: Set<string>
   /** Poids de corps, pour les exercices qui s'y chargent. */
   bodyWeight?: number | null
-  /** Point faible à rattraper : ses muscles pèsent plus et ont une place réservée. */
-  focus?: FocusId
+  /**
+   * Points faibles à rattraper — un ou deux. Leurs muscles pèsent plus et ont des
+   * places réservées, servies en alternance quand il y en a deux : sans ça le
+   * premier groupe prendrait toutes les places et le second n'existerait pas.
+   */
+  focus?: FocusId[] | FocusId
   /**
    * Mode « spécial béhourd », cumulable avec le point faible.
    *
@@ -218,9 +223,14 @@ export function buildSession(
   const exclude = options.exclude ?? new Set<string>()
   const loads: Record<string, GroupLoad> = options.loads ?? groupLoads(sessions)
   const repos = reposParMuscle(loads)
-  const modeRecup = options.focus === FOCUS_RECUP
+  // On accepte aussi un identifiant seul : la signature a changé, et un appelant
+  // resté à l'ancienne forme doit continuer de marcher plutôt que de tomber.
+  const focus = Array.isArray(options.focus) ? options.focus : [options.focus ?? 'aucun']
+  const modeRecup = estModeRecup(focus)
   const special = options.behourd === true && !modeRecup
-  const focusRegions = new Set(FOCUS[options.focus ?? 'aucun'].regions)
+  const focusRegions = regionsDuFocus(focus)
+  // Les groupes qui visent réellement des muscles : « aucune » n'en a pas.
+  const groupesFocus = focus.filter((id) => FOCUS[id].regions.length > 0)
 
   // Exercices déjà pratiqués : eux seuls ont un historique de charge. À score
   // comparable ils passent devant, sinon la séance proposée arrive pleine de
@@ -415,14 +425,26 @@ export function buildSession(
     return true
   }
 
-  const placesFocus = !modeRecup && focusRegions.size > 0 ? Math.max(2, Math.ceil(count * PART_FOCUS)) : 0
-  for (let n = 0; n < placesFocus; n++) {
-    const best = classes.find(
-      (c) =>
-        !pris.has(c.exo.id) &&
-        c.moteurs.some((r) => focusRegions.has(r) && reposDe(r) >= 3) &&
-        sousLePlafond(c),
-    )
+  const places = !modeRecup ? placesFocus(count, groupesFocus.length) : 0
+  for (let n = 0; n < places; n++) {
+    // Avec deux groupes, on alterne : la place paire au premier, l'impaire au
+    // second. Sans cette alternance, « jambes + ceinture » donnait quatre
+    // exercices de jambes, le meilleur score gagnant toutes les places.
+    const vise =
+      groupesFocus.length > 1
+        ? new Set(FOCUS[groupesFocus[n % groupesFocus.length]].regions)
+        : focusRegions
+    const cherche = (zones: Set<MuscleRegion>) =>
+      classes.find(
+        (c) =>
+          !pris.has(c.exo.id) &&
+          c.moteurs.some((r) => zones.has(r) && reposDe(r) >= 3) &&
+          sousLePlafond(c),
+      )
+    // À défaut de quoi servir le groupe de son tour — tout est fatigué, ou son
+    // budget de séries est plein —, on retombe sur l'autre plutôt que de perdre
+    // la place.
+    const best = cherche(vise) ?? cherche(focusRegions)
     if (!best) break
     prendre(best, true)
   }
@@ -440,7 +462,7 @@ export function buildSession(
   // ne vise que des muscles encore intacts dans la séance.
   const placesBehourd = special
     ? Math.max(2, Math.ceil(count * PART_BEHOURD))
-    : placesFocus > 0
+    : places > 0
       ? 1
       : 2
   const seuilRepos = special ? REPOS_BEHOURD_SPECIAL : REPOS_BEHOURD

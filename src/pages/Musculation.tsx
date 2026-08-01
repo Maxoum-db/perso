@@ -14,7 +14,7 @@ import { SuggestedSessionCard } from '../components/SuggestedSessionCard'
 import { buildSession, type SuggestedSession } from '../lib/sessionBuilder'
 import { suggererCharge, TON_STYLE, type TonCharge } from '../lib/charge'
 import { FocusPicker } from '../components/FocusPicker'
-import { FOCUS_PAR_DEFAUT, loadBehourd, loadFocus, saveBehourd, saveFocus, type FocusId } from '../lib/focus'
+import { FOCUS_PAR_DEFAUT, estModeRecup, loadBehourd, loadFocus, saveBehourd, saveFocus, type FocusId } from '../lib/focus'
 import {
   declarerAjustement,
   declarerPret,
@@ -268,7 +268,7 @@ export function Musculation() {
   // Pesées complètes : servent à déduire la balance énergétique, donc l'état de forme.
   const [weighins, setWeighins] = useState<Weighin[]>([])
   // Point faible à rattraper : pèse sur le générateur et sur l'alerte des négligés.
-  const [focus, setFocus] = useState<FocusId>(FOCUS_PAR_DEFAUT)
+  const [focus, setFocus] = useState<FocusId[]>([FOCUS_PAR_DEFAUT])
   // Mode « spécial béhourd » : cumulable avec le point faible.
   const [behourd, setBehourd] = useState(false)
   // Créneau visé pour la séance composée.
@@ -295,7 +295,7 @@ export function Musculation() {
         listCatalog(user.id),
         loadMuscleGroups(user.id),
         listWeighins(user.id).catch(() => []),
-        loadFocus(user.id).catch(() => FOCUS_PAR_DEFAUT),
+        loadFocus(user.id).catch(() => [FOCUS_PAR_DEFAUT]),
         loadCourbatures(user.id).catch(() => ({})),
         loadProfil(user.id).catch(() => PROFIL_DEFAUT),
         loadIntensites(user.id).catch(() => ({}) as Intensites),
@@ -387,9 +387,9 @@ export function Musculation() {
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
           }}
-          onFocus={(id) => {
-            setFocus(id)
-            if (user) saveFocus(user.id, id).catch(() => {})
+          onFocus={(ids) => {
+            setFocus(ids)
+            if (user) saveFocus(user.id, ids).catch(() => {})
           }}
           behourd={behourd}
           onBehourd={(on) => {
@@ -462,8 +462,8 @@ function Journal({
   groups: string[]
   bodyWeight: number | null
   weighins: Weighin[]
-  focus: FocusId
-  onFocus: (id: FocusId) => void
+  focus: FocusId[]
+  onFocus: (ids: FocusId[]) => void
   /** Mode « spécial béhourd », cumulable avec le point faible. */
   behourd: boolean
   onBehourd: (on: boolean) => void
@@ -853,7 +853,7 @@ function Journal({
             ✍️ Saisir une séance après coup
           </button>
           <button onClick={() => suggerer()} className="btn-ghost w-full py-2 text-sm">
-            {focus === 'recup'
+            {estModeRecup(focus)
               ? '🧊 Composer une séance de récupération'
               : '🧠 Composer une séance selon ma récup'}
           </button>
