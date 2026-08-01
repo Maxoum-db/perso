@@ -55,6 +55,20 @@ const RECUPERATIONS = new Set(
   EXERCISE_LIBRARY.filter((e) => e.kind === 'recuperation').map((e) => e.name.trim().toLowerCase()),
 )
 
+/**
+ * Et ceux qui n'en sont pas mais qui ONT une version douce (cf. `adaptable`).
+ *
+ * Le mode récupération ne proposait que des étirements. C'est déjà bien, mais
+ * ça laissait de côté la moitié de ce qu'on fait vraiment un lendemain de
+ * béhourd : le glissé au mur, la rotation externe à l'élastique, la suspension
+ * à la barre, le deadbug. Ils y entrent maintenant, marqués « version douce » —
+ * et la séance qu'on en tire arrive avec la case déjà cochée, sinon elle
+ * coûterait de la récupération au lieu d'en rendre.
+ */
+const ADAPTABLES = new Set(
+  EXERCISE_LIBRARY.filter((e) => e.adaptable).map((e) => e.name.trim().toLowerCase()),
+)
+
 /** Muscle jamais travaillé : totalement disponible. */
 const JAMAIS = 99
 
@@ -109,6 +123,11 @@ export interface SuggestedExercise {
   rotation: boolean
   /** Vrai quand il a été retenu au titre du point faible visé. */
   focus: boolean
+  /**
+   * À faire en version douce : ce n'est pas un étirement, c'est un exercice
+   * ordinaire qu'on propose à vide parce qu'on est en récupération.
+   */
+  doux: boolean
   /** Famille de mouvement — sert à équilibrer la séance. */
   pattern: Pattern
   /**
@@ -248,7 +267,7 @@ export function buildSession(
       if (exclude.has(c.id) || estRessenti(c.name)) return false
       const clef = c.name.trim().toLowerCase()
       // En récupération on ne veut QUE des étirements ; sinon on les écarte.
-      return modeRecup ? RECUPERATIONS.has(clef) : !ACTIVITES.has(clef)
+      return modeRecup ? RECUPERATIONS.has(clef) || ADAPTABLES.has(clef) : !ACTIVITES.has(clef)
     })
     .map((c) => {
       const muscles = musclesDeLExercice(c.muscle_group)
@@ -290,6 +309,7 @@ export function buildSession(
         etire,
         pattern: patternDe(c.name),
         cout: coutSystemique(c.name),
+        doux: modeRecup && !RECUPERATIONS.has(c.name.trim().toLowerCase()),
       }
     })
     // Un exercice sans muscle identifié (« Cardio » seul) ne compose pas une séance.
@@ -383,17 +403,23 @@ export function buildSession(
       familiarite: c.familiarite,
       rotation: enRotation(c.familiarite),
       focus: auTitreDuFocus,
+      doux: c.doux,
       pattern: c.pattern,
       etire: c.etire,
       superset: null, // posé après le tri final, quand l'ordre est arrêté
-      charge: ajusterCharge(
-        suggererCharge(
-          sessions,
-          { name: c.exo.name, default_reps: c.exo.default_reps },
-          options.bodyWeight ?? null,
-        ),
-        options.intensite ?? 1,
-      ),
+      // Une version douce se fait À VIDE : lui proposer une charge de travail,
+      // ou pire « cale une série d'essai », contredirait exactement ce qu'on
+      // vient de lui demander de faire.
+      charge: c.doux
+        ? { weight: null, ton: 'corps', raison: 'à vide, en amplitude' }
+        : ajusterCharge(
+            suggererCharge(
+              sessions,
+              { name: c.exo.name, default_reps: c.exo.default_reps },
+              options.bodyWeight ?? null,
+            ),
+            options.intensite ?? 1,
+          ),
     })
   }
 
