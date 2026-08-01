@@ -433,7 +433,13 @@ function MuscuMoitie({
   // affichée en dessous. Trois suffisent : les suivantes ne cadrent plus rien.
   const enRecup = zones.filter((z) => !z.pret).sort((a, b) => a.reste - b.reste).slice(0, 3)
 
+  // Deux liens et non un seul, comme l'agenda et la muscu plus haut : l'état du
+  // corps mène au module, la séance proposée mène au module AVEC elle déjà
+  // composée. Un lien dans un lien n'étant pas du HTML valide, ils sont
+  // juxtaposés — d'où la dernière séance remontée avant la proposition, où elle
+  // se lit d'ailleurs bien : état du corps, ce qu'on a fait, ce qu'on va faire.
   return (
+    <>
     <Link to="/musculation" className="block p-4 transition hover:bg-copper/5">
       <div className="flex items-center justify-between">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted">💪 Musculation</div>
@@ -460,11 +466,9 @@ function MuscuMoitie({
         </div>
       ) : null}
 
-      {prochaine ? <Prochaine p={prochaine} events={events} /> : null}
-
-      {/* La dernière séance reste en pied : elle situe l'état du corps dans le
-          temps. Sans elle, « jambes prêtes » ne dit pas si c'est parce qu'elles
-          ont récupéré ou parce qu'on ne les a pas touchées depuis trois semaines. */}
+      {/* La dernière séance situe l'état du corps dans le temps. Sans elle,
+          « jambes prêtes » ne dit pas si c'est parce qu'elles ont récupéré ou
+          parce qu'on ne les a pas touchées depuis trois semaines. */}
       <div className="mt-2 flex items-baseline gap-2 border-t border-line/40 pt-2 text-xs text-muted">
         <span className="shrink-0">
           Dernière · {new Date(last.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
@@ -475,6 +479,21 @@ function MuscuMoitie({
         ) : null}
       </div>
     </Link>
+
+    {prochaine ? (
+      /* `state` plutôt qu'un paramètre d'URL : la demande n'a de sens qu'une
+         fois, au moment du clic. Dans l'adresse, elle survivrait au partage du
+         lien et à un rafraîchissement, et recomposerait une séance qu'on n'a
+         pas demandée. */
+      <Link
+        to="/musculation"
+        state={{ composer: true }}
+        className="block border-t border-line/60 p-4 pt-3 transition hover:bg-copper/5"
+      >
+        <Prochaine p={prochaine} events={events} />
+      </Link>
+    ) : null}
+    </>
   )
 }
 
@@ -504,7 +523,7 @@ function Prochaine({ p, events }: { p: ReturnType<typeof prochaineSeance>; event
       : null
 
   return (
-    <div className="mt-2 border-t border-line/40 pt-2">
+    <div>
       {/* Le nom prend la ligne entière : « Séance Core · Avant-bras · Pectoraux »
           est déjà long, et tronqué il ne dit plus quelles zones sont visées —
           c'est pourtant toute l'information. Le compte et la durée descendent
