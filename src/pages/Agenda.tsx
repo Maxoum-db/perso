@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  addDays,
-  endOfDay,
-  endOfWeek,
-  format,
-  isSameDay,
-  startOfDay,
-  startOfWeek,
-} from 'date-fns'
+import { addDays, endOfDay, format, isSameDay, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useAuth } from '../lib/auth'
 import {
@@ -29,8 +21,37 @@ import { ReconnectGoogle } from '../components/ReconnectGoogle'
 import { SubTabs } from '../components/SubTabs'
 import { Journee } from './Journee'
 
-type ViewMode = 'jour' | 'semaine'
+export type ViewMode = 'jour' | 'roulant'
 type EditorState = { event: GEvent | null } | null
+
+/**
+ * La vue large couvre 7 jours GLISSANTS, à partir d'aujourd'hui.
+ *
+ * Une semaine calendaire lundi→dimanche a un défaut de fond quand on s'en sert
+ * pour préparer : le dimanche, elle n'affiche plus qu'un jour devant soi, et le
+ * lundi elle en affiche sept — alors que la question posée est toujours la même,
+ * « qu'est-ce qui arrive dans les jours qui viennent ». La fenêtre glissante y
+ * répond pareil tous les jours. Même raisonnement que la charge d'entraînement
+ * et le compteur de séances, qui glissent déjà.
+ */
+export const FENETRE_JOURS = 7
+
+const VUES: Array<{ id: ViewMode; label: string }> = [
+  { id: 'jour', label: 'Jour' },
+  { id: 'roulant', label: `${FENETRE_JOURS} jours` },
+]
+
+/**
+ * La plage couverte par la vue, l'ancre étant son PREMIER jour.
+ *
+ * L'ancre en tête plutôt qu'au milieu : « Aujourd'hui » remet ainsi aujourd'hui
+ * en haut de la liste, et « ‹ / › » décale d'une fenêtre entière sans jamais
+ * réafficher un jour déjà vu.
+ */
+export function fenetreAgenda(ancre: Date, vue: ViewMode) {
+  const jours = vue === 'jour' ? 1 : FENETRE_JOURS
+  return { start: startOfDay(ancre), end: endOfDay(addDays(ancre, jours - 1)), jours }
+}
 
 // Hub Agenda : « Ma journée » (résumé + tâches du jour) et le calendrier complet.
 export function Agenda() {
@@ -59,19 +80,11 @@ function AgendaCalendar() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [anchor, setAnchor] = useState(() => new Date())
-  const [view, setView] = useState<ViewMode>('semaine')
+  const [view, setView] = useState<ViewMode>('roulant')
   const [editor, setEditor] = useState<EditorState>(null)
   const [reload, setReload] = useState(0)
 
-  const range = useMemo(() => {
-    if (view === 'jour') {
-      return { start: startOfDay(anchor), end: endOfDay(anchor) }
-    }
-    return {
-      start: startOfWeek(anchor, { weekStartsOn: 1 }),
-      end: endOfWeek(anchor, { weekStartsOn: 1 }),
-    }
-  }, [anchor, view])
+  const range = useMemo(() => fenetreAgenda(anchor, view), [anchor, view])
 
   const writableCalendars = useMemo(() => calendars.filter(canWriteCalendar), [calendars])
 
@@ -126,7 +139,7 @@ function AgendaCalendar() {
   }
 
   function shift(dir: -1 | 1) {
-    setAnchor((d) => addDays(d, dir * (view === 'jour' ? 1 : 7)))
+    setAnchor((d) => addDays(d, dir * range.jours))
   }
 
   const days = useMemo(() => groupByDay(events, range.start, range.end), [events, range])
@@ -151,18 +164,18 @@ function AgendaCalendar() {
         </button>
       </div>
 
-      {/* Bascule Jour / Semaine + Nouvel événement */}
+      {/* Bascule Jour / 7 jours + Nouvel événement */}
       <div className="flex items-center gap-2">
         <div className="flex flex-1 rounded-xl2 border border-line bg-card p-1 text-sm font-semibold">
-          {(['jour', 'semaine'] as ViewMode[]).map((m) => (
+          {VUES.map((v) => (
             <button
-              key={m}
-              onClick={() => setView(m)}
-              className={`flex-1 rounded-[10px] py-1.5 capitalize transition ${
-                view === m ? 'bg-copper text-white' : 'text-muted'
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={`flex-1 rounded-[10px] py-1.5 transition ${
+                view === v.id ? 'bg-copper text-white' : 'text-muted'
               }`}
             >
-              {m}
+              {v.label}
             </button>
           ))}
         </div>
@@ -470,7 +483,7 @@ function eventStartDay(e: GEvent): Date {
 }
 
 /** Un événement multi-jours apparaît sur chaque jour qu'il couvre. */
-function groupByDay(events: GEvent[], start: Date, end: Date) {
+export function groupByDay(events: GEvent[], start: Date, end: Date) {
   const days: { day: Date; items: GEvent[] }[] = []
   for (let d = startOfDay(start); d <= end; d = addDays(d, 1)) {
     const day = new Date(d)
@@ -493,9 +506,12 @@ function eventDayLabel(e: GEvent, day: Date): string {
   return '↔'
 }
 
-function rangeLabel(start: Date, end: Date, view: ViewMode): string {
+export function rangeLabel(start: Date, end: Date, view: ViewMode): string {
   if (view === 'jour') return format(start, 'EEEE d MMMM', { locale: fr })
-  return `${format(start, 'd MMM', { locale: fr })} – ${format(end, 'd MMM', { locale: fr })}`
+  // « Aujourd'hui » en tête plutôt que la date : c'est le repère qu'on cherche
+  // dans une fenêtre glissante, et il dit d'un coup d'œil qu'on n'a pas dérivé.
+  const debut = isSameDay(start, new Date()) ? "Auj." : format(start, 'd MMM', { locale: fr })
+  return `${debut} – ${format(end, 'd MMM', { locale: fr })}`
 }
 
 function timeRange(e: GEvent): string {
