@@ -361,8 +361,16 @@ export function seanceDuJour(sessions: MuscuSession[], jour: string): MuscuSessi
   return sessions.find((s) => s.date === jour && estSeanceDeTravail(s))
 }
 
-export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> {
-  const now = Date.now()
+/**
+ * La charge de chaque groupe à un instant donné.
+ *
+ * `maintenant` est un paramètre et non `Date.now()` en dur pour qu'on puisse
+ * poser la même question plus tard : « et dans 12 h, dans 2 jours ? ». Le calcul
+ * est le même — seule l'horloge avance —, donc il n'y a rien à dupliquer pour
+ * projeter, et une projection ne peut pas dériver du calcul réel.
+ */
+export function groupLoads(sessions: MuscuSession[], maintenant = Date.now()): Record<string, GroupLoad> {
+  const now = maintenant
   const aujourdhui = new Date(now).toLocaleDateString('en-CA')
 
   // Récupération active : elle ne compte pas comme du travail, elle en efface.

@@ -246,6 +246,7 @@ export function MuscleBodyDiagram({
   loads,
   sessions = [],
   sexe = 'H',
+  maintenant = Date.now(),
   onSoreness,
   onPret,
   onExercice,
@@ -256,6 +257,15 @@ export function MuscleBodyDiagram({
   sessions?: MuscuSession[]
   /** Silhouette à dessiner — vient du sexe déclaré dans Poids › profil. */
   sexe?: Sexe
+  /**
+   * L'instant que le mannequin représente. Il avance quand on projette.
+   *
+   * Passé jusqu'ici et pas seulement dans `loads` : la fiche d'un muscle date
+   * aussi son dernier travail. Sans ce paramètre, une projection à +2 j aurait
+   * affiché « prêt » en tête et « il y a 1 j » juste en dessous — deux horloges
+   * dans le même encart, celle qui a raison n'étant plus devinable.
+   */
+  maintenant?: number
   /**
    * Déclare des courbatures sur un groupe : + N jours de récup (0 = annuler).
    * La région suit, parce que c'est elle que la base d'observations indexe — un
@@ -277,7 +287,7 @@ export function MuscleBodyDiagram({
   // partagé avec le générateur de séance : une seule définition.
   const byRegion = reposParMuscle(loads)
   // Ce qui a chargé et ce qui a soulagé chaque muscle, nommément.
-  const histo = historiqueParMuscle(sessions)
+  const histo = historiqueParMuscle(sessions, maintenant)
 
   const fill = (r: MuscleRegion | 'neutral') =>
     r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.jours, byRegion[r]?.intensite)
