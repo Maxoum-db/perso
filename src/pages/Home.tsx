@@ -18,10 +18,14 @@ import {
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 import { BREW_STATUSES, listBrews, type Brew } from '../lib/brews'
 import { getMySpace, listSharedEvents, type SharedEvent } from '../lib/space'
-import { fmtTonnage, listSessions, sessionTonnage, type MuscuSession } from '../lib/muscu'
+import { fmtTonnage, listCatalog, listSessions, sessionTonnage, type CatalogExercise, type MuscuSession } from '../lib/muscu'
+import { listWeighins, type Weighin } from '../lib/workouts'
+import { loadFocus, FOCUS_PAR_DEFAUT, loadBehourd, type FocusId } from '../lib/focus'
+// `fmtDuree` : le même formateur que pour la durée d'une séance — « 45 min », « 1 h 30 ».
+import { DUREE_PAR_DEFAUT, fmtDuree, loadDuree } from '../lib/duree'
+import { prochaineSeance, type ContexteSeance } from '../lib/prochaine'
+import { finDeJournee, fmtCreneau, premierCreneau, type Occupe } from '../lib/creneau'
 import { chargesCourantes } from '../lib/charges'
-// Le même formateur que pour la durée d'une séance : « 45 min », « 1 h 30 ».
-import { fmtDuree } from '../lib/duree'
 import { etatParZone, fmtDelai, reposParMuscle, type EtatZone } from '../lib/recuperation'
 import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadNuits, type Nuits } from '../lib/sommeil'
@@ -42,6 +46,13 @@ export function Home() {
   // annoncerait « prêt » sur un muscle que tu viens de déclarer courbaturé.
   const [courbatures, setCourbatures] = useState<Courbatures>({})
   const [nuits, setNuits] = useState<Nuits>({})
+  // De quoi composer la MÊME séance que le module : sans ces réglages, l'accueil
+  // en proposerait une autre, et on ne saurait pas laquelle croire.
+  const [catalog, setCatalog] = useState<CatalogExercise[]>([])
+  const [weighins, setWeighins] = useState<Weighin[]>([])
+  const [focus, setFocus] = useState<FocusId[]>([FOCUS_PAR_DEFAUT])
+  const [behourd, setBehourd] = useState(false)
+  const [creneau, setCreneau] = useState(DUREE_PAR_DEFAUT)
 
   useEffect(() => {
     if (!user) return
@@ -53,6 +64,11 @@ export function Home() {
       .catch(() => {})
     loadCourbatures(user.id).then(setCourbatures).catch(() => {})
     loadNuits(user.id).then(setNuits).catch(() => {})
+    listCatalog(user.id).then(setCatalog).catch(() => {})
+    listWeighins(user.id).then(setWeighins).catch(() => {})
+    loadFocus(user.id).then(setFocus).catch(() => {})
+    loadBehourd(user.id).then(setBehourd).catch(() => {})
+    loadDuree(user.id).then(setCreneau).catch(() => {})
     // Prochains événements du couple (espace partagé).
     getMySpace()
       .then((s) => (s ? listSharedEvents(s.spaceId) : []))
@@ -150,7 +166,14 @@ export function Home() {
           répondent à la même question, elles tiennent au même endroit.
           La carte n'est pas un lien : chaque moitié mène ailleurs, et un lien
           dans un lien n'est pas du HTML valide. */}
-      <AujourdhuiCard events={events} sessions={muscu} courbatures={courbatures} nuits={nuits} agendaVisible={!needAuth} />
+      <AujourdhuiCard
+        events={events}
+        sessions={muscu}
+        courbatures={courbatures}
+        nuits={nuits}
+        agendaVisible={!needAuth}
+        contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau }}
+      />
 
       {tasks.length > 0 ? (
         <div className="card p-4">
@@ -257,12 +280,15 @@ export function AujourdhuiCard({
   courbatures,
   nuits,
   agendaVisible,
+  contexte,
 }: {
   events: GEvent[] | null
   sessions: MuscuSession[]
   courbatures: Courbatures
   nuits: Nuits
   agendaVisible: boolean
+  /** De quoi composer la séance — sans les charges, calculées juste en dessous. */
+  contexte: Omit<ContexteSeance, 'loads'>
 }) {
   // Un élément JSX n'est JAMAIS null : tester `<MuscuMoitie/> === null` aurait
   // toujours été faux et la carte se serait affichée vide. On interroge donc les
@@ -284,7 +310,7 @@ export function AujourdhuiCard({
           )}
         </Link>
       ) : null}
-      <MuscuMoitie sessions={sessions} courbatures={courbatures} nuits={nuits} />
+      <MuscuMoitie sessions={sessions} courbatures={courbatures} nuits={nuits} contexte={contexte} events={events} />
     </div>
   )
 }
@@ -364,10 +390,14 @@ function MuscuMoitie({
   sessions,
   courbatures,
   nuits,
+  contexte,
+  events,
 }: {
   sessions: MuscuSession[]
   courbatures: Courbatures
   nuits: Nuits
+  contexte: Omit<ContexteSeance, 'loads'>
+  events: GEvent[] | null
 }) {
   const live = loadLive()
   const last = sessions[0]
@@ -389,7 +419,11 @@ function MuscuMoitie({
 
   if (!last) return null
 
-  const zones = etatParZone(reposParMuscle(chargesCourantes(sessions, courbatures, nuits)))
+  const loads = chargesCourantes(sessions, courbatures, nuits)
+  const zones = etatParZone(reposParMuscle(loads))
+  // La même séance que le module en proposerait : c'est `composerSeance` qui
+  // porte le réglage, une fois pour les deux écrans.
+  const prochaine = contexte.catalog.length ? prochaineSeance({ ...contexte, loads }, zones) : null
   // Les prêtes, la plus fraîche d'abord : c'est celle qu'on a le plus négligée,
   // donc la meilleure candidate du jour.
   const pretes = zones.filter((z) => z.pret).sort((a, b) => b.jours - a.jours)
@@ -426,6 +460,8 @@ function MuscuMoitie({
         </div>
       ) : null}
 
+      {prochaine ? <Prochaine p={prochaine} events={events} /> : null}
+
       {/* La dernière séance reste en pied : elle situe l'état du corps dans le
           temps. Sans elle, « jambes prêtes » ne dit pas si c'est parce qu'elles
           ont récupéré ou parce qu'on ne les a pas touchées depuis trois semaines. */}
@@ -439,6 +475,57 @@ function MuscuMoitie({
         ) : null}
       </div>
     </Link>
+  )
+}
+
+/**
+ * La séance à faire, et quand la faire.
+ *
+ * « Quand » a deux réponses, et il faut les deux. Le JOUR vient du corps : le
+ * générateur signale lui-même quand il a dû assouplir sa règle faute de muscle
+ * disponible, et c'est exactement le signal « pas aujourd'hui ». Le CRÉNEAU vient
+ * de l'agenda croisé avec la durée estimée de la séance — c'est la seule question
+ * qui restait, et on y répondait en ouvrant l'agenda pour compter les trous.
+ */
+function Prochaine({ p, events }: { p: ReturnType<typeof prochaineSeance>; events: GEvent[] | null }) {
+  if (!p) return null
+  const { session, attente, frein } = p
+  const maintenant = Date.now()
+  // Les journées entières n'occupent pas de créneau : un anniversaire ne
+  // t'empêche pas d'aller à la salle.
+  const occupes: Occupe[] = (events ?? [])
+    .filter((e) => e.start.dateTime && e.end?.dateTime)
+    .map((e) => ({ debut: new Date(e.start.dateTime!).getTime(), fin: new Date(e.end!.dateTime!).getTime() }))
+  const creneau =
+    attente === 0 ? premierCreneau(occupes, session.bilan.duree, maintenant, finDeJournee(maintenant)) : null
+
+  return (
+    <div className="mt-2 border-t border-line/40 pt-2">
+      {/* Le nom prend la ligne entière : « Séance Core · Avant-bras · Pectoraux »
+          est déjà long, et tronqué il ne dit plus quelles zones sont visées —
+          c'est pourtant toute l'information. Le compte et la durée descendent
+          avec le quand, où ils tiennent sans se battre pour la place. */}
+      <div className="flex items-baseline gap-2 text-sm">
+        <span className="shrink-0 text-xs font-semibold text-copper">🧠 À faire</span>
+        <span className="min-w-0 flex-1 truncate font-semibold text-ink">{session.name}</span>
+      </div>
+      <div className="mt-0.5 text-[11px] text-muted">
+        {attente > 0 ? (
+          <>
+            ⏳ plutôt dans <b className="text-ink">{fmtDelai(attente)}</b>
+            {frein ? ` — le temps que ${frein.toLowerCase()} revienne` : ''}
+          </>
+        ) : creneau ? (
+          <>
+            ✅ aujourd'hui · créneau <b className="text-ink">{fmtCreneau(creneau)}</b>
+          </>
+        ) : (
+          <>✅ aujourd'hui, mais la journée est pleine — à caler demain matin</>
+        )}
+        {' · '}
+        {session.exercises.length} exos · {fmtDuree(session.bilan.duree)}
+      </div>
+    </div>
   )
 }
 
