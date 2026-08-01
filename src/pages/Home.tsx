@@ -18,7 +18,7 @@ import {
 import { ReconnectGoogle } from '../components/ReconnectGoogle'
 import { BREW_STATUSES, listBrews, type Brew } from '../lib/brews'
 import { getMySpace, listSharedEvents, type SharedEvent } from '../lib/space'
-import { fmtTonnage, listSessions, sessionTonnage, type MuscuSession } from '../lib/muscu'
+import { FENETRE_STATS, fmtTonnage, listSessions, seancesRecentes, sessionTonnage, type MuscuSession } from '../lib/muscu'
 import { loadLive } from './MusculationLive'
 
 export function Home() {
@@ -287,9 +287,10 @@ function AujourdhuiCard({
 // Moitié muscu : séance en cours à reprendre, sinon dernière séance + stats du mois.
 function MuscuMoitie({ sessions }: { sessions: MuscuSession[] }) {
   const live = loadLive()
-  const month = new Date().toISOString().slice(0, 7)
-  const monthSessions = sessions.filter((s) => s.date.startsWith(month))
-  const monthTonnage = monthSessions.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
+  // Fenêtre glissante, comme dans le module Musculation : le premier du mois, un
+  // compteur calendaire annonce « 0 séance » sans que rien n'ait changé.
+  const recentes = seancesRecentes(sessions)
+  const recentTonnage = recentes.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
   const last = sessions[0]
 
   if (live) {
@@ -325,8 +326,8 @@ function MuscuMoitie({ sessions }: { sessions: MuscuSession[] }) {
         ) : null}
       </div>
       <div className="mt-1 text-xs text-muted">
-        Ce mois : {monthSessions.length} séance{monthSessions.length > 1 ? 's' : ''}
-        {monthTonnage > 0 ? ` · ${fmtTonnage(monthTonnage)} soulevés` : ''}
+        {FENETRE_STATS} derniers jours : {recentes.length} séance{recentes.length > 1 ? 's' : ''}
+        {recentTonnage > 0 ? ` · ${fmtTonnage(recentTonnage)} soulevés` : ''}
       </div>
     </Link>
   )

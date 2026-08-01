@@ -53,6 +53,8 @@ import {
   MUSCLE_GROUPS_DEFAULT,
   exerciseProgress,
   groupLoads,
+  seancesRecentes,
+  FENETRE_STATS,
   fmtTonnage,
   sessionTonnage,
   distanceEnMetres,
@@ -576,10 +578,12 @@ function Journal({
     onCourbatures(declarerPret(courbatures, group, pret, base))
   }
 
-  const month = today().slice(0, 7)
-  const monthSessions = sessions.filter((s) => s.date.startsWith(month))
-  const monthMin = monthSessions.reduce((sum, s) => sum + (s.duration_min ?? 0), 0)
-  const monthTonnage = monthSessions.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
+  // Trente jours glissants, pas le mois calendaire : le 2 août, un compteur du
+  // 1er au 31 affiche « 0 séance » alors que la semaine précédente en comptait
+  // quatre. Le chiffre ne parlerait plus de ton entraînement, mais de la date.
+  const recentes = seancesRecentes(sessions)
+  const recentMin = recentes.reduce((sum, s) => sum + (s.duration_min ?? 0), 0)
+  const recentTonnage = recentes.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
 
   function startBlank() {
     if (picking === 'live') return startLive(null)
@@ -700,7 +704,11 @@ function Journal({
       setDraft({
         date: today(),
         name: s.name,
-        duration: '',
+        // La durée estimée est pré-remplie : sans elle, la séance s'enregistre
+        // sans durée et ne produit AUCUNE calorie — le calcul part du temps. Elle
+        // reste modifiable, et c'est le but : tu corriges ce que tu as réellement
+        // passé, et le compte de calories suit.
+        duration: s.bilan.duree > 0 ? String(s.bilan.duree) : '',
         intensite: null,
         notes: '',
         template_id: null,
@@ -796,9 +804,17 @@ function Journal({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <StatCard label="Ce mois-ci" value={String(monthSessions.length)} sub="séances" />
-        <StatCard label="Temps ce mois" value={monthMin ? `${Math.floor(monthMin / 60)}h${String(monthMin % 60).padStart(2, '0')}` : '—'} sub="cumulé" />
-        <StatCard label="Tonnage ce mois" value={monthTonnage ? fmtTonnage(monthTonnage) : '—'} sub="soulevé au total" />
+        <StatCard label={`${FENETRE_STATS} derniers jours`} value={String(recentes.length)} sub="séances" />
+        <StatCard
+          label="Temps"
+          value={recentMin ? `${Math.floor(recentMin / 60)}h${String(recentMin % 60).padStart(2, '0')}` : '—'}
+          sub={`cumulé sur ${FENETRE_STATS} j`}
+        />
+        <StatCard
+          label="Tonnage"
+          value={recentTonnage ? fmtTonnage(recentTonnage) : '—'}
+          sub={`soulevé sur ${FENETRE_STATS} j`}
+        />
       </div>
 
       {picking ? (

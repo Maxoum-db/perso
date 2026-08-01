@@ -343,6 +343,31 @@ export function groupLoads(sessions: MuscuSession[]): Record<string, GroupLoad> 
   return out
 }
 
+// ── Fenêtre glissante ───────────────────────────────────────────────────────
+
+/**
+ * Les séances des N derniers jours, fenêtre GLISSANTE et non mois calendaire.
+ *
+ * Un compteur du 1er au 31 remet tout à zéro le premier du mois : le 2 août tu
+ * lis « 0 séance » alors que tu t'es entraîné quatre fois la semaine précédente.
+ * Le chiffre ne dit alors plus rien de ton entraînement, seulement de la date.
+ * Trente jours glissants répondent à la vraie question — qu'est-ce que j'ai fait
+ * récemment ? — et ne dépendent pas du calendrier.
+ */
+export const FENETRE_STATS = 30
+
+export function seancesRecentes(
+  sessions: MuscuSession[],
+  jours = FENETRE_STATS,
+  now = Date.now(),
+): MuscuSession[] {
+  const debut = new Date(now)
+  debut.setDate(debut.getDate() - jours + 1)
+  const min = debut.toLocaleDateString('en-CA')
+  const max = new Date(now).toLocaleDateString('en-CA')
+  return sessions.filter((s) => s.date >= min && s.date <= max)
+}
+
 // ── Progression par exercice ────────────────────────────────────────────────
 
 export interface ProgressPoint {
