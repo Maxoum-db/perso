@@ -271,9 +271,9 @@ export function MuscleBodyDiagram({
    * La région suit, parce que c'est elle que la base d'observations indexe — un
    * libellé de groupe couvre plusieurs zones, aux vitesses différentes.
    */
-  onSoreness?: (group: string, extra: number, region: MuscleRegion) => void
+  onSoreness?: (region: MuscleRegion, extra: number) => void
   /** Déclare le muscle totalement remis (ou annule cette déclaration). */
-  onPret?: (group: string, pret: boolean, region: MuscleRegion) => void
+  onPret?: (region: MuscleRegion, pret: boolean) => void
   /** Ouvre une séance sur un exercice proposé depuis la fiche d'un muscle. */
   onExercice?: (name: string) => void
   /** Ramène au journal, sur une séance déjà enregistrée. */
@@ -546,9 +546,9 @@ function MuscleSheet({
   /** Renvoie vers une séance déjà enregistrée du journal. */
   onSeance?: (sessionId: string) => void
   /** Déclare des courbatures — sur le GROUPE qui a produit cette sollicitation. */
-  onSoreness?: (group: string, extra: number, region: MuscleRegion) => void
+  onSoreness?: (region: MuscleRegion, extra: number) => void
   /** Déclare le muscle totalement remis. */
-  onPret?: (group: string, pret: boolean, region: MuscleRegion) => void
+  onPret?: (region: MuscleRegion, pret: boolean) => void
   onClose: () => void
 }) {
   const [courbOuvert, setCourbOuvert] = useState(false)
@@ -629,13 +629,18 @@ function MuscleSheet({
             <div className="mb-2 text-[11px] text-muted">
               {totalementBon ? (
                 <>
-                  Déclaré remis sur <b className="text-ink">{info!.label}</b>. Annule ci-dessous pour revenir à la
-                  barre.
+                  Déclaré remis sur <b className="text-ink">{MUSCLE_LABELS[region]}</b>. Annule ci-dessous pour revenir
+                  à la barre.
                 </>
               ) : (
+                // Le muscle et rien d'autre. Ce texte annonçait le LIBELLÉ de la
+                // séance — et c'était exact, la correction s'appliquait alors à
+                // tout ce que le libellé couvre. Un ressenti au cou déclaré
+                // après un portage noté « Corps entier » reculait le corps
+                // entier ; maintenant il ne recule que le cou.
                 <>
-                  Le barème se trompe ? Corrige-le. S'applique à <b className="text-ink">{info!.label}</b>, le groupe
-                  déclaré dans la séance.
+                  Le barème se trompe ? Corrige-le. S'applique à <b className="text-ink">{MUSCLE_LABELS[region]}</b>{' '}
+                  seul — les autres muscles de la séance ne bougent pas.
                 </>
               )}
             </div>
@@ -650,7 +655,7 @@ function MuscleSheet({
               step={AJUST_PAS}
               value={actuel}
               disabled={totalementBon}
-              onChange={(e) => onSoreness!(info!.label, Number(e.target.value), region)}
+              onChange={(e) => onSoreness!(region, Number(e.target.value))}
               className={`h-1.5 w-full appearance-none rounded-full ${
                 totalementBon ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
               }`}
@@ -684,7 +689,7 @@ function MuscleSheet({
                 part, donc, et il court-circuite le barème au lieu de le corriger. */}
             {onPret ? (
               <button
-                onClick={() => onPret(info!.label, !totalementBon, region)}
+                onClick={() => onPret(region, !totalementBon)}
                 className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl2 border py-2 text-xs font-bold transition"
                 style={{
                   borderColor: totalementBon ? 'rgb(var(--sage-dark))' : 'rgb(var(--line))',
@@ -698,7 +703,7 @@ function MuscleSheet({
             {totalementBon ? (
               <p className="mt-1 text-[10px]" style={{ color: 'rgb(var(--sage-dark))' }}>
                 Le muscle est traité comme prêt, quel que soit le barème. La déclaration
-                s’effacera d’elle-même dès que tu retravailleras {info!.label}.
+                s’effacera d’elle-même dès que tu retravailleras {MUSCLE_LABELS[region].toLowerCase()}.
               </p>
             ) : null}
           </div>

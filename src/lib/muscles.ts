@@ -88,53 +88,110 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
 }
 
 /**
- * Zone large d'appartenance : le mot qu'on emploie en parlant, pas le nom
- * anatomique. Sert à nommer une séance et à résumer l'état du corps sans
- * énumérer trente-huit muscles.
+ * Zone d'appartenance : le mot qu'on emploie en parlant, pas le nom anatomique.
+ * Sert à nommer une séance et à résumer l'état du corps sans énumérer
+ * trente-huit muscles.
  *
  * Complet, et non partiel : une zone manquante voulait dire un muscle qui
  * n'apparaît nulle part dès qu'on résume. La coiffe a la sienne — c'est la plus
  * lente à revenir et celle qu'il faut voir venir de loin.
+ *
+ * ── Pourquoi ce découpage-là ────────────────────────────────────────────────
+ *
+ * La version précédente comptait douze zones, dont « Jambes » qui en couvrait
+ * dix : quadriceps, ischios, fessiers, adducteurs et psoas dans le même mot.
+ * Une zone n'affiche que son muscle le plus en retard, donc un squat rendait
+ * « Jambes » rouge et les ischios frais devenaient invisibles — l'écran
+ * annonçait qu'il n'y avait rien à faire alors qu'il restait une demi-jambe
+ * disponible. Même problème avec « Bras », qui mettait biceps et triceps
+ * ensemble alors qu'une séance de tirage n'en fatigue qu'un.
+ *
+ * La règle de découpage : deux muscles partagent une zone quand on ne peut pas
+ * travailler l'un sans l'autre. Les trois vastes du quadriceps, oui. Le
+ * quadriceps et l'ischio, non — ce sont deux séances différentes.
+ *
+ * Deux regroupements survivent malgré tout, et pour la même raison inverse :
+ * les trois faisceaux du deltoïde, qui ne se dissocient pas dans un
+ * entraînement réel, et les trois muscles de l'avant-bras, qui travaillent dès
+ * qu'on tient quelque chose.
  */
 export const ZONE_LARGE: Record<MuscleRegion, string> = {
-  pecUpper: 'Pectoraux',
-  pecLower: 'Pectoraux',
-  lats: 'Dos',
-  teres: 'Dos',
-  rhomboids: 'Dos',
-  trapsMid: 'Dos',
-  trapsLow: 'Dos',
-  trapsUpper: 'Trapèzes',
+  // ── Tronc ────────────────────────────────────────────────────────────────
+  neck: 'Cou',
+  // Abdos et obliques séparés : une planche n'est pas un bûcheron à la poulie,
+  // et en béhourd c'est l'oblique qui prend, pas le grand droit.
+  rectus: 'Abdominaux',
+  obliques: 'Obliques',
+  serratus: 'Dentelé',
   erectors: 'Lombaires',
+
+  // ── Dos et épaules ───────────────────────────────────────────────────────
+  // Grand dorsal (tirage vertical) et milieu du dos (tirage horizontal) : deux
+  // mouvements distincts, donc deux zones.
+  lats: 'Grand dorsal',
+  teres: 'Grand dorsal',
+  rhomboids: 'Milieu du dos',
+  trapsMid: 'Milieu du dos',
+  trapsLow: 'Milieu du dos',
+  trapsUpper: 'Trapèzes',
+  // Les trois faisceaux du deltoïde restent ensemble : aucune séance réelle
+  // n'en travaille un sans solliciter les deux autres.
   deltAnt: 'Épaules',
   deltLat: 'Épaules',
   deltPost: 'Épaules',
   rotatorCuff: 'Coiffe',
-  biceps: 'Bras',
-  brachialis: 'Bras',
-  tricepsLong: 'Bras',
-  tricepsLat: 'Bras',
+
+  // ── Bras ─────────────────────────────────────────────────────────────────
+  biceps: 'Biceps',
+  brachialis: 'Biceps',
+  tricepsLong: 'Triceps',
+  tricepsLat: 'Triceps',
+  // L'avant-bras travaille dès qu'on tient quelque chose : le dissocier
+  // afficherait trois zones qui bougent toujours ensemble.
   brachioradialis: 'Avant-bras',
   forearmFlex: 'Avant-bras',
   forearmExt: 'Avant-bras',
-  rectus: 'Core',
-  obliques: 'Core',
-  serratus: 'Core',
-  neck: 'Cou',
-  gluteMax: 'Jambes',
-  gluteMed: 'Jambes',
-  tfl: 'Jambes',
-  hipFlexors: 'Jambes',
-  rectusFemoris: 'Jambes',
-  vastusLat: 'Jambes',
-  vastusMed: 'Jambes',
-  adductors: 'Jambes',
-  bicepsFemoris: 'Jambes',
-  hamsInner: 'Jambes',
+
+  // ── Poitrine ─────────────────────────────────────────────────────────────
+  pecUpper: 'Pectoraux',
+  pecLower: 'Pectoraux',
+
+  // ── Jambes ───────────────────────────────────────────────────────────────
+  gluteMax: 'Fessiers',
+  gluteMed: 'Fessiers',
+  tfl: 'Fessiers',
+  hipFlexors: 'Fléchisseurs de hanche',
+  rectusFemoris: 'Quadriceps',
+  vastusLat: 'Quadriceps',
+  vastusMed: 'Quadriceps',
+  adductors: 'Adducteurs',
+  bicepsFemoris: 'Ischios',
+  hamsInner: 'Ischios',
   gastroc: 'Mollets',
   soleus: 'Mollets',
-  tibialis: 'Mollets',
-  fibularis: 'Mollets',
+  // Tibial antérieur et fibulaires : ce ne sont pas des mollets, ils font
+  // l'inverse. Ce sont eux qui tiennent la cheville en armure sur terrain
+  // défoncé, et rien ne les travaille par accident.
+  tibialis: 'Chevilles',
+  fibularis: 'Chevilles',
+}
+
+/** Toutes les zones existantes, sans doublon. */
+export const ZONES = [...new Set(Object.values(ZONE_LARGE))]
+
+/**
+ * Combien de zones on énumère avant de compter le reste.
+ *
+ * Le découpage fin a un revers : au réveil d'une semaine calme, une quinzaine de
+ * zones sont prêtes en même temps, et une ligne de quinze pastilles ne se lit
+ * plus — elle occupe l'écran pour dire « tout va bien ». Cinq nommées et un
+ * compteur disent la même chose en une ligne.
+ */
+export const MAX_ZONES_LISTEES = 5
+
+/** Les N premières d'une liste de zones, et combien il en reste derrière. */
+export function tronquerZones<T>(liste: T[], max = MAX_ZONES_LISTEES): { visibles: T[]; reste: number } {
+  return { visibles: liste.slice(0, max), reste: Math.max(0, liste.length - max) }
 }
 
 /** Trois degrés de sollicitation, pour la légende et les pastilles. */

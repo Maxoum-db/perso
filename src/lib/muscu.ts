@@ -2,7 +2,8 @@ import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
-import { partParDefaut, regionsForGroup } from './muscles'
+import { partParDefaut, regionsForGroup, type MuscleRegion } from './muscles'
+import type { Courbature } from './soreness'
 import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 // Ré-exportés : le pas de temps est une règle du barème, mais tout le module le
 // lit depuis ici depuis toujours.
@@ -234,20 +235,17 @@ export interface GroupLoad {
   intensity: number
   /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
-  /** Jours de récupération ajoutés à la main (courbatures déclarées). */
-  soreExtra?: number
-  /** Déclaré « totalement bon » : prime sur le barème, plafond compris. */
-  sorePret?: boolean
   /**
-   * Jours ressentis tels que le barème les donnait AVANT ta déclaration.
+   * Déclarations de ressenti qui s'appliquent à cette charge, PAR MUSCLE.
    *
-   * Porté et non reconstruit : ré-ajouter l'ajustement à la valeur corrigée
-   * tombait à côté dès que la soustraction avait buté sur le plancher à 0 — un
-   * muscle corrigé de +2 j alors qu'il n'en avait qu'un affichait 0, et le calcul
-   * inverse rendait 2 au lieu de 1. C'est cette valeur que la base d'observations
-   * juge, elle doit être exacte.
+   * Portées et non appliquées : une charge est indexée par libellé de groupe, et
+   * un libellé couvre jusqu'à trente-huit muscles. Les appliquer ici aurait
+   * étendu une courbature déclarée au cou à tout ce qu'une marche du fermier
+   * touche. C'est `reposParMuscle` qui les consomme, là où les muscles existent.
+   *
+   * Déjà filtrées : ce qui est périmé ou nul n'y figure pas.
    */
-  effectiveDaysPrevus?: number
+  courbatures?: Partial<Record<MuscleRegion, Courbature>>
   /** Jours retirés par des séances de récupération active postérieures. */
   recupBonus?: number
   /** Jours ajoutés (ou retirés) par l'intensité déclarée de la séance. */

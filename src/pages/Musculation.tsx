@@ -55,7 +55,6 @@ import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './M
 import {
   MUSCLE_GROUPS_DEFAULT,
   exerciseProgress,
-  groupLoads,
   seancesRecentes,
   FENETRE_STATS,
   fmtTonnage,
@@ -592,22 +591,30 @@ function Journal({
     if (obs) onObservations(noterObservation(observations, obs))
   }
 
-  /** Déclare (ou retire) des courbatures sur un groupe. */
-  function declarerCourbatures(group: string, extra: number, region: MuscleRegion) {
-    const base = groupLoads(sessions)[group]
-    if (!base) return
+  /**
+   * Déclare (ou retire) des courbatures SUR CE MUSCLE.
+   *
+   * Sur ce muscle et pas sur son libellé de groupe : c'est tout l'objet du
+   * passage au muscle. La date vient de `reposParMuscle`, qui a déjà tranché
+   * quelle séance compte pour ce muscle-là quand plusieurs libellés le couvrent
+   * — la reprendre depuis un libellé aurait pu désigner l'autre séance, et la
+   * déclaration serait née périmée.
+   */
+  function declarerCourbatures(region: MuscleRegion, extra: number) {
+    const info = reposParMuscle(loads)[region]
+    if (!info) return
     noterRessenti(region, extra, false)
-    onCourbatures(declarerAjustement(courbatures, group, extra, base))
+    onCourbatures(declarerAjustement(courbatures, region, extra, info.dateSeance))
   }
 
   /** Déclare le muscle totalement remis, ou annule cette déclaration. */
-  function declarerTotalementBon(group: string, pret: boolean, region: MuscleRegion) {
-    const base = groupLoads(sessions)[group]
-    if (!base) return
+  function declarerTotalementBon(region: MuscleRegion, pret: boolean) {
+    const info = reposParMuscle(loads)[region]
+    if (!info) return
     // Annuler n'est pas une observation : c'est le retrait d'une observation
     // précédente, pas un ressenti nouveau.
     if (pret) noterRessenti(region, 0, true)
-    onCourbatures(declarerPret(courbatures, group, pret, base))
+    onCourbatures(declarerPret(courbatures, region, pret, info.dateSeance))
   }
 
   // Trente jours glissants, pas le mois calendaire : le 2 août, un compteur du

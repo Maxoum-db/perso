@@ -27,6 +27,7 @@ import { prochaineSeance, type ContexteSeance } from '../lib/prochaine'
 import { finDeJournee, fmtCreneau, premierCreneau, type Occupe } from '../lib/creneau'
 import { chargesCourantes } from '../lib/charges'
 import { etatParZone, fmtDelai, reposParMuscle, type EtatZone } from '../lib/recuperation'
+import { tronquerZones } from '../lib/muscles'
 import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
@@ -426,12 +427,15 @@ function MuscuMoitie({
   const prochaine = contexte.catalog.length ? prochaineSeance({ ...contexte, loads }, zones) : null
   // Les prêtes, la plus fraîche d'abord : c'est celle qu'on a le plus négligée,
   // donc la meilleure candidate du jour.
-  const pretes = zones.filter((z) => z.pret).sort((a, b) => b.jours - a.jours)
+  // Tronquées : depuis le découpage fin, une bonne journée en rend une quinzaine
+  // prêtes d'un coup, et quinze pastilles ne se lisent plus. Les plus fraîches
+  // sont aussi les plus intéressantes, l'ordre fait donc le tri tout seul.
+  const pretes = tronquerZones(zones.filter((z) => z.pret).sort((a, b) => b.jours - a.jours))
   // Celles qui reviennent, par DÉLAI et non par état : « revient » annonce une
   // date, et les zones ne récupèrent pas à la même vitesse — trier sur les jours
   // ressentis aurait mis en tête une zone qui revient plus tard qu'une autre
-  // affichée en dessous. Trois suffisent : les suivantes ne cadrent plus rien.
-  const enRecup = zones.filter((z) => !z.pret).sort((a, b) => a.reste - b.reste).slice(0, 3)
+  // affichée en dessous.
+  const enRecup = tronquerZones(zones.filter((z) => !z.pret).sort((a, b) => a.reste - b.reste), 3)
 
   // Deux liens et non un seul, comme l'agenda et la muscu plus haut : l'état du
   // corps mène au module, la séance proposée mène au module AVEC elle déjà
@@ -446,23 +450,25 @@ function MuscuMoitie({
         <span className="text-xs font-semibold text-copper">▶️ Démarrer</span>
       </div>
 
-      {pretes.length > 0 ? (
+      {pretes.visibles.length > 0 ? (
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className="shrink-0 text-xs font-semibold text-sage-dark">✅ Prêt</span>
-          {pretes.map((z) => (
+          {pretes.visibles.map((z) => (
             <Pastille key={z.zone} etat={z} />
           ))}
+          {pretes.reste > 0 ? <span className="text-xs text-muted">+{pretes.reste}</span> : null}
         </div>
       ) : (
         <div className="mt-2 text-sm text-muted">Tout est encore en récupération. 🌙</div>
       )}
 
-      {enRecup.length > 0 ? (
+      {enRecup.visibles.length > 0 ? (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className="shrink-0 text-xs font-semibold text-muted">⏳ Revient</span>
-          {enRecup.map((z) => (
+          {enRecup.visibles.map((z) => (
             <Pastille key={z.zone} etat={z} delai />
           ))}
+          {enRecup.reste > 0 ? <span className="text-xs text-muted">+{enRecup.reste}</span> : null}
         </div>
       ) : null}
 

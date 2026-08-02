@@ -3,7 +3,7 @@ import { HORIZONS, chargesProjetees } from '../lib/charges'
 import type { Courbatures } from '../lib/soreness'
 import type { Nuits } from '../lib/sommeil'
 import type { GroupLoad, MuscuSession } from '../lib/muscu'
-import type { MuscleRegion } from '../lib/muscles'
+import { tronquerZones, type MuscleRegion } from '../lib/muscles'
 import { etatParZone, reposParMuscle } from '../lib/recuperation'
 import type { Sexe } from '../lib/morphologie'
 import { MuscleBodyDiagram } from './MuscleBodyDiagram'
@@ -33,8 +33,8 @@ export function RecuperationCard({
   /** La récup réelle, déjà calculée par la page — l'horizon « Auj. ». */
   loads: Record<string, GroupLoad>
   sexe: Sexe
-  onSoreness: (group: string, extra: number, region: MuscleRegion) => void
-  onPret: (group: string, pret: boolean, region: MuscleRegion) => void
+  onSoreness: (region: MuscleRegion, extra: number) => void
+  onPret: (region: MuscleRegion, pret: boolean) => void
   onExercice: (name: string) => void
   onSeance: (sessionId: string) => void
 }) {
@@ -66,6 +66,12 @@ export function RecuperationCard({
       .map((z) => z.zone)
   }, [projette, loads, affiches])
 
+  // Énumérées jusqu'à un point, puis comptées : une projection à deux jours peut
+  // en faire passer une douzaine, et douze noms d'affilée dans un bandeau ne se
+  // lisent pas — on retient « ça repart », pas la liste.
+  const { visibles, reste } = tronquerZones(gagnees)
+  const listeGagnees = visibles.join(', ') + (reste ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : '')
+
   return (
     <section className="card space-y-2 p-3">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
@@ -93,9 +99,7 @@ export function RecuperationCard({
       {projette ? (
         <p className="rounded-xl2 bg-sage/10 px-2.5 py-1.5 text-[11px] leading-snug text-sage-dark">
           <strong>{horizon.phrase}</strong>, si tu ne t'entraînes pas d'ici là.{' '}
-          {gagnees.length
-            ? `${gagnees.length === 1 ? 'Passe' : 'Passent'} au vert : ${gagnees.join(', ')}.`
-            : 'Rien de nouveau ne passe au vert.'}
+          {gagnees.length ? `${gagnees.length === 1 ? 'Passe' : 'Passent'} au vert : ${listeGagnees}.` : 'Rien de nouveau ne passe au vert.'}
         </p>
       ) : null}
 
