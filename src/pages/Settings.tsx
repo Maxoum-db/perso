@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { hasFreshGoogleToken } from '../lib/google'
 import { fetchSettings, type PersoSettings } from '../lib/settings'
 import { disablePush, enablePush, isStandalone, pushStatus, sendTestPush } from '../lib/push'
-import { exporterSport } from '../lib/exportSport'
+import { exporterSport, type ContexteExport, type PorteeExport } from '../lib/exportSport'
 import { FENETRE_STATS, listSessions } from '../lib/muscu'
 import { listWeighins } from '../lib/workouts'
+import { loadNuits } from '../lib/sommeil'
+import { loadObservations } from '../lib/observations'
+import { loadCourbatures } from '../lib/soreness'
+import { loadProfil } from '../lib/profil'
+import { loadBehourd, loadFocus } from '../lib/focus'
 
 export function Settings() {
   const { user, signInWithGoogle, signOut } = useAuth()
@@ -86,18 +91,40 @@ export function Settings() {
  */
 function ExportSportSection({ userId }: { userId: string }) {
   const [texte, setTexte] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<PorteeExport | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  // Les données sont chargées une fois et gardées : les deux boutons décrivent
+  // le même corps à la même seconde, et passer de l'un à l'autre est immédiat.
+  const donnees = useRef<Omit<ContexteExport, 'portee'> | null>(null)
 
-  async function exporter() {
+  async function charger(): Promise<Omit<ContexteExport, 'portee'>> {
+    if (donnees.current) return donnees.current
+    // Tout en parallèle : huit sources, dont aucune ne dépend d'une autre. Les
+    // pesées arrivent de la plus récente à la plus ancienne, la première est
+    // donc le poids du jour — celui qui sert à la dépense.
+    const [sessions, weighins, nuits, observations, courbatures, profil, focus, behourd] = await Promise.all([
+      listSessions(userId),
+      listWeighins(userId),
+      loadNuits(userId),
+      loadObservations(userId),
+      loadCourbatures(userId),
+      loadProfil(userId),
+      loadFocus(userId),
+      loadBehourd(userId),
+    ])
+    donnees.current = {
+      sessions, weighins, nuits, observations, courbatures, profil, focus, behourd,
+      bodyWeight: weighins[0]?.weight_kg ?? null,
+    }
+    return donnees.current
+  }
+
+  async function exporter(portee: PorteeExport) {
     if (!userId) return
-    setBusy(true)
+    setBusy(portee)
     setMsg(null)
     try {
-      // Les pesées arrivent de la plus récente à la plus ancienne : la
-      // première est le poids du jour, celui qui sert à la dépense.
-      const [sessions, weighins] = await Promise.all([listSessions(userId), listWeighins(userId)])
-      const out = exporterSport({ sessions, weighins, bodyWeight: weighins[0]?.weight_kg ?? null })
+      const out = exporterSport({ ...(await charger()), portee })
       setTexte(out)
       try {
         await navigator.clipboard.writeText(out)
@@ -108,20 +135,31 @@ function ExportSportSection({ userId }: { userId: string }) {
     } catch (e) {
       setMsg((e as Error).message)
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
   return (
     <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">🏋️ Export du sport</h2>
+      <h2 className="text-sm font-bold text-ink">🏋️ Export</h2>
       <p className="mt-1 text-sm text-muted">
-        Les {FENETRE_STATS} derniers jours d'entraînement en texte — séances, exercices, charges, tonnage et dépense.
-        À coller dans NotebookLM.
+        Sur {FENETRE_STATS} jours, en texte, prêt à coller dans NotebookLM.{' '}
+        <b className="text-ink">Séances</b> donne le journal et son résumé ; <b className="text-ink">Tout</b> y ajoute
+        charge d'entraînement, sommeil nuit par nuit, pesées, progression et records, état de récupération et écarts au
+        barème.
       </p>
-      <button onClick={exporter} disabled={busy || !userId} className="btn-ghost mt-3 text-xs">
-        {busy ? 'Préparation…' : texte ? 'Regénérer et copier' : `Copier les ${FENETRE_STATS} derniers jours`}
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={() => exporter('sport')} disabled={busy !== null || !userId} className="btn-ghost text-xs">
+          {busy === 'sport' ? 'Préparation…' : '📒 Séances'}
+        </button>
+        <button
+          onClick={() => exporter('complet')}
+          disabled={busy !== null || !userId}
+          className="btn-ghost text-xs text-copper"
+        >
+          {busy === 'complet' ? 'Préparation…' : '🧠 Tout exporter'}
+        </button>
+      </div>
 
       {msg ? <p className="mt-2 text-xs text-copper">{msg}</p> : null}
 
