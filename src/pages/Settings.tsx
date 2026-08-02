@@ -81,7 +81,7 @@ export function Settings() {
 }
 
 /**
- * Le sport récent, en un bouton, prêt à coller dans NotebookLM.
+ * Le sport récent, en un bouton, prêt à coller.
  *
  * Le texte est mis dans le presse-papiers ET affiché. L'affichage n'est pas une
  * consolation en cas d'échec : sur iOS, `navigator.clipboard` refuse d'écrire
@@ -143,7 +143,7 @@ function ExportSportSection({ userId }: { userId: string }) {
     <section className="card p-4">
       <h2 className="text-sm font-bold text-ink">🏋️ Export</h2>
       <p className="mt-1 text-sm text-muted">
-        Sur {FENETRE_STATS} jours, en texte, prêt à coller dans NotebookLM.{' '}
+        Sur {FENETRE_STATS} jours, en texte, prêt à coller.{' '}
         <b className="text-ink">Séances</b> donne le journal et son résumé ; <b className="text-ink">Tout</b> y ajoute
         charge d'entraînement, sommeil nuit par nuit, pesées, progression et records, état de récupération et écarts au
         barème.
