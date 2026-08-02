@@ -260,6 +260,20 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Béhourd — corps à corps (lutte en armure)', groups: 'Fléchisseurs avant-bras:1, Grand dorsal:0.9, Érecteurs du rachis:0.8, Cou:0.8, Quadriceps:0.8, Trapèze supérieur:0.7, Grand fessier:0.7, Obliques:0.7', sets: 5, reps: '90 s', notes: 'Poussées, projections, contrôle au sol. Très demandeur en préhension et en chaîne postérieure.', kind: 'activite' },
   { name: 'Béhourd — sparring en armure', groups: 'Cardio:1, Cou:0.9, Trapèze supérieur:0.9, Fléchisseurs avant-bras:0.9, Deltoïde antérieur:0.8, Érecteurs du rachis:0.8, Obliques:0.8, Quadriceps:0.8, Grand fessier:0.7, Gastrocnémiens:0.6, Grand dorsal:0.6, Grand droit:0.6', sets: 1, reps: '90 min', notes: '33 kg d’acier + gambeson. Hydratation 1 L/h. Séance la plus exigeante de la semaine : compter 48 h de récupération avant du lourd en jambes.', kind: 'activite' },
 
+  // ── Boxe pieds-poings ─────────────────────────────────────────────────────
+  //
+  // Deux entrées et non une : la technique du lundi et le conditionnement du
+  // vendredi n'ont ni la même intensité ni les mêmes muscles moteurs. Les
+  // confondre aurait fait passer une séance de récupération active pour un
+  // travail lactique, et le mannequin serait resté rouge deux jours pour rien.
+  { name: 'Kickboxing — technique et déplacements', groups: 'Cardio:0.6, Deltoïde antérieur:0.6, Obliques:0.6, Gastrocnémiens:0.5, Soléaire:0.5, Grand droit:0.4, Quadriceps:0.4, Triceps:0.4, Fibulaires:0.4', sets: 1, reps: '60 min', notes: 'Shadow, pattes d’ours, déplacements. Impact articulaire faible : c’est une récupération active après le béhourd, pas une séance dure. ⚠️ AC droite : garde haute prolongée à surveiller.', kind: 'activite' },
+  { name: 'Cardioboxing — intervalles', groups: 'Cardio:1, Deltoïde antérieur:0.8, Obliques:0.8, Grand droit:0.6, Gastrocnémiens:0.6, Quadriceps:0.5, Triceps:0.5, Grand dorsal:0.4', sets: 8, reps: '2 min', notes: 'Rounds à haute intensité, récupération courte. C’est ici que se travaille le souffle sous visière — masque respiratoire possible, jamais sur du lourd. Ôter le masque dès que la technique se dégrade.', kind: 'activite' },
+
+  // Sangle cervicale : la charge est libre et progressive, contrairement à
+  // l'élastique qui plafonne vite. C'est l'outil du protocole tank — et le plus
+  // risqué du lot, d'où la consigne d'amplitude en toutes lettres.
+  { name: 'Sangle cervicale (neck harness) — flexion/extension', groups: 'Cou:1, Trapèze supérieur:0.5', sets: 3, reps: '12', notes: '⚠️ Le muscle qui ne pardonne pas l’ego : montée en charge par très petites marches, amplitude contrôlée, JAMAIS à l’échec ni en à-coup. Commencer sans charge pendant deux semaines. En cas d’antécédent cervical, faire valider les mouvements avant de charger.' },
+
   // ── Compléments : machines Basic Fit et variantes courantes ───────────────
   { name: 'Développé couché prise serrée', groups: 'Triceps:1, Grand pectoral:0.6, Pectoral supérieur:0.4, Deltoïde antérieur:0.4', sets: 3, reps: '10', notes: 'Mains à largeur d’épaules, coudes le long du corps.' },
   { name: 'Écarté incliné haltères', groups: 'Pectoral supérieur:1, Deltoïde antérieur:0.4', sets: 3, reps: '12', notes: '⚠️ AC droite : amplitude limitée, coudes jamais sous la ligne du buste.' },
