@@ -1,5 +1,5 @@
 import { PAS_HEURES, groupLoads, type GroupLoad, type MuscuSession } from './muscu'
-import { applyCourbatures, type Courbatures } from './soreness'
+import { rattacherCourbatures, type Courbatures } from './soreness'
 import { applySommeil, type Nuits } from './sommeil'
 
 /**
@@ -12,8 +12,13 @@ import { applySommeil, type Nuits } from './sommeil'
  *      l'exercice et par l'intensité déclarée de la séance ;
  *   2. `applySommeil` — les nuits depuis la séance, qui repose le plafond orange
  *      après coup (un bon sommeil n'efface pas la journée qui vient de passer) ;
- *   3. `applyCourbatures` — ton ressenti déclaré à la main, qui a le dernier mot
- *      parce que c'est le seul des trois qui vienne de toi.
+ *   3. `rattacherCourbatures` — ton ressenti déclaré à la main, qui a le dernier
+ *      mot parce que c'est le seul des trois qui vienne de toi. Il n'est pas
+ *      APPLIQUÉ ici mais rattaché : une déclaration porte sur un muscle, une
+ *      charge sur un libellé de groupe, et un libellé couvre jusqu'à
+ *      trente-huit muscles. C'est `reposParMuscle` qui la consomme, là où les
+ *      muscles existent — sinon une courbature déclarée au cou aurait continué
+ *      de reculer tout ce qu'une marche du fermier touche.
  *
  * Une seule définition : la chaîne vivait recopiée à deux endroits de la page,
  * et le seul précédent de règle dupliquée dans ce module — le « 0 = pas de
@@ -27,7 +32,7 @@ export function chargesCourantes(
   maintenant = Date.now(),
 ): Record<string, GroupLoad> {
   const jour = new Date(maintenant).toLocaleDateString('en-CA')
-  return applyCourbatures(applySommeil(groupLoads(sessions, maintenant), nuits, jour), courbatures)
+  return rattacherCourbatures(applySommeil(groupLoads(sessions, maintenant), nuits, jour), courbatures)
 }
 
 // ── Projection ──────────────────────────────────────────────────────────────

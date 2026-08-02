@@ -1,5 +1,6 @@
 import { regionsForGroup, ZONE_LARGE, type MuscleRegion } from './muscles'
 import type { GroupLoad } from './muscu'
+import type { Courbature } from './soreness'
 import type { IntensiteId } from './intensite'
 
 // Tous les muscles ne récupèrent pas au même rythme, et trois paliers pour
@@ -250,6 +251,34 @@ export function fmtDelai(jours: number): string {
   return `${pleins} j${jours - pleins >= PAS_JOURS ? ' ½' : ''}`
 }
 
+/**
+ * Jours ressentis posés par « totalement bon ».
+ *
+ * Déduit du barème et non écrit en dur : il faut que même la zone la plus lente
+ * (la coiffe des rotateurs, ×0,6) franchisse le seuil de « prêt ». Une valeur
+ * figée deviendrait fausse à la première retouche des vitesses — et fausse dans
+ * le mauvais sens, en affichant « prêt » un muscle qui ne l'est pas.
+ */
+export const JOURS_TOTALEMENT_BON = SEUIL_PRET / VITESSE_MIN
+
+/**
+ * Jours ressentis d'un muscle une fois sa déclaration appliquée.
+ *
+ * Appelé sur les jours ressentis AVANT pondération par la vitesse de la zone :
+ * l'ajustement est exprimé en jours de récupération au sens du barème, comme
+ * l'intensité déclarée d'une séance et comme le sommeil. L'appliquer après la
+ * pondération lui aurait donné une valeur différente selon le muscle visé, pour
+ * la même barre tirée au même endroit.
+ */
+export function joursCorriges(effectiveDays: number, c: Courbature | undefined): number {
+  if (!c) return effectiveDays
+  // « Totalement bon » l'emporte sur tout. C'est la seule déclaration qui prime
+  // sur le calcul au lieu de le corriger : un muscle peut être frais deux jours
+  // après une grosse séance sans qu'aucune valeur de −1 j ne suffise à le dire.
+  if (c.pret) return Math.max(effectiveDays, JOURS_TOTALEMENT_BON)
+  return Math.max(0, effectiveDays - c.extra)
+}
+
 /** L'état d'une zone large : son muscle le plus en retard, et rien d'autre. */
 export interface EtatZone {
   zone: string
@@ -312,24 +341,34 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
   const out: Partial<Record<MuscleRegion, ReposMuscle>> = {}
   for (const [label, load] of Object.entries(loads)) {
     for (const region of regionsForGroup(label)) {
+      // C'est ICI que la déclaration de ressenti s'applique, et pas plus haut :
+      // ce muscle-ci, pas les trente-sept autres que le libellé couvre.
+      const c = load.courbatures?.[region]
+      const brut = joursCorriges(load.effectiveDays, c) * VITESSE_RECUP[region]
       // Le plafond du jour J : le muscle a beau n'avoir été qu'effleuré, on ne
-      // l'annonce pas prêt le soir même de la séance.
-      const brut = load.effectiveDays * VITESSE_RECUP[region]
-      const jours = load.days < 1 ? Math.min(brut, PLAFOND_JOUR_J) : brut
+      // l'annonce pas prêt le soir même de la séance. Sauf si TU dis qu'il l'est
+      // — ce plafond est là pour empêcher le barème de sauter du rouge au vert
+      // tout seul, pas pour t'empêcher, toi, de dire ce que tu ressens. Il
+      // écrasait « totalement bon » déclaré le jour même sans rien en dire.
+      const jours = load.days < 1 && !c?.pret ? Math.min(brut, PLAFOND_JOUR_J) : brut
       const cur = out[region]
       if (!cur || jours < cur.jours) {
         out[region] = {
           jours,
+          // Ce que le barème disait AVANT ta correction : la valeur non
+          // corrigée, reprise telle quelle. La base d'observations la juge, elle
+          // doit être exacte — et la reconstruire en ré-ajoutant l'ajustement
+          // tombait à côté dès que la soustraction avait buté sur le plancher.
           joursPrevus: Math.min(
-            (load.effectiveDaysPrevus ?? load.effectiveDays) * VITESSE_RECUP[region],
+            load.effectiveDays * VITESSE_RECUP[region],
             load.days < 1 ? PLAFOND_JOUR_J : Infinity,
           ),
           intensite: load.intensity,
           label,
           joursReels: load.days,
           dateSeance: load.date,
-          soreExtra: load.soreExtra,
-          sorePret: load.sorePret,
+          soreExtra: c && !c.pret ? c.extra : undefined,
+          sorePret: c?.pret,
           intensiteRecup: load.intensiteRecup,
           intensiteId: load.intensiteId,
           sommeilDelta: load.sommeilDelta,

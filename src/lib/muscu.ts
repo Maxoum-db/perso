@@ -2,7 +2,8 @@ import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
-import { partParDefaut, regionsForGroup } from './muscles'
+import { partParDefaut, regionsForGroup, type MuscleRegion } from './muscles'
+import type { Courbature } from './soreness'
 import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 // Ré-exportés : le pas de temps est une règle du barème, mais tout le module le
 // lit depuis ici depuis toujours.
@@ -234,20 +235,17 @@ export interface GroupLoad {
   intensity: number
   /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
-  /** Jours de récupération ajoutés à la main (courbatures déclarées). */
-  soreExtra?: number
-  /** Déclaré « totalement bon » : prime sur le barème, plafond compris. */
-  sorePret?: boolean
   /**
-   * Jours ressentis tels que le barème les donnait AVANT ta déclaration.
+   * Déclarations de ressenti qui s'appliquent à cette charge, PAR MUSCLE.
    *
-   * Porté et non reconstruit : ré-ajouter l'ajustement à la valeur corrigée
-   * tombait à côté dès que la soustraction avait buté sur le plancher à 0 — un
-   * muscle corrigé de +2 j alors qu'il n'en avait qu'un affichait 0, et le calcul
-   * inverse rendait 2 au lieu de 1. C'est cette valeur que la base d'observations
-   * juge, elle doit être exacte.
+   * Portées et non appliquées : une charge est indexée par libellé de groupe, et
+   * un libellé couvre jusqu'à trente-huit muscles. Les appliquer ici aurait
+   * étendu une courbature déclarée au cou à tout ce qu'une marche du fermier
+   * touche. C'est `reposParMuscle` qui les consomme, là où les muscles existent.
+   *
+   * Déjà filtrées : ce qui est périmé ou nul n'y figure pas.
    */
-  effectiveDaysPrevus?: number
+  courbatures?: Partial<Record<MuscleRegion, Courbature>>
   /** Jours retirés par des séances de récupération active postérieures. */
   recupBonus?: number
   /** Jours ajoutés (ou retirés) par l'intensité déclarée de la séance. */
@@ -634,6 +632,7 @@ const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const LIBRARY_SEED_KEY = 'muscu_library_v23'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
+const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -966,9 +965,29 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
   // `ensureLibrary` ci-dessous qui ajoute ces exercices — au bon étiquetage.
 
   if (await ensureLibrary(userId)) didSeed = true
-  if (await ensureRecoveryTemplates(userId)) didSeed = true
+  if (await ensureTemplates(userId, RECUP_TEMPLATES_KEY, RECUP_TEMPLATES)) didSeed = true
+  if (await ensureTemplates(userId, COMBAT_TEMPLATES_KEY, COMBAT_TEMPLATES)) didSeed = true
 
   return didSeed
+}
+
+/**
+ * Un exercice d'une séance type livrée avec l'application.
+ *
+ * Le nom seul suffit : format et groupes viennent de la bibliothèque, qui fait
+ * foi. `sets` / `reps` ne sont là que pour les séances dont le format N'EST PAS
+ * celui de la bibliothèque — une séance lourde tourne à 6 répétitions là où la
+ * fiche en propose 15, et recopier la fiche aurait donné une séance légère
+ * portant un nom de séance lourde.
+ */
+type LigneModele = string | { nom: string; sets?: number; reps?: string; notes?: string }
+
+interface SeanceModele {
+  name: string
+  icon: string
+  duration: number
+  notes: string
+  exos: LigneModele[]
 }
 
 /**
@@ -976,7 +995,7 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
  * jour de récupération aux zones qu'elles touchent : sans modèle sous la main,
  * personne ne pense à les enregistrer.
  */
-const RECUP_TEMPLATES: Array<{ name: string; icon: string; duration: number; notes: string; exos: string[] }> = [
+export const RECUP_TEMPLATES: SeanceModele[] = [
   {
     name: 'Récup — lendemain de béhourd',
     icon: '🧘',
@@ -1039,31 +1058,87 @@ const RECUP_TEMPLATES: Array<{ name: string; icon: string; duration: number; not
   },
 ]
 
-async function ensureRecoveryTemplates(userId: string): Promise<boolean> {
-  const done = await fetchKv<boolean>(userId, RECUP_TEMPLATES_KEY, false)
+/**
+ * La ceinture abdominale, chargée, pour le combat.
+ *
+ * Ce n'est pas la séance « Core » du programme Basic Fit, qui est un jour de
+ * récupération active à base de gainage au poids du corps. Celle-ci travaille
+ * les quatre choses que le harnois demande au tronc, et rien d'autre :
+ *
+ *   • résister à l'extension sous charge — c'est ce que fait le dos quand
+ *     35 kg d'acier tirent vers l'arrière (roulette, gainage lesté) ;
+ *   • résister à la rotation et à l'inclinaison — encaisser un coup de côté
+ *     sans se plier (Pallof, port valise) ;
+ *   • produire de la rotation — la frappe part des obliques, pas du bras
+ *     (bûcheron à la poulie) ;
+ *   • fléchir la hanche sous charge — se relever, monter le genou en armure
+ *     (chaise romaine, crunch à la poulie).
+ *
+ * Deux choix méritent d'être dits. La chaise romaine plutôt que le relevé de
+ * jambes suspendu : suspendu, tout le poids du corps tire sur l'articulation
+ * acromio-claviculaire, et l'épaule droite n'a pas à payer une séance d'abdos.
+ * Et l'extension lombaire en dernier : les érecteurs sont l'arrière de la
+ * ceinture, une ceinture qui ne tient que devant ne tient pas.
+ */
+export const COMBAT_TEMPLATES: SeanceModele[] = [
+  {
+    name: 'Ceinture abdominale lourde (combat)',
+    icon: '🛡️',
+    duration: 60,
+    notes:
+      'Charges lourdes, séries courtes : la ceinture se muscle comme le reste, pas à 30 répétitions. ' +
+      '⚠️ En reprise, première séance à 60 % et 3 séries par exercice — un abdo tiré gêne absolument tout, ' +
+      'y compris respirer sous le harnois. Souffler à l’effort, jamais bloquer en apnée.',
+    exos: [
+      { nom: 'Roulette abdominale', sets: 5, reps: '6', notes: 'La plus dure en premier. Lest sur le dos dès que 6 passent sans trembler. Dos jamais cambré — c’est exactement ce qu’on entraîne.' },
+      { nom: 'Chaise romaine — relevés de jambes', sets: 4, reps: '8', notes: 'Haltère serré entre les pieds. Chaise romaine et non suspendu : avant-bras en appui, l’épaule AC n’est pas mise en traction.' },
+      { nom: 'Crunch à la poulie haute (à genoux)', sets: 4, reps: '8', notes: 'Lourd. Enrouler le buste vertèbre par vertèbre, hanches immobiles — ce n’est pas un mouvement de hanche.' },
+      { nom: 'Bûcheron à la poulie (haut vers bas)', sets: 4, reps: '8/côté', notes: 'Le geste de frappe. Pivoter sur le pied arrière, bras tendus : la rotation vient du tronc.' },
+      { nom: 'Anti-rotation à la poulie (Pallof)', sets: 4, reps: '8/côté', notes: 'Tenir 3 s bras tendus à chaque répétition. Charge assez lourde pour que ça pousse vraiment de côté.' },
+      { nom: 'Port valise (haltère à une main)', sets: 4, reps: '40 m/côté', notes: 'Le plus lourd que tu tiennes sans t’incliner. Épaules au même niveau — c’est le seul critère.' },
+      { nom: 'Extension lombaire à la machine', sets: 3, reps: '10', notes: 'L’arrière de la ceinture. Charge modérée, amplitude complète, sans à-coup.' },
+    ],
+  },
+]
+
+/**
+ * Sème des séances types livrées avec l'application, une fois.
+ *
+ * Une seule définition pour la récup et le combat : la version précédente ne
+ * savait semer que les séances de récup, et ajouter la séance de combat
+ * demandait de recopier la boucle — donc d'avoir deux endroits où corriger le
+ * jour où le format d'une ligne change. Une séance déjà présente sous le même
+ * nom n'est jamais réécrite : elle a pu être modifiée à la main.
+ */
+async function ensureTemplates(userId: string, cle: string, modeles: SeanceModele[]): Promise<boolean> {
+  const done = await fetchKv<boolean>(userId, cle, false)
   if (done) return false
 
   const existants = new Set((await listTemplates(userId)).map((t) => t.name.trim().toLowerCase()))
   const lib = new Map(EXERCISE_LIBRARY.map((e) => [e.name, e]))
-  for (const tpl of RECUP_TEMPLATES) {
+  for (const tpl of modeles) {
     if (existants.has(tpl.name.trim().toLowerCase())) continue
     await saveTemplate(
       userId,
       { name: tpl.name, icon: tpl.icon, duration_min: tpl.duration, notes: tpl.notes },
-      tpl.exos.map((n) => {
-        const e = lib.get(n)
+      tpl.exos.map((ligne) => {
+        const l = typeof ligne === 'string' ? { nom: ligne } : ligne
+        const e = lib.get(l.nom)
         return {
-          name: n,
+          name: l.nom,
+          // Les groupes viennent TOUJOURS de la bibliothèque, jamais du modèle :
+          // c'est elle qui porte les coefficients par muscle, et une séance qui
+          // les redéclarerait ferait mentir le mannequin sur sa propre séance.
           muscle_group: e?.groups ?? '',
-          sets: e?.sets ?? 1,
-          reps: e?.reps ?? '15 min',
+          sets: l.sets ?? e?.sets ?? 1,
+          reps: l.reps ?? e?.reps ?? '15 min',
           weight_kg: null,
-          notes: '',
+          notes: l.notes ?? '',
         }
       }),
     )
   }
-  await saveKv(userId, RECUP_TEMPLATES_KEY, true)
+  await saveKv(userId, cle, true)
   return true
 }
 
