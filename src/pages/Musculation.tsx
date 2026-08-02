@@ -627,7 +627,13 @@ function Journal({
   function startBlank() {
     if (picking === 'live') return startLive(null)
     setPicking(null)
-    setDraft({ date: today(), name: 'Séance', duration: '', intensite: null, notes: '', template_id: null, exos: [emptyExo()] })
+    // Vierge veut dire vierge : aucune ligne. La ligne vide d'avant n'était pas
+    // un point de départ mais un formulaire à moitié rempli — champs de séries,
+    // de reps et de charge posés sur un exercice qui n'existe pas. Il ne reste
+    // que « 🔍 Chercher un exercice », qui est la première chose qu'on fait.
+    // Rien à filtrer au passage : l'enregistrement écartait déjà les lignes sans
+    // nom, la ligne vide ne servait donc qu'à occuper l'écran.
+    setDraft({ date: today(), name: 'Séance', duration: '', intensite: null, notes: '', template_id: null, exos: [] })
   }
 
   function startFromTemplate(tpl: MuscuTemplate) {
