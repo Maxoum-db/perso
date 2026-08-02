@@ -633,6 +633,7 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 const LIBRARY_SEED_KEY = 'muscu_library_v23'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
+const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -967,6 +968,7 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
   if (await ensureLibrary(userId)) didSeed = true
   if (await ensureTemplates(userId, RECUP_TEMPLATES_KEY, RECUP_TEMPLATES)) didSeed = true
   if (await ensureTemplates(userId, COMBAT_TEMPLATES_KEY, COMBAT_TEMPLATES)) didSeed = true
+  if (await ensureTemplates(userId, PROTOCOLE_TEMPLATES_KEY, PROTOCOLE_TEMPLATES)) didSeed = true
 
   return didSeed
 }
@@ -1097,6 +1099,121 @@ export const COMBAT_TEMPLATES: SeanceModele[] = [
       { nom: 'Anti-rotation à la poulie (Pallof)', sets: 4, reps: '8/côté', notes: 'Tenir 3 s bras tendus à chaque répétition. Charge assez lourde pour que ça pousse vraiment de côté.' },
       { nom: 'Port valise (haltère à une main)', sets: 4, reps: '40 m/côté', notes: 'Le plus lourd que tu tiennes sans t’incliner. Épaules au même niveau — c’est le seul critère.' },
       { nom: 'Extension lombaire à la machine', sets: 3, reps: '10', notes: 'L’arrière de la ceinture. Charge modérée, amplitude complète, sans à-coup.' },
+    ],
+  },
+]
+
+/**
+ * Le microcycle du protocole tank, six jours sur sept.
+ *
+ * Une séance par jour nommé, parce que c'est un PARCOURS et non un catalogue :
+ * l'ordre des jours porte la logique de récupération. Le béhourd du samedi est
+ * la séance que tout le reste sert ; le lundi est de la récupération active
+ * après les chocs ; le lourd est placé le plus loin possible du samedi dans les
+ * deux sens.
+ *
+ * Le dimanche n'a pas de modèle : le repos total n'est pas une séance, et lui
+ * en donner une aurait invité à le remplir.
+ *
+ * Trois principes du protocole se lisent dans le contenu :
+ *
+ *   • on entraîne des PATTERNS de tank, pas des muscles isolés — pousser
+ *     (traîneau, développé), tenir (préhension, portage), encaisser (cou,
+ *     anti-rotation), rester bas (squat, mobilité) ;
+ *   • le cou et la préhension sont la priorité n°1, et ils sont groupés le
+ *     mercredi, au milieu de la semaine, le plus loin du samedi ;
+ *   • l'anti-rotation prime sur le crunch : le tronc doit RÉSISTER aux torsions
+ *     en mêlée, pas les produire.
+ *
+ * Le masque respiratoire n'est pas un exercice mais un modificateur : il vit
+ * dans les notes, avec sa règle de sécurité. Jamais sur un effort maximal avec
+ * verrouillage du tronc — restreindre le souffle pendant une manœuvre de
+ * Valsalva dégrade la sécurité du rachis et l'expression de force.
+ */
+export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
+  {
+    name: 'Lundi — Kickboxing (récup active)',
+    icon: '🥊',
+    duration: 60,
+    notes:
+      'Lendemain de béhourd : technique, déplacements, faible impact articulaire. On relance sans rien casser. ' +
+      'Pas de masque, pas de puissance — si ça tape dur, ce n’est plus une récupération.',
+    exos: [{ nom: 'Kickboxing — technique et déplacements', sets: 1, reps: '60 min', notes: 'Shadow, pattes d’ours, déplacements. Aucune puissance : on cherche l’amplitude et la fluidité, pas l’impact.' }],
+  },
+  {
+    name: 'Mardi — Push / Force',
+    icon: '💪',
+    duration: 60,
+    notes:
+      'Force du haut du corps. Les ceintures scapulaires sont le coussin d’amorti sous le plastron. ' +
+      '⚠️ Masque INTERDIT sur les deux premiers exercices : le verrouillage du tronc exige un souffle libre. ' +
+      'Il ne sert qu’au finisher.',
+    exos: [
+      { nom: 'Développé couché', sets: 4, reps: '5', notes: 'Lourd. Repos 2 à 3 min. Scapulas serrées, pieds ancrés. Sans masque.' },
+      { nom: 'Développé militaire barre', sets: 4, reps: '5', notes: 'Lourd. Repos 2 à 3 min. Gainage abdominal, pas de cambrure lombaire. Sans masque.' },
+      { nom: 'Dips aux barres parallèles', sets: 3, reps: '8', notes: 'Lestés dès que 8 passent propre. Penché en avant pour les pectoraux.' },
+      { nom: 'Élévations latérales haltères', sets: 4, reps: '12', notes: 'Coude légèrement plié, descente lente. C’est du volume d’épaulière, pas de la force.' },
+      { nom: 'Corde à sauter', sets: 1, reps: '5 min', notes: '👺 Finisher masque : résistance basse, 5 min. Retirer au moindre picotement ou vertige.' },
+    ],
+  },
+  {
+    name: 'Mercredi — Pull / Grip / Cou',
+    icon: '🦾',
+    duration: 65,
+    notes:
+      'LA séance pivot du tank. Le heaume transmet chaque impact à la colonne cervicale : un cou fort réduit ' +
+      'l’accélération de la tête, donc le risque de sonnage. Et sans préhension, la force du bras est ' +
+      'inexploitable — c’est elle qui tient le bouclier et la hallebarde jusqu’au bout du round.',
+    exos: [
+      { nom: 'Tractions pronation', sets: 4, reps: '6', notes: 'Lestées si 6 passent propre, assistées sinon. Repos 2 à 3 min.' },
+      { nom: 'Rowing prise large coudes hauts', sets: 4, reps: '8', notes: 'Buste à 45°, dos plat, tirage vers le nombril.' },
+      { nom: 'Sangle cervicale (neck harness) — flexion/extension', sets: 3, reps: '12', notes: '⚠️ Progression par très petites marches. Jamais à l’échec, jamais en à-coup. Sans charge les deux premières semaines.' },
+      { nom: 'Flexions latérales de nuque', sets: 3, reps: '12/côté', notes: 'Amplitude contrôlée. Le latéral compte autant que la flexion : en mêlée les coups arrivent de côté.' },
+      { nom: 'Marche du fermier', sets: 4, reps: '40 m', notes: 'Le plus lourd que tu tiennes sans t’incliner. Épaules au même niveau.' },
+      { nom: 'Curl haltères', sets: 3, reps: '12', notes: 'Fat grips ou serviette enroulée autour de la barre : c’est la préhension qu’on cherche autant que le biceps.' },
+    ],
+  },
+  {
+    name: 'Jeudi — Legs / Ancrage',
+    icon: '🦵',
+    duration: 75,
+    notes:
+      'Base de puissance. La poussée horizontale au traîneau est le geste-roi du tank en mêlée — c’est ' +
+      'exactement le transfert de force du sol vers l’adversaire. Anti-rotation plutôt que crunch : le tronc ' +
+      'doit résister aux torsions, pas les créer.',
+    exos: [
+      { nom: 'Squat à la machine (hack squat)', sets: 4, reps: '6', notes: 'Guidé : moins de charge sur le rachis que la barre libre, et les genoux sont déjà taxés par l’armure du samedi.' },
+      { nom: 'Traîneau poussé', sets: 6, reps: '20 m', notes: 'LOURD, buste bas. Le geste de mêlée. Repos complet entre les allers.' },
+      { nom: 'Fentes marchées haltères', sets: 3, reps: '12/jambe', notes: 'Pas long, genou avant à 90°. Unilatéral : c’est ce qui tient la base sur terrain irrégulier.' },
+      { nom: 'Soulevé de terre roumain (RDL)', sets: 3, reps: '10', notes: 'MODÉRÉ — la chaîne postérieure travaille déjà au béhourd. Hanches en arrière, dos plat.' },
+      { nom: 'Anti-rotation à la poulie (Pallof)', sets: 3, reps: '10/côté', notes: 'Tenir 3 s bras tendus. C’est la résistance à la poussée adverse qu’on entraîne.' },
+      { nom: 'Port valise (haltère à une main)', sets: 3, reps: '40 m/côté', notes: 'Anti-inclinaison + préhension. Épaules au même niveau, c’est le seul critère.' },
+    ],
+  },
+  {
+    name: 'Vendredi — Cardioboxing (masque)',
+    icon: '😤',
+    duration: 45,
+    notes:
+      '👺 Le vrai transfert respiratoire. Le masque n’est PAS un simulateur d’altitude : il ne change rien à ' +
+      'l’oxygène du sang. Il muscle le diaphragme et habitue au CO₂ — c’est-à-dire exactement à l’air confiné ' +
+      'et chaud sous heaume fermé. ' +
+      '🩺 Retirer immédiatement en cas de vertige, de picotements aux doigts ou aux lèvres, de céphalée qui ' +
+      's’installe, ou dès que la technique se dégrade. La technique prime toujours.',
+    exos: [{ nom: 'Cardioboxing — intervalles', sets: 8, reps: '2 min', notes: 'Rounds de 2 min, 1 min de récup. Masque en résistance moyenne.' }],
+  },
+  {
+    name: 'Samedi — Béhourd en armure',
+    icon: '⚔️',
+    duration: 120,
+    notes:
+      'LA séance. Tout le reste de la semaine la sert. 35 kg d’acier + gambison : la perte hydrique et sodée ' +
+      'est massive et la thermorégulation est entravée. Boire avant d’avoir soif, saler l’eau (1,5 L + une ' +
+      'pincée de fleur de sel + citron), et traiter crampes ou vertiges comme des signaux, pas comme du ' +
+      'caractère. Échauffement RAMP et activation du cou AVANT de coiffer le heaume.',
+    exos: [
+      { nom: 'Béhourd — port du harnois (endurance armure)', sets: 1, reps: '30 min', notes: 'Montée en température sous armure avant le contact.' },
+      { nom: 'Béhourd — sparring en armure', sets: 1, reps: '90 min', notes: 'Combat réel. Protéines + glucides rapides dans l’heure qui suit.' },
     ],
   },
 ]
