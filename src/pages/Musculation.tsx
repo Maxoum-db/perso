@@ -75,6 +75,8 @@ import {
   loadMuscleGroups,
   saveCatalogExercise,
   saveMuscleGroups,
+  fusionnerGroupes,
+  groupesPersos,
   saveSession,
   saveTemplate,
   type CatalogExercise,
@@ -1829,32 +1831,46 @@ function GroupsManager({
   onGroups: (g: string[]) => void
 }) {
   const [adding, setAdding] = useState('')
+  // Ce qu'on enregistre, ce sont les AJOUTS. Les libellés du défaut sont
+  // toujours proposés, quoi qu'il y ait en base.
+  const persos = new Set(groupesPersos(groups))
 
-  async function save(next: string[]) {
-    onGroups(next)
-    await saveMuscleGroups(userId, next)
+  async function save(ajouts: string[]) {
+    onGroups(fusionnerGroupes(ajouts))
+    await saveMuscleGroups(userId, ajouts)
   }
 
   return (
     <Section title="🎯 Groupes musculaires" subtitle={`${groups.length} groupes`} accent="#B87333">
       <div className="mb-2 flex justify-end">
-        <button onClick={() => save(MUSCLE_GROUPS_DEFAULT)} className="text-[11px] text-muted hover:text-copper">
-          Réinitialiser
+        <button onClick={() => save([])} className="text-[11px] text-muted hover:text-copper">
+          Retirer mes ajouts
         </button>
       </div>
+      {/* Seuls les libellés AJOUTÉS portent une croix. Les autres décrivent des
+          muscles qui existent : les retirer de la liste ne les faisait pas
+          disparaître du corps, ça les rendait seulement impossibles à viser. */}
       <div className="flex flex-wrap gap-1.5">
-        {groups.map((g) => (
-          <span key={g} className="chip flex items-center gap-1 bg-copper/15 text-copper">
-            {g}
-            <button
-              onClick={() => save(groups.filter((x) => x !== g))}
-              title="Retirer"
-              className="text-copper/60 hover:text-clay"
+        {groups.map((g) => {
+          const perso = persos.has(g)
+          return (
+            <span
+              key={g}
+              className={`chip flex items-center gap-1 ${perso ? 'bg-copper/15 text-copper' : 'bg-card text-muted'}`}
             >
-              ✕
-            </button>
-          </span>
-        ))}
+              {g}
+              {perso ? (
+                <button
+                  onClick={() => save(groupesPersos(groups).filter((x) => x !== g))}
+                  title="Retirer cet ajout"
+                  className="text-copper/60 hover:text-clay"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </span>
+          )
+        })}
       </div>
       <div className="mt-2 flex gap-2">
         <input
@@ -1864,7 +1880,7 @@ function GroupsManager({
           onChange={(e) => setAdding(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && adding.trim()) {
-              save([...groups, adding.trim()])
+              save([...groupesPersos(groups), adding.trim()])
               setAdding('')
             }
           }}
@@ -1872,7 +1888,7 @@ function GroupsManager({
         <button
           onClick={() => {
             if (!adding.trim()) return
-            save([...groups, adding.trim()])
+            save([...groupesPersos(groups), adding.trim()])
             setAdding('')
           }}
           disabled={!adding.trim() || groups.includes(adding.trim())}

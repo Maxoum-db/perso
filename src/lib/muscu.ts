@@ -671,9 +671,31 @@ export function trierGroupes(groupes: string[]): string[] {
   return [...groupes].sort((a, b) => a.localeCompare(b, 'fr'))
 }
 
+/**
+ * Les libellés du défaut sont un PLANCHER, pas une valeur initiale.
+ *
+ * Ils étaient une valeur initiale, et c'est ce qui a rendu invisible l'ajout du
+ * dentelé antérieur : la liste enregistrée dans la base avait été figée avant,
+ * elle gagnait la main, et le nouveau libellé n'atteignait jamais l'écran. Le
+ * corps ne change pas, lui — les trente-huit muscles existent, ils doivent tous
+ * rester sélectionnables quoi qu'il y ait en base.
+ *
+ * Ce qui reste au choix de l'utilisateur, ce sont les libellés qu'il AJOUTE.
+ * C'est ce que la clé enregistrée porte désormais : des ajouts, pas un
+ * remplacement.
+ */
+export function fusionnerGroupes(enregistres: string[] | null | undefined): string[] {
+  return trierGroupes([...new Set([...MUSCLE_GROUPS_DEFAULT, ...(enregistres ?? [])])])
+}
+
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
-  const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
-  return trierGroupes(g && g.length ? g : MUSCLE_GROUPS_DEFAULT)
+  return fusionnerGroupes(await fetchKv<string[]>(userId, GROUPS_KEY, []))
+}
+
+/** Les libellés ajoutés à la main, ceux que l'utilisateur peut retirer. */
+export function groupesPersos(groupes: string[]): string[] {
+  const defaut = new Set(MUSCLE_GROUPS_DEFAULT)
+  return groupes.filter((g) => !defaut.has(g))
 }
 
 export async function saveMuscleGroups(userId: string, groups: string[]): Promise<void> {
