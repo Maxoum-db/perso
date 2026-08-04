@@ -8,23 +8,38 @@ import { effortColor } from './MuscleBodyDiagram'
 // 100 % vire au marron brûlant, 0 % au vert reposé. Ce qu'on déclare ici a donc
 // exactement la couleur que le muscle prendra sur le corps.
 
-/** Zones proposées, dans l'ordre où on les ressent après un combat. */
-const ZONES = [
+/**
+ * Zones proposées, de haut en bas du corps.
+ *
+ * Vingt zones qui couvrent les trente-huit muscles, sans trou. La version
+ * précédente en laissait dix inatteignables — dont la coiffe des rotateurs et
+ * les stabilisateurs de cheville, c'est-à-dire exactement ce qui prend en
+ * armure sur terrain irrégulier. Un ressenti de béhourd ne pouvait donc pas les
+ * nommer, et le mannequin les gardait éternellement froids.
+ *
+ * Ordonnées du cou aux chevilles plutôt qu'alphabétiquement : ici on parcourt
+ * son corps pour se demander où ça tire, on ne cherche pas un nom précis.
+ */
+export const ZONES_RESSENTI = [
   'Cou',
   'Trapèzes',
   'Épaules',
+  'Coiffe des rotateurs',
   'Bras',
   'Avant-bras',
   'Dos',
   'Pectoraux',
+  'Dentelé antérieur',
   'Abdos/Core',
   'Obliques',
   'Lombaires',
+  'Hanches',
   'Fessiers',
   'Quadriceps',
   'Ischios',
   'Adducteurs',
   'Mollets',
+  'Chevilles',
   'Cardio',
 ] as const
 
@@ -53,12 +68,12 @@ export function RessentiPicker({ value, onChange }: { value: string; onChange: (
     ecrire(copie)
   }
 
-  const choisies = ZONES.filter((z) => entrees.has(z))
+  const choisies = ZONES_RESSENTI.filter((z) => entrees.has(z))
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {ZONES.map((z) => {
+        {ZONES_RESSENTI.map((z) => {
           const v = entrees.get(z)
           return (
             <button
