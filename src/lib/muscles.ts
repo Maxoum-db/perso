@@ -238,6 +238,10 @@ const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
 const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow']
 const PECS: MuscleRegion[] = ['pecUpper', 'pecLower']
 const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
+/** Les fléchisseurs du coude. Distinct de la clé « biceps », qui ne désigne que
+ *  le biceps brachial depuis qu'un libellé précis doit pouvoir en abaisser un
+ *  seul — ici on parle du BRAS, brachial compris. */
+const BICEPS_BRAS: MuscleRegion[] = ['biceps', 'brachialis']
 const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt', 'brachioradialis']
 const BACK: MuscleRegion[] = ['lats', 'teres', 'rhomboids', 'trapsMid', 'trapsLow']
 const ABS: MuscleRegion[] = ['rectus', 'obliques']
@@ -308,6 +312,14 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   mollets: CALVES,
   lombaires: ['erectors'],
   cou: ['neck'],
+  // « Bras », « Hanches » et « Chevilles » : trois mots qu'on emploie en
+  // parlant et qui n'existaient pas ici. Le sélecteur de ressenti proposait
+  // pourtant « Bras » — et le déclarer à 90 % après un béhourd ne colorait
+  // strictement rien, en silence. Un libellé proposé qui ne mappe sur aucun
+  // muscle est pire qu'un libellé absent : on croit avoir renseigné.
+  bras: [...BICEPS_BRAS, ...TRICEPS],
+  hanches: ['tfl', 'hipFlexors'],
+  chevilles: ['tibialis', 'fibularis'],
   // « Biceps » ne couvre plus le brachial, et « Grand pectoral » plus le
   // faisceau claviculaire (cf. le commentaire au-dessus de MUSCLE_MAP).
   biceps: ['biceps'],

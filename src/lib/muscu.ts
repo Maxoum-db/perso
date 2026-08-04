@@ -540,64 +540,87 @@ export function exerciseProgress(sessions: MuscuSession[]): ExerciseProgress[] {
 
 // ── Groupes musculaires : prédéfinis mais modifiables (stockés en perso_kv) ──
 
+/**
+ * Les libellés proposés dans le sélecteur « Groupe visé ».
+ *
+ * Classés par ORDRE ALPHABÉTIQUE et non par famille : le sélecteur les affiche
+ * en un seul nuage de pastilles, sans séparateur ni titre. Le classement par
+ * familles n'existait donc que dans le code — à l'écran, il fallait balayer
+ * cinquante-sept pastilles pour trouver « Soléaire ». Alphabétique, on sait où
+ * regarder.
+ *
+ * On y trouve trois sortes de libellés, et c'est voulu :
+ *   • des groupes courants (« Pectoraux », « Dos ») qui couvrent plusieurs
+ *     muscles à la fois ;
+ *   • des libellés PARAPLUIE (« Full body », « Jambes (global) ») pour les
+ *     activités qui sollicitent un bloc entier — ils valent moins que 1 par
+ *     défaut, cf. `partParDefaut` ;
+ *   • des muscles précis, pour viser finement — le mannequin les distingue un
+ *     par un.
+ *
+ * « Dentelé antérieur » manquait : c'était le SEUL des trente-huit muscles
+ * qu'aucun libellé précis n'atteignait, joignable uniquement en cochant « Full
+ * body » ou « Haut du corps ». Impossible, donc, d'étiqueter proprement une
+ * pompe scapulaire.
+ */
 export const MUSCLE_GROUPS_DEFAULT = [
-  'Pectoraux',
-  'Dos',
-  'Épaules',
-  'Biceps',
-  'Triceps',
-  'Quadriceps',
-  'Ischios',
-  'Fessiers',
-  'Trapèzes',
-  'Lombaires',
-  'Avant-bras',
-  'Adducteurs',
-  'Obliques',
-  'Cou',
-  'Mollets',
   'Abdos/Core',
-  // Groupes « parapluie » pour les activités qui sollicitent tout un bloc
-  // (course, natation…) : ils colorent plusieurs zones du mannequin.
-  'Jambes (global)',
-  'Haut du corps (global)',
+  'Adducteurs',
+  'Avant-bras',
+  'Biceps',
+  'Biceps fémoral',
+  'Brachial',
+  'Brachio-radial',
+  'Bras',
   'Cardio',
-  'Full body',
-  // Muscles précis : pour ceux qui veulent viser finement (le mannequin les
-  // distingue un par un).
+  'Chevilles',
+  'Coiffe des rotateurs',
+  'Cou',
   'Deltoïde antérieur',
   'Deltoïde latéral',
   'Deltoïde postérieur',
-  'Pectoral supérieur',
-  'Grand pectoral',
-  'Grand dorsal',
-  'Grand rond',
-  'Rhomboïdes',
-  'Trapèze supérieur',
-  'Trapèze moyen',
-  'Trapèze inférieur',
+  'Dentelé antérieur',
+  'Dos',
+  'Droit fémoral',
+  'Épaules',
   'Érecteurs du rachis',
-  'Brachial',
-  'Brachio-radial',
-  'Triceps longue portion',
-  'Triceps latéral',
-  'Fléchisseurs avant-bras',
   'Extenseurs avant-bras',
+  'Fessiers',
+  'Fibulaires',
+  'Fléchisseurs avant-bras',
+  'Full body',
+  'Gastrocnémiens',
+  'Grand dorsal',
   'Grand droit',
   'Grand fessier',
+  'Grand pectoral',
+  'Grand rond',
+  'Hanches',
+  'Haut du corps (global)',
+  'Ischios',
+  'Ischios internes',
+  'Jambes (global)',
+  'Lombaires',
+  'Mollets',
   'Moyen fessier',
-  'Droit fémoral',
+  'Obliques',
+  'Pectoral supérieur',
+  'Pectoraux',
+  'Psoas-iliaque',
+  'Quadriceps',
+  'Rhomboïdes',
+  'Soléaire',
+  'Tenseur du fascia lata',
+  'Tibial antérieur',
+  'Trapèze inférieur',
+  'Trapèze moyen',
+  'Trapèze supérieur',
+  'Trapèzes',
+  'Triceps',
+  'Triceps latéral',
+  'Triceps longue portion',
   'Vaste latéral',
   'Vaste médial',
-  'Biceps fémoral',
-  'Ischios internes',
-  'Gastrocnémiens',
-  'Soléaire',
-  'Tibial antérieur',
-  'Fibulaires',
-  'Coiffe des rotateurs',
-  'Psoas-iliaque',
-  'Tenseur du fascia lata',
 ]
 
 /**
@@ -636,9 +659,21 @@ const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
 const MISE_EN_FORME_KEY = 'muscu_mise_en_forme_aout_v1'
 
+/**
+ * Ordre alphabétique français : « Épaules » se range à sa place, pas après « Z ».
+ *
+ * Appliqué aussi à la liste ENREGISTRÉE et pas seulement au défaut : une liste
+ * personnalisée est construite par ajouts successifs à la fin, donc son ordre
+ * ne porte aucune intention — le trier ne détruit rien et range les groupes
+ * ajoutés à la main au milieu des autres.
+ */
+export function trierGroupes(groupes: string[]): string[] {
+  return [...groupes].sort((a, b) => a.localeCompare(b, 'fr'))
+}
+
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
-  return g && g.length ? g : MUSCLE_GROUPS_DEFAULT
+  return trierGroupes(g && g.length ? g : MUSCLE_GROUPS_DEFAULT)
 }
 
 export async function saveMuscleGroups(userId: string, groups: string[]): Promise<void> {
