@@ -800,13 +800,46 @@ export async function saveCatalogExercise(
     notes: exo.notes.trim(),
   }
   if (exo.id) {
+    // Le NOM est le seul lien entre le catalogue et les séances déjà faites :
+    // les lignes de séance ne portent pas de clé vers l'exercice, seulement son
+    // libellé recopié. Renommer sans reporter le nom couperait donc ce lien, et
+    // l'exercice renommé cesserait en silence de corriger l'historique — le
+    // défaut d'origine reviendrait par une autre porte. On lit le nom d'avant
+    // pour savoir s'il a bougé.
+    const { data: avant } = await supabase
+      .from('perso_muscu_exercises')
+      .select('name')
+      .eq('id', exo.id)
+      .maybeSingle()
+    const ancien = String(avant?.name ?? '').trim()
     const { error } = await supabase
       .from('perso_muscu_exercises')
       .update({ ...base, updated_at: new Date().toISOString() })
       .eq('id', exo.id)
     if (error) throw new Error(error.message)
+    if (ancien && ancien !== base.name) await renommerPartout(userId, ancien, base.name)
   } else {
     const { error } = await supabase.from('perso_muscu_exercises').insert({ user_id: userId, ...base })
+    if (error) throw new Error(error.message)
+  }
+}
+
+/**
+ * Reporte un renommage du catalogue sur tout ce qui le cite par son nom :
+ * les séances déjà faites et les séances types.
+ *
+ * L'ancien nom est comparé tel quel — c'est celui que le catalogue portait, et
+ * les lignes de séance ont été écrites depuis ce même catalogue. Ce qui aurait
+ * été saisi à la main avec une autre orthographe n'est pas rattrapé : on ne
+ * devine pas, sous peine de renommer l'exercice du voisin.
+ */
+async function renommerPartout(userId: string, ancien: string, nouveau: string): Promise<void> {
+  for (const table of ['perso_muscu_session_exercises', 'perso_muscu_template_exercises'] as const) {
+    const { error } = await supabase
+      .from(table)
+      .update({ name: nouveau })
+      .eq('user_id', userId)
+      .eq('name', ancien)
     if (error) throw new Error(error.message)
   }
 }
