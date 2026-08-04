@@ -1447,6 +1447,10 @@ function PhaseProtocole() {
         </span>
       </div>
       <p className="mt-1 text-xs leading-snug text-muted">{etat.consigne}</p>
+      {/* Le matériel du jour, à part : c'est lui qui dit quelles séances types
+          sont réellement faisables maintenant, et il change de salle en salle
+          sans que la phase bouge. */}
+      <p className="mt-1 text-[11px] leading-snug text-muted/80">🏋️ {etat.salle.materiel}</p>
     </div>
   )
 }
