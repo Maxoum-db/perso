@@ -337,9 +337,23 @@ export function joursRessentis(days: number, part: number, avanceSup = 0): numbe
  * Deux façons d'en être une : l'exercice EST un étirement (la bibliothèque le
  * dit), ou bien c'est un exercice adaptable qu'on a déclaré fait en version
  * douce. Prend la ligne entière et non le nom, précisément pour voir la seconde.
+ *
+ * ⚠️ Mais un étirement CHARGÉ n'est plus un étirement. Un 90/90 hanches fait à
+ * 45 kg comptait dans le tonnage de la séance — donc comme du travail — et ne
+ * chargeait aucun muscle sur le mannequin — donc comme de la mobilité. Les deux
+ * écrans se contredisaient sur la même ligne, et tout ce qu'on étiquetait sur
+ * cet exercice restait invisible : on cochait un muscle, il ne se passait rien.
+ *
+ * La charge tranche, et c'est déjà le juge que le tonnage écoute. Ce qui reste
+ * au poids du corps continue de rendre des jours.
+ *
+ * La coche « version douce » garde le dernier mot dans l'autre sens : une
+ * déclaration explicite passe avant ce qu'on déduit d'un nombre.
  */
-function estRecuperation(e: { name: string; doux?: boolean }): boolean {
-  return e.doux === true || RECUPERATION_NAMES.has(e.name.trim().toLowerCase())
+function estRecuperation(e: { name: string; doux?: boolean; weight_kg?: number | null }): boolean {
+  if (e.doux === true) return true
+  if (!RECUPERATION_NAMES.has(e.name.trim().toLowerCase())) return false
+  return !(typeof e.weight_kg === 'number' && e.weight_kg > 0)
 }
 
 /**
