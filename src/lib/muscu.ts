@@ -706,6 +706,43 @@ export async function saveMuscleGroups(userId: string, groups: string[]): Promis
 
 const EXO_COLS = 'id,name,muscle_group,sets,reps,weight_kg,notes,position'
 
+/**
+ * Le CATALOGUE fait foi pour les muscles travaillés, y compris rétroactivement.
+ *
+ * Chaque ligne de séance porte une copie du `muscle_group` de l'exercice, figée
+ * au moment de l'enregistrement. C'était une photo, et elle ne bougeait plus :
+ * corriger l'étiquetage d'un exercice — ajouter le dentelé à une pompe
+ * scapulaire, retirer les jambes d'une marche du fermier — ne changeait rien
+ * aux séances déjà faites. Le mannequin continuait donc d'afficher l'ancienne
+ * erreur, et il fallait rouvrir chaque séance à la main pour la corriger.
+ *
+ * Un exercice, c'est un MOUVEMENT : les muscles qu'il travaille sont une
+ * propriété du mouvement, pas de la journée où on l'a fait. Ils appartiennent
+ * donc au catalogue, et la ligne de séance n'en garde qu'une trace de secours
+ * pour ce que le catalogue ne connaît pas.
+ *
+ * Deux exceptions, et seulement deux :
+ *
+ *   • la ligne de RESSENTI, dont les zones sont déclarées séance par séance —
+ *     c'est tout son objet, un béhourd ne tape pas au même endroit deux fois ;
+ *   • un exercice absent du catalogue (renommé, supprimé, saisi à la volée) :
+ *     on garde ce qui est écrit, faute de mieux.
+ *
+ * ⚠️ Contrepartie assumée : un réglage fait à la main sur UNE séance pour un
+ * exercice du catalogue est repris par le catalogue au rechargement. Pour dire
+ * « ce jour-là ça a tapé ailleurs », l'outil est la déclaration de ressenti sur
+ * le mannequin, qui est datée et ne prétend pas décrire le mouvement.
+ */
+export function appliquerCatalogue(exos: MuscuExo[], catalog: CatalogExercise[]): MuscuExo[] {
+  const parNom = new Map(catalog.map((c) => [c.name.trim().toLowerCase(), c.muscle_group]))
+  return exos.map((e) => {
+    if (estRessenti(e.name)) return e
+    const groupes = parNom.get(e.name.trim().toLowerCase())
+    if (groupes === undefined || groupes === e.muscle_group) return e
+    return { ...e, muscle_group: groupes }
+  })
+}
+
 function normalizeExo(raw: Record<string, unknown>): MuscuExo {
   return {
     id: String(raw.id),
@@ -803,10 +840,14 @@ export async function listTemplates(userId: string): Promise<MuscuTemplate[]> {
     list.push(normalizeExo(raw))
     byTpl.set(raw.template_id as string, list)
   }
+  // Même règle que pour les séances : une correction du catalogue doit se voir
+  // dans les modèles aussi, sinon lancer une séance type réinjecterait l'ancien
+  // étiquetage et le problème reviendrait par la porte de service.
+  const catalog = await listCatalog(userId).catch(() => [] as CatalogExercise[])
   return (tpls ?? []).map((t) => ({
     ...t,
     notes: t.notes ?? '',
-    exercises: byTpl.get(t.id) ?? [],
+    exercises: appliquerCatalogue(byTpl.get(t.id) ?? [], catalog),
   })) as MuscuTemplate[]
 }
 
@@ -883,10 +924,15 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   }
   const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
   const douceurs: Douceurs = await loadDouceurs(userId).catch(() => ({}))
+  // Le catalogue est relu ICI, une fois, plutôt que dans chaque écran : c'est le
+  // seul moyen que le mannequin, l'export, l'historique et les calories voient
+  // tous le même étiquetage. Un catalogue illisible ne bloque pas le journal —
+  // on retombe alors sur les groupes enregistrés.
+  const catalog = await listCatalog(userId).catch(() => [] as CatalogExercise[])
   return (sessions ?? []).map((s) => ({
     ...s,
     notes: s.notes ?? '',
-    exercises: (bySession.get(s.id) ?? []).map((e) =>
+    exercises: appliquerCatalogue(bySession.get(s.id) ?? [], catalog).map((e) =>
       douceurs[clefDouceur(s.id as string, e.name)] ? { ...e, doux: true } : e,
     ),
     intensite: intensites[s.id],
