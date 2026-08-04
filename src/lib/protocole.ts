@@ -24,12 +24,62 @@ export interface Protocole {
 
 export const PROTOCOLE: Protocole = {
   nom: 'Opération Caméléon',
-  // Le protocole prévoyait un départ mi-août sur six semaines ; le bloc démarre
-  // en septembre par décision de l'athlète. Conséquence assumée et affichée :
-  // la fenêtre de construction se réduit, et le taper mange la dernière semaine.
+  // Le protocole prévoyait un départ mi-août sur six semaines. Le bloc démarre
+  // en septembre, et ce n'est pas un choix de confort : le traîneau, la sangle
+  // cervicale et le kickboxing arrivent avec la nouvelle salle. Trois des six
+  // séances du microcycle sont donc impossibles à Basic Fit, ce qui rend la
+  // question « peut-on avancer le départ ? » sans objet.
   debut: '2026-09-01',
   jourJ: '2026-09-15',
   taperJours: 7,
+}
+
+/**
+ * Où l'on s'entraîne, et ce que ça autorise.
+ *
+ * Le matériel n'est pas un détail d'intendance ici : c'est lui qui découpe le
+ * calendrier. Une séance qui demande un traîneau n'est pas « à faire plus
+ * tard », elle est impossible — et une application qui la propose quand même
+ * fait perdre le déplacement.
+ */
+export interface Salle {
+  nom: string
+  /** Premier jour où l'on s'y entraîne. */
+  depuis: string
+  /** Ce que la salle permet, dit du point de vue du protocole. */
+  materiel: string
+  /**
+   * Ce qu'elle apporte de neuf par rapport à la précédente, en une poignée de
+   * mots.
+   *
+   * Séparé de `materiel` parce que les deux ne se lisent pas au même endroit :
+   * la description complète va sous le bandeau, ce champ-ci s'insère dans une
+   * phrase. La première version glissait `materiel` dans la phrase et produisait
+   * « avec nouvelle salle : équipement complet et kickboxing : traîneau… », deux
+   * deux-points et un point final en double.
+   */
+  apporte?: string
+}
+
+export const SALLES: Salle[] = [
+  {
+    nom: 'Basic Fit',
+    depuis: '0000-01-01',
+    materiel:
+      'Machines, barres, haltères, poulies. Ni traîneau, ni sangle cervicale, ni ring — ' +
+      'le cou se travaille à l’élastique, la préhension aux haltères.',
+  },
+  {
+    nom: 'Nouvelle salle',
+    depuis: '2026-09-01',
+    materiel: 'Équipement complet et kickboxing : traîneau, sangle cervicale et ring disponibles.',
+    apporte: 'le traîneau, la sangle cervicale et le kickboxing',
+  },
+]
+
+/** La salle où l'on s'entraîne à une date donnée : la plus récente déjà ouverte. */
+export function salleDuJour(aujourdhui = new Date().toLocaleDateString('en-CA'), salles = SALLES): Salle {
+  return salles.filter((s) => s.depuis <= aujourdhui).sort((a, b) => b.depuis.localeCompare(a.depuis))[0] ?? salles[0]
 }
 
 /**
@@ -52,6 +102,8 @@ export interface EtatProtocole {
   joursAvantJourJ: number
   titre: string
   consigne: string
+  /** Où l'on s'entraîne ce jour-là, et ce que ça autorise. */
+  salle: Salle
 }
 
 /** Jours calendaires entre deux dates ISO, `b − a`. */
@@ -79,24 +131,36 @@ export function etatProtocole(
   // fenêtre de deux semaines dont une d'affûtage n'offre qu'une semaine de
   // travail, quoi qu'en dise le calendrier.
   const construction = ecartJours(p.debut, p.jourJ) - p.taperJours
+  const salle = salleDuJour(aujourdhui)
 
   if (joursAvantJourJ < 0) {
     return {
       phase: 'apres',
       joursAvantJourJ,
+      salle,
       titre: `${p.nom} — échéance passée`,
       consigne: 'Le bloc est terminé. Reprends la mise en forme, ou fixe la prochaine échéance.',
     }
   }
   if (aujourdhui < p.debut) {
     const avant = ecartJours(aujourdhui, p.debut)
+    // Le matériel explique la date, et pas l'inverse : le traîneau, la sangle
+    // cervicale et le ring arrivent avec la nouvelle salle. Trois des six
+    // séances du microcycle sont donc littéralement infaisables avant. Le dire
+    // évite de croire qu'on perd du temps par prudence.
+    const apres = salleDuJour(p.debut)
+    const change = apres.nom !== salle.nom
     return {
       phase: 'miseEnForme',
       joursAvantJourJ,
-      titre: 'Mise en forme',
+      salle,
+      titre: `Mise en forme — ${salle.nom}`,
       consigne:
-        `Intensité soutenue, séances généralistes. Le bloc « ${p.nom} » démarre dans ${avant} j ` +
-        `(${frJour(p.debut)}).`,
+        `Intensité soutenue, séances généralistes avec ce que ${salle.nom} permet. ` +
+        `Le bloc « ${p.nom} » démarre dans ${avant} j (${frJour(p.debut)})` +
+        (change && apres.apporte
+          ? `, en même temps que la nouvelle salle — c’est elle qui apporte ${apres.apporte}.`
+          : '.'),
     }
   }
   if (joursAvantJourJ <= p.taperJours) {
@@ -108,6 +172,7 @@ export function etatProtocole(
     return {
       phase: 'taper',
       joursAvantJourJ,
+      salle,
       titre: jourJ ? `Jour J — ${p.nom}` : `Affûtage — J−${joursAvantJourJ}`,
       consigne: jourJ
         ? 'Repas digeste 2 h avant, eau et électrolytes prêts sur le terrain. Échauffement RAMP et activation ' +
@@ -119,6 +184,7 @@ export function etatProtocole(
   return {
     phase: 'bloc',
     joursAvantJourJ,
+    salle,
     titre: `${p.nom} — J−${joursAvantJourJ}`,
     consigne:
       construction < CONSTRUCTION_MIN

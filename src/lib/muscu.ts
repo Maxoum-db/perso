@@ -634,6 +634,7 @@ const LIBRARY_SEED_KEY = 'muscu_library_v23'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
+const MISE_EN_FORME_KEY = 'muscu_mise_en_forme_aout_v1'
 
 export async function loadMuscleGroups(userId: string): Promise<string[]> {
   const g = await fetchKv<string[]>(userId, GROUPS_KEY, MUSCLE_GROUPS_DEFAULT)
@@ -968,6 +969,7 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
   if (await ensureLibrary(userId)) didSeed = true
   if (await ensureTemplates(userId, RECUP_TEMPLATES_KEY, RECUP_TEMPLATES)) didSeed = true
   if (await ensureTemplates(userId, COMBAT_TEMPLATES_KEY, COMBAT_TEMPLATES)) didSeed = true
+  if (await ensureTemplates(userId, MISE_EN_FORME_KEY, MISE_EN_FORME_TEMPLATES)) didSeed = true
   if (await ensureTemplates(userId, PROTOCOLE_TEMPLATES_KEY, PROTOCOLE_TEMPLATES)) didSeed = true
 
   return didSeed
@@ -1099,6 +1101,83 @@ export const COMBAT_TEMPLATES: SeanceModele[] = [
       { nom: 'Anti-rotation à la poulie (Pallof)', sets: 4, reps: '8/côté', notes: 'Tenir 3 s bras tendus à chaque répétition. Charge assez lourde pour que ça pousse vraiment de côté.' },
       { nom: 'Port valise (haltère à une main)', sets: 4, reps: '40 m/côté', notes: 'Le plus lourd que tu tiennes sans t’incliner. Épaules au même niveau — c’est le seul critère.' },
       { nom: 'Extension lombaire à la machine', sets: 3, reps: '10', notes: 'L’arrière de la ceinture. Charge modérée, amplitude complète, sans à-coup.' },
+    ],
+  },
+]
+
+/**
+ * Le bloc de mise en forme d'août — à Basic Fit, et rien qu'avec ce qu'on y
+ * trouve.
+ *
+ * Ce n'est pas un programme différent : ce sont les trois séances de salle du
+ * microcycle de septembre, avec des substitutions imposées par le matériel.
+ * Même découpage, mêmes patterns, mêmes priorités. Septembre ne change alors
+ * que les OUTILS — traîneau à la place de la presse, sangle cervicale à la
+ * place de l'élastique, ring pour la boxe —, jamais la logique. C'est la
+ * différence entre une reprise et un démarrage à froid.
+ *
+ * Les trois substitutions, et ce qu'elles coûtent :
+ *
+ *   • traîneau → presse à cuisses. On perd la poussée horizontale, qui est le
+ *     geste-roi du tank ; on garde la production de force en extension de
+ *     hanche et de genou. C'est le meilleur report possible sans traîneau.
+ *   • sangle cervicale → élastique et pont cervical. La charge plafonne vite,
+ *     mais c'est justement ce qu'on veut en août : le protocole demande une
+ *     montée en charge du cou TRÈS graduelle, et deux mois de travail léger
+ *     sont exactement la bonne préparation avant de charger en septembre.
+ *   • fat grips → serviette enroulée autour de la barre. Même effet, coût nul.
+ *
+ * Intensité soutenue, pas maximale : on installe le déficit et on rode les
+ * mouvements. Le lourd commence en septembre.
+ */
+export const MISE_EN_FORME_TEMPLATES: SeanceModele[] = [
+  {
+    name: 'Août A — Push & épaules (Basic Fit)',
+    icon: '🅰️',
+    duration: 60,
+    notes:
+      'Mise en forme, intensité soutenue. Prépare le mardi de septembre : mêmes patterns, charges modérées. ' +
+      'Le but est de roder les mouvements et d’installer le déficit, pas de chercher des records.',
+    exos: [
+      { nom: 'Développé couché', sets: 4, reps: '8', notes: 'Charge modérée, exécution propre. Scapulas serrées, pieds ancrés.' },
+      { nom: 'Développé militaire barre', sets: 4, reps: '8', notes: 'Gainage abdominal, pas de cambrure lombaire. La barre guidée fait l’affaire si la cage est prise.' },
+      { nom: 'Développé incliné à la machine', sets: 3, reps: '10', notes: 'Faisceau claviculaire — le coussin d’amorti sous les épaulières.' },
+      { nom: 'Élévations latérales haltères', sets: 4, reps: '12', notes: 'Coude légèrement plié, descente lente. Du volume d’épaulière, pas de la force.' },
+      { nom: 'Extensions triceps poulie haute (corde)', sets: 3, reps: '12', notes: 'Coudes collés au corps, descente contrôlée.' },
+    ],
+  },
+  {
+    name: 'Août B — Tirage, cou & préhension (Basic Fit)',
+    icon: '🅱️',
+    duration: 65,
+    notes:
+      'Prépare le mercredi de septembre, LA séance pivot. Le cou se travaille ici à l’élastique et au poids du ' +
+      'corps : la charge plafonne, et c’est voulu — deux mois de travail léger sont la bonne rampe avant de ' +
+      'charger à la sangle. La préhension se fait aux haltères, serviette enroulée sur la barre pour épaissir.',
+    exos: [
+      { nom: 'Tractions pronation', sets: 4, reps: '8', notes: 'Assistées à la machine si 8 ne passent pas propre. C’est le volume qui compte en août.' },
+      { nom: 'Rowing prise large coudes hauts', sets: 4, reps: '10', notes: 'Buste à 45°, dos plat, tirage vers le nombril.' },
+      { nom: 'Extensions cervicales (élastique)', sets: 3, reps: '15', notes: '⚠️ Très léger. Amplitude contrôlée, jamais d’à-coup. On installe l’habitude, on ne charge pas.' },
+      { nom: 'Flexions latérales de nuque', sets: 3, reps: '12/côté', notes: 'Au poids de la tête seule. Les coups arrivent de côté en mêlée : le latéral compte autant que la flexion.' },
+      { nom: 'Marche du fermier', sets: 4, reps: '30 m', notes: 'Haltères, les plus lourds que tu tiennes sans t’incliner. Épaules au même niveau.' },
+      { nom: 'Curl haltères', sets: 3, reps: '12', notes: 'Serviette enroulée autour du manche : c’est la préhension qu’on cherche autant que le biceps.' },
+    ],
+  },
+  {
+    name: 'Août C — Jambes & ancrage (Basic Fit)',
+    icon: '🅾️',
+    duration: 65,
+    notes:
+      'Prépare le jeudi de septembre. Pas de traîneau à Basic Fit : la presse prend le relais pour la production ' +
+      'de force, la poussée horizontale attendra la nouvelle salle. Anti-rotation plutôt que crunch — le tronc ' +
+      'doit résister aux torsions, pas les créer.',
+    exos: [
+      { nom: 'Presse à cuisses (pieds standard)', sets: 4, reps: '10', notes: 'Substitut du traîneau : on garde la production de force, on perd l’horizontalité. Pas de verrouillage des genoux.' },
+      { nom: 'Squat à la barre guidée', sets: 3, reps: '8', notes: 'Guidé plutôt que barre libre : les genoux sont déjà taxés par l’armure du samedi.' },
+      { nom: 'Fentes marchées haltères', sets: 3, reps: '12/jambe', notes: 'Pas long, genou avant à 90°. C’est l’unilatéral qui tient la base sur terrain irrégulier.' },
+      { nom: 'Soulevé de terre roumain (RDL)', sets: 3, reps: '10', notes: 'Modéré. Hanches en arrière, dos plat.' },
+      { nom: 'Anti-rotation à la poulie (Pallof)', sets: 3, reps: '12/côté', notes: 'Tenir 3 s bras tendus. La résistance à la poussée adverse.' },
+      { nom: 'Port valise (haltère à une main)', sets: 3, reps: '30 m/côté', notes: 'Anti-inclinaison + préhension. Épaules au même niveau, c’est le seul critère.' },
     ],
   },
 ]
