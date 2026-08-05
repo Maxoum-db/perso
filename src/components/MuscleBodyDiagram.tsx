@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
 import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
@@ -212,10 +212,10 @@ export function effortColor(pourcent: number): string {
  * rétrécissement à la taille, l'évasement aux crêtes iliaques.
  */
 const BASE_CENTER =
-  'M-8,47 C-16,49 -26,54 -32,63 C-35,76 -34,92 -32,105 C-30,116 -28,126 -27,136 ' +
-  'C-26,143 -26,148 -27,153 C-29,161 -31,170 -30,180 L30,180 ' +
-  'C31,170 29,161 27,153 C26,148 26,143 27,136 C28,126 30,116 32,105 ' +
-  'C34,92 35,76 32,63 C26,54 16,49 8,47 Z'
+  'M-8,47 C-17,49 -28,54 -35,63 C-38,76 -37,92 -34,105 C-31,116 -28,126 -26,136 ' +
+  'C-25,142 -25,147 -26,152 C-28,161 -31,170 -30,180 L30,180 ' +
+  'C31,170 28,161 26,152 C25,147 25,142 26,136 C28,126 31,116 34,105 ' +
+  'C37,92 38,76 35,63 C28,54 17,49 8,47 Z'
 
 const BASE_HALF: string[] = [
   // Le bras, d'un seul trait : galbe du deltoïde à l'épaule, resserrement au
@@ -250,11 +250,11 @@ export const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['neck', 'M-9,43 C-12,49 -12,56 -9,62 C-6,63 -4,60 -4,55 C-4,50 -5,46 -6,43 C-7,42.5 -8,42.5 -9,43 Z'],
   // Trapèze supérieur : la pente cou → épaule, en éventail qui s'élargit.
   ['trapsUpper', 'M-9,47 C-17,52 -25,59 -30,66 C-28,70 -25,72 -21,73 C-18,64 -13,54 -9,47 Z'],
-  ['deltLat', 'M-33,64 C-41,68 -46,78 -47,90 C-47,99 -45,106 -42,110 C-39,109 -37,103 -37,95 C-37,85 -36,74 -34,66 C-34,64 -33,63 -33,64 Z'],
-  ['deltAnt', 'M-24,65 C-31,69 -36,79 -37,91 C-37,99 -36,105 -34,109 C-32,107 -31,101 -30,93 C-29,84 -27,73 -25,66 C-25,65 -24,64 -24,65 Z'],
+  ['deltLat', 'M-36.0,64 C-44.0,68 -49.0,78 -50.0,90 C-50.0,99 -48.0,106 -45.0,110 C-42.0,109 -40.0,103 -40.0,95 C-40.0,85 -39.0,74 -37.0,66 C-37.0,64 -36.0,63 -36.0,64 Z'],
+  ['deltAnt', 'M-27.0,65 C-34.0,69 -39.0,79 -40.0,91 C-40.0,99 -39.0,105 -37.0,109 C-35.0,107 -34.0,101 -33.0,93 C-32.0,84 -30.0,73 -28.0,66 C-28.0,65 -27.0,64 -27.0,65 Z'],
   // Petit pectoral, sous la clavicule : petit éventail court.
   ['pecMinor', 'M-23,68 C-17,71 -12,75 -9,79 C-12,82 -18,82 -22,79 C-24,75 -24,70 -23,68 Z'],
-  ['subscapularis', 'M-32,79 C-29,83 -27,87 -26,91 C-29,93 -32,92 -34,90 C-34,85 -33,81 -32,79 Z'],
+  ['subscapularis', 'M-35.0,79 C-32.0,83 -30.0,87 -29.0,91 C-32.0,93 -35.0,92 -37.0,90 C-37.0,85 -36.0,81 -35.0,79 Z'],
   // Grand pectoral : faisceau claviculaire en éventail, à bords bombés.
   ['pecUpper', 'M-2,63 C-12,63 -22,66 -29,71 C-32,76 -33,81 -31,85 C-23,86 -13,87 -4,87 C-2,83 -2,73 -2,63 Z'],
   // …puis la masse sterno-costale, qui plonge en s'arrondissant vers l'aisselle.
@@ -265,18 +265,18 @@ export const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['serratus', 'M-31,94 C-26,101 -23,109 -22,117 C-22,124 -23,130 -25,134 C-29,124 -31,110 -31,94 Z'],
   // Transverse : la sangle horizontale profonde, en croissant.
   ['transversus', 'M-20,132 C-13,129 -6,129 -1,131 C-1,137 -1,142 -1,146 C-8,148 -15,147 -20,143 C-22,139 -22,135 -20,132 Z'],
-  ['coracobrachialis', 'M-33,100 C-35,108 -35,117 -34,124 C-32,125 -31,120 -31,112 C-31,105 -31,101 -33,100 Z'],
-  ['biceps', 'M-42,104 C-46,113 -46,126 -43,135 C-39,136 -37,128 -37,117 C-37,109 -38,104 -42,104 Z'],
-  ['brachialis', 'M-36,118 C-38,126 -38,134 -37,140 C-35,140 -34,133 -34,125 C-34,120 -35,118 -36,118 Z'],
-  ['brachioradialis', 'M-42,134 C-47,145 -47,159 -45,171 C-42,171 -41,158 -40,146 C-39,139 -39,135 -42,134 Z'],
-  ['pronators', 'M-39,138 C-43,144 -44,150 -43,155 C-40,155 -38,150 -37,144 C-36,141 -37,138 -39,138 Z'],
-  ['forearmFlex', 'M-40,146 C-46,157 -47,171 -45,186 C-41,187 -39,172 -38,157 C-37,150 -37,146 -40,146 Z'],
-  ['fingerFlex', 'M-37,162 C-40,172 -41,181 -40,189 C-37,190 -36,180 -35,170 C-35,164 -35,162 -37,162 Z'],
+  ['coracobrachialis', 'M-36.0,100 C-38.0,108 -38.0,117 -37.0,124 C-35.0,125 -34.0,120 -34.0,112 C-34.0,105 -34.0,101 -36.0,100 Z'],
+  ['biceps', 'M-45.0,104 C-49.0,113 -49.0,126 -46.0,135 C-42.0,136 -40.0,128 -40.0,117 C-40.0,109 -41.0,104 -45.0,104 Z'],
+  ['brachialis', 'M-39.0,118 C-41.0,126 -41.0,134 -40.0,140 C-38.0,140 -37.0,133 -37.0,125 C-37.0,120 -38.0,118 -39.0,118 Z'],
+  ['brachioradialis', 'M-44.0,132 C-49.0,140 -51.0,150 -51.0,161 C-50.0,169 -48.0,174 -46.0,175 C-44.0,171 -43.0,161 -42.0,150 C-41.0,141 -41.0,134 -44.0,132 Z'],
+  ['pronators', 'M-41.0,137 C-44.0,142 -45.0,148 -44.0,153 C-41.0,153 -39.0,148 -38.0,142 C-37.0,139 -38.0,136 -41.0,137 Z'],
+  ['forearmFlex', 'M-41.0,150 C-45.0,160 -46.0,172 -45.0,185 C-43.0,190 -40.0,190 -39.0,186 C-38.0,173 -38.0,161 -38.0,152 C-38.0,147 -40.0,146 -41.0,150 Z'],
+  ['fingerFlex', 'M-38.0,166 C-40.0,175 -40.0,183 -39.0,190 C-37.0,192 -36.0,186 -36.0,178 C-36.0,171 -36.0,166 -38.0,166 Z'],
   // Main : dos de la main renflé, pouce détaché vers l'intérieur, doigts
   // refermés. Hors muscles suivis, mais reconnaissable comme une main.
   // Dos de la main : la paume, puis les quatre doigts en éventail serré, puis
   // le pouce à part, tourné vers l'intérieur.
-  ['neutral', 'M-45,199 C-48,203 -49,209 -48,214 C-46,218 -42,220 -39,218 ' +
+  ['neutral', 'M-48,199 C-48,203 -49,209 -48,214 C-46,218 -42,220 -39,218 ' +
     'C-37,215 -36,210 -36,205 C-36,201 -38,198 -41,198 C-43,198 -44,198 -45,199 Z'],
   ['neutral', 'M-47,214 C-48,219 -48,224 -47,227 C-45,228 -44,225 -44,221 C-44,218 -45,215 -47,214 Z'],
   ['neutral', 'M-44,215 C-45,221 -45,226 -44,229 C-42,230 -41,227 -41,222 C-41,218 -42,215 -44,215 Z'],
@@ -298,9 +298,9 @@ export const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
     'C-13,272 -21,271 -25,266 C-27,262 -27,256 -26,252 Z'],
   ['neutral', 'M-20,254 C-15,252 -10,253 -8,256 C-9,261 -13,264 -17,264 C-20,263 -21,258 -20,254 Z'],
   ['fibularis', 'M-26,267 C-28,286 -27,302 -24,312 C-21,312 -21,294 -22,278 C-23,269 -24,266 -26,267 Z'],
-  ['tibialis', 'M-22,263 C-25,285 -23,304 -19,316 C-14,317 -12,297 -14,276 C-15,266 -19,261 -22,263 Z'],
-  ['tibPost', 'M-9,266 C-11,283 -10,299 -7,310 C-4,310 -3,293 -4,278 C-5,269 -7,264 -9,266 Z'],
-  ['gastroc', 'M-13,263 C-15,284 -13,303 -9,315 C-5,316 -3,294 -5,275 C-6,265 -10,261 -13,263 Z'],
+  ['tibialis', 'M-21,262 C-24,278 -24,296 -21,312 C-18,317 -15,314 -15,306 C-15,291 -16,277 -18,265 C-19,261 -20,260 -21,262 Z'],
+  ['tibPost', 'M-10,270 C-12,285 -11,300 -8,311 C-5,311 -4,296 -5,282 C-6,273 -8,268 -10,270 Z'],
+  ['gastroc', 'M-14,264 C-17,281 -16,299 -12,313 C-8,316 -5,311 -5,300 C-5,287 -6,275 -8,266 C-10,262 -13,262 -14,264 Z'],
   // Pied de face : la cheville, le coup de pied bombé, puis les orteils —
   // le gros orteil en dedans, les quatre autres décroissants.
   ['neutral', 'M-22,317 C-25,322 -25,329 -22,333 C-15,336 -8,335 -5,331 ' +
@@ -318,8 +318,8 @@ export const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['neckExt', 'M-6,43 C-8,50 -8,57 -6,63 C-3,64 -1,60 -1,54 C-1,49 -1,45 -2,43 C-3,42.5 -5,42.5 -6,43 Z'],
   ['neck', 'M-10,44 C-12,50 -12,57 -10,62 C-8,63 -7,59 -7,53 C-7,48 -7,45 -8,43 C-9,43 -10,43 -10,44 Z'],
   ['levator', 'M-7,50 C-11,56 -15,62 -17,68 C-15,70 -13,71 -11,71 C-10,64 -8,56 -7,50 Z'],
-  ['deltLat', 'M-33,64 C-41,68 -46,78 -47,90 C-47,99 -45,106 -42,110 C-39,109 -37,103 -37,95 C-37,85 -36,74 -34,66 C-34,64 -33,63 -33,64 Z'],
-  ['deltPost', 'M-25,66 C-32,70 -37,80 -38,92 C-38,100 -37,106 -35,110 C-33,108 -32,102 -31,94 C-30,85 -28,74 -26,67 C-26,66 -25,65 -25,66 Z'],
+  ['deltLat', 'M-36.0,64 C-44.0,68 -49.0,78 -50.0,90 C-50.0,99 -48.0,106 -45.0,110 C-42.0,109 -40.0,103 -40.0,95 C-40.0,85 -39.0,74 -37.0,66 C-37.0,64 -36.0,63 -36.0,64 Z'],
+  ['deltPost', 'M-28.0,66 C-35.0,70 -40.0,80 -41.0,92 C-41.0,100 -40.0,106 -38.0,110 C-36.0,108 -35.0,102 -34.0,94 C-33.0,85 -31.0,74 -29.0,67 C-29.0,66 -28.0,65 -28.0,66 Z'],
   // Trapèze : le grand losange en trois étages, aux bords tous incurvés.
   ['trapsUpper', 'M0,42 C-4,43 -7,45 -9,46 C-19,52 -27,59 -31,67 C-28,70 -24,72 -21,73 C-15,63 -8,55 0,50 C0,47 0,44 0,42 Z'],
   ['trapsMid', 'M0,54 C-9,65 -18,75 -25,83 C-24,91 -22,98 -21,105 C-14,99 -7,94 0,90 C0,78 0,66 0,54 Z'],
@@ -328,20 +328,20 @@ export const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['lats', 'M-31,93 C-33,103 -32,114 -28,124 C-24,138 -16,150 -7,158 C-3,159 -1,156 -1,151 C-2,140 -5,128 -11,116 C-17,105 -24,95 -29,91 C-31,90 -32,91 -31,93 Z'],
   ['rhomboids', 'M-4,72 C-10,78 -15,83 -17,88 C-16,93 -15,98 -14,102 C-10,98 -7,94 -4,91 C-4,85 -4,78 -4,72 Z'],
   // Fosse sus-épineuse : au-dessus de l'épine de l'omoplate.
-  ['supraspinatus', 'M-27,68 C-21,70 -17,74 -15,79 C-19,82 -23,83 -26,83 C-27,78 -27,72 -27,68 Z'],
-  ['rotatorCuff', 'M-28,74 C-22,78 -18,82 -16,87 C-20,90 -24,91 -27,92 C-28,86 -28,79 -28,74 Z'],
+  ['supraspinatus', 'M-30.0,68 C-24.0,70 -20.0,74 -18.0,79 C-22.0,82 -26.0,83 -29.0,83 C-30.0,78 -30.0,72 -30.0,68 Z'],
+  ['rotatorCuff', 'M-31.0,74 C-25.0,78 -21.0,82 -19.0,87 C-23.0,90 -27.0,91 -30.0,92 C-31.0,86 -31.0,79 -31.0,74 Z'],
   // Petit rond puis grand rond : deux bandelettes empilées, chacune bombée.
-  ['teresMinor', 'M-29,86 C-24,89 -20,92 -18,95 C-21,98 -25,99 -28,99 C-29,95 -29,90 -29,86 Z'],
+  ['teresMinor', 'M-32.0,86 C-27.0,89 -23.0,92 -21.0,95 C-24.0,98 -28.0,99 -31.0,99 C-32.0,95 -32.0,90 -32.0,86 Z'],
   ['teres', 'M-30,99 C-25,102 -21,105 -19,108 C-22,112 -26,113 -29,112 C-30,108 -30,103 -30,99 Z'],
   // Multifides collés aux vertèbres, érecteurs en colonnes, carré des lombes
   // en dehors : trois couches du plus profond au plus superficiel.
   ['multifidus', 'M-5,124 C-7,140 -7,155 -5,165 C-3,166 -1,164 -1,158 C-1,145 -1,131 -1,124 C-2,122 -4,122 -5,124 Z'],
   ['erectors', 'M-12,126 C-14,142 -14,157 -12,168 C-8,169 -4,169 -2,166 C-2,151 -2,136 -2,124 C-6,121 -10,122 -12,126 Z'],
   ['quadratusLumborum', 'M-19,130 C-21,143 -21,155 -18,164 C-15,165 -13,163 -13,158 C-13,148 -13,138 -14,129 C-16,127 -18,127 -19,130 Z'],
-  ['tricepsLong', 'M-34,102 C-37,113 -37,129 -35,139 C-33,140 -32,132 -32,121 C-32,112 -32,104 -34,102 Z'],
-  ['tricepsLat', 'M-42,105 C-46,115 -46,130 -43,139 C-40,139 -39,127 -39,115 C-39,108 -40,104 -42,105 Z'],
-  ['brachioradialis', 'M-42,134 C-47,145 -47,159 -45,171 C-42,171 -41,158 -40,146 C-39,139 -39,135 -42,134 Z'],
-  ['forearmExt', 'M-40,146 C-46,157 -47,171 -45,186 C-41,187 -39,172 -38,157 C-37,150 -37,146 -40,146 Z'],
+  ['tricepsLong', 'M-37.0,102 C-40.0,113 -40.0,129 -38.0,139 C-36.0,140 -35.0,132 -35.0,121 C-35.0,112 -35.0,104 -37.0,102 Z'],
+  ['tricepsLat', 'M-45.0,105 C-49.0,115 -49.0,130 -46.0,139 C-43.0,139 -42.0,127 -42.0,115 C-42.0,108 -43.0,104 -45.0,105 Z'],
+  ['brachioradialis', 'M-44.0,132 C-49.0,140 -51.0,150 -51.0,161 C-50.0,169 -48.0,174 -46.0,175 C-44.0,171 -43.0,161 -42.0,150 C-41.0,141 -41.0,134 -44.0,132 Z'],
+  ['forearmExt', 'M-45.0,148 C-50.0,159 -51.0,172 -49.0,186 C-46.0,190 -43.0,189 -42.0,184 C-42.0,171 -42.0,159 -42.0,151 C-42.0,146 -44.0,145 -45.0,148 Z'],
   // Main de dos : le dos de la main est plus large, les doigts plus visibles.
   ['neutral', 'M-46,199 C-49,203 -50,210 -48,215 C-46,219 -42,220 -39,218 ' +
     'C-37,215 -36,209 -36,204 C-36,200 -38,198 -41,198 C-43,198 -45,198 -46,199 Z'],
@@ -358,9 +358,9 @@ export const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['hamsInner', 'M-16,209 C-18,230 -16,249 -13,262 C-9,264 -6,261 -5,255 C-4,236 -6,219 -9,210 C-12,206 -14,206 -16,209 Z'],
   ['neutral', 'M-27,262 C-20,269 -9,269 -4,262 C-3,266 -4,270 -5,273 C-12,278 -21,277 -26,272 C-27,269 -27,265 -27,262 Z'],
   // Les deux chefs du jumeau, chacun bombé, puis le soléaire qui déborde.
-  ['gastroc', 'M-26,273 C-30,292 -27,307 -22,313 C-18,314 -16,297 -17,281 C-17,273 -23,269 -26,273 Z'],
-  ['gastroc', 'M-15,273 C-16,292 -14,307 -11,313 C-7,314 -5,297 -6,281 C-6,273 -12,269 -15,273 Z'],
-  ['soleus', 'M-25,312 C-27,320 -24,325 -19,326 C-13,327 -8,326 -6,323 C-4,320 -4,314 -6,311 C-13,309 -20,309 -25,312 Z'],
+  ['gastroc', 'M-25,271 C-29,283 -29,296 -25,306 C-22,310 -19,307 -18,300 C-17,290 -18,280 -20,272 C-22,268 -24,268 -25,271 Z'],
+  ['gastroc', 'M-14,271 C-16,284 -16,299 -12,311 C-9,315 -6,311 -6,303 C-6,291 -7,280 -9,272 C-11,268 -13,268 -14,271 Z'],
+  ['soleus', 'M-24,300 C-27,309 -27,318 -24,325 C-19,328 -12,327 -8,323 C-6,317 -6,309 -8,302 C-13,299 -20,298 -24,300 Z'],
   // Pied de dos : le talon, plus haut et plus étroit que l'avant-pied.
   ['neutral', 'M-23,324 C-25,330 -23,335 -18,336 C-11,336 -6,334 -5,330 ' +
     'C-4,326 -5,322 -7,320 C-13,319 -19,320 -23,324 Z'],
@@ -622,6 +622,104 @@ function ZoomBody({
   onPick: (r: MuscleRegion) => void
   onClose: () => void
 }) {
+  const cadre = useRef<HTMLDivElement>(null)
+  const dessin = useRef<SVGSVGElement>(null)
+  const [vue, setVue] = useState({ k: 1, x: 0, y: 0 })
+  const gestes = useRef({
+    pointeurs: new Map<number, { x: number; y: number }>(),
+    // Écart et centre au moment où le second doigt s'est posé : tout le geste
+    // se calcule PAR RAPPORT à cet instant, pas image par image. Cumuler des
+    // deltas fait dériver le dessin sous les doigts.
+    ecart0: 0,
+    centre0: { x: 0, y: 0 },
+    vue0: { k: 1, x: 0, y: 0 },
+    // Le dernier appui simple : pour distinguer un double-tape d'un clic.
+    dernierTap: 0,
+  })
+
+  const local = (e: React.PointerEvent) => {
+    const svg = dessin.current
+    const ctm = svg?.getScreenCTM?.()
+    if (!svg || !ctm) return { x: e.clientX, y: e.clientY }
+    const p = svg.createSVGPoint()
+    p.x = e.clientX
+    p.y = e.clientY
+    const u = p.matrixTransform(ctm.inverse())
+    return { x: u.x, y: u.y }
+  }
+  const paires = () => [...gestes.current.pointeurs.values()]
+  const ecart = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y)
+  const milieu = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  })
+
+  function pointerDown(e: React.PointerEvent) {
+    const g = gestes.current
+    g.pointeurs.set(e.pointerId, local(e))
+    console.log('DOWN', e.pointerId, g.pointeurs.size)
+    if (g.pointeurs.size === 2) {
+      const [a, b] = paires()
+      g.ecart0 = ecart(a, b)
+      g.centre0 = milieu(a, b)
+      g.vue0 = vue
+      // Capturer le pointeur garde le geste même si un doigt sort du cadre.
+      // Sous try : la capture échoue si le pointeur n'est plus actif, et
+      // l'exception remontait jusqu'à démonter le composant — on perdait le
+      // mannequin entier pour un confort de geste.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        // Sans capture, le geste reste piloté par la carte des pointeurs.
+      }
+    }
+  }
+
+  function pointerMove(e: React.PointerEvent) {
+    const g = gestes.current
+    if (!g.pointeurs.has(e.pointerId)) return
+    g.pointeurs.set(e.pointerId, local(e))
+    console.log('MOVE', g.pointeurs.size, g.ecart0)
+    if (g.pointeurs.size < 2) return
+    const [a, b] = paires()
+    const d = ecart(a, b)
+    if (g.ecart0 < 1) return
+    // Bornes : sous 1 on repasserait sous la taille d'origine sans raison, et
+    // au-delà de 6 un muscle occupe l'écran entier et on perd le corps.
+    const k = Math.min(6, Math.max(1, g.vue0.k * (d / g.ecart0)))
+    const c = milieu(a, b)
+    // Le point pincé reste sous les doigts : c'est ce qui fait qu'on a
+    // l'impression de tenir le dessin, et non de piloter un curseur.
+    setVue({
+      k,
+      x: c.x - ((g.centre0.x - g.vue0.x) / g.vue0.k) * k,
+      y: c.y - ((g.centre0.y - g.vue0.y) / g.vue0.k) * k,
+    })
+  }
+
+  function pointerUp(e: React.PointerEvent) {
+    const g = gestes.current
+    g.pointeurs.delete(e.pointerId)
+    if (g.pointeurs.size === 1) {
+      // Un doigt relâché sur deux : on repart d'un geste neuf plutôt que de
+      // laisser le dessin sauter au prochain mouvement.
+      const [a] = paires()
+      g.ecart0 = 0
+      g.centre0 = a
+      g.vue0 = vue
+    }
+    if (g.pointeurs.size === 0) {
+      const t = e.timeStamp
+      if (t - g.dernierTap < 320) {
+        setVue({ k: 1, x: 0, y: 0 })
+        g.dernierTap = 0
+      } else {
+        g.dernierTap = t
+      }
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg">
       {/* En PWA plein écran (viewport-fit=cover), le haut de l'overlay passe SOUS
@@ -650,27 +748,46 @@ function ZoomBody({
         </button>
       </div>
 
-      <svg
-        viewBox="-60 0 120 342"
-        className="min-h-0 w-full flex-1"
-        stroke="rgba(23,19,16,0.55)"
-        strokeWidth="0.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        aria-label={face === 'front' ? 'Corps de face' : 'Corps de dos'}
+      <div
+        ref={cadre}
+        className="min-h-0 w-full flex-1 overflow-hidden"
+        style={{ touchAction: 'none' }}
+        onPointerDown={pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={pointerUp}
+        onPointerCancel={pointerUp}
       >
-        <Figure
-          cx={0}
-          half={face === 'front' ? FRONT_HALF : BACK_HALF}
-          fill={fill}
-          back={face === 'back'}
-          sexe={sexe}
-          onPick={onPick}
-        />
-      </svg>
+        <svg
+          ref={dessin}
+          viewBox="-60 0 120 342"
+          className="h-full w-full"
+          stroke="rgba(23,19,16,0.55)"
+          strokeWidth={0.5 / vue.k}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          aria-label={face === 'front' ? 'Corps de face' : 'Corps de dos'}
+        >
+          {/* Le zoom est une TRANSFORMATION du dessin, pas un agrandissement de
+              l'image : les tracés restent vectoriels et le trait s'affine à
+              mesure qu'on grossit — sinon il épaissirait comme une loupe sur
+              une photo. */}
+          <g transform={`translate(${vue.x} ${vue.y}) scale(${vue.k})`}>
+            <Figure
+              cx={0}
+              half={face === 'front' ? FRONT_HALF : BACK_HALF}
+              fill={fill}
+              back={face === 'back'}
+              sexe={sexe}
+              onPick={onPick}
+            />
+          </g>
+        </svg>
+      </div>
 
       <p className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 text-center text-[11px] text-muted">
-        Touche un muscle pour son état de récupération et les exercices qui le visent.
+        {vue.k > 1.05
+          ? 'Deux doigts pour ajuster · double-tape pour revenir'
+          : 'Touche un muscle · pince à deux doigts pour agrandir'}
       </p>
     </div>
   )
@@ -1124,17 +1241,23 @@ function Figure({
           tempes, et la mâchoire descend dans le cou sans rupture. */}
       <path
         d={m(
-          'M0,4.5 C7.5,4.5 12.8,10 13.5,17.5 C13.9,22 13.2,26.5 12,30.5 ' +
-            'C10.8,35 8,39.5 4.8,42.5 C4.8,45.5 4.8,48.5 3.6,50.5 ' +
-            'C3.6,50.5 -3.6,50.5 -3.6,50.5 C-4.8,48.5 -4.8,45.5 -4.8,42.5 ' +
-            'C-8,39.5 -10.8,35 -12,30.5 C-13.2,26.5 -13.9,22 -13.5,17.5 ' +
-            'C-12.8,10 -7.5,4.5 0,4.5 Z',
+          // Un crâne humain n'est pas un ovale : la boîte est large aux
+          // pariétaux, se resserre aux tempes, la mâchoire redescend en angle
+          // vers le menton, et l'occiput déborde en arrière. Un ovale se
+          // reconnaît immédiatement comme un raccourci.
+          'M0,3.5 C7,3.5 12,7 13.6,13 C14.4,17 14.2,21.5 13.4,25.5 ' +
+            'C12.8,28.5 11.6,31 10,33 C9.4,36 8.6,39 7,41.5 ' +
+            'C5.6,43.8 3.2,45.4 0,45.8 C-3.2,45.4 -5.6,43.8 -7,41.5 ' +
+            'C-8.6,39 -9.4,36 -10,33 C-11.6,31 -12.8,28.5 -13.4,25.5 ' +
+            'C-14.2,21.5 -14.4,17 -13.6,13 C-12,7 -7,3.5 0,3.5 Z',
         )}
         fill={NEUTRAL}
         stroke="none"
       />
+      {/* Le cou : deux masses obliques qui descendent du crâne aux clavicules,
+          et non un trapèze posé sous la tête. */}
       <path
-        d={m('M-6.5,46 C-6.5,49 -8,51.5 -10,54 L10,54 C8,51.5 6.5,49 6.5,46 Z')}
+        d={m('M-7,42 C-8,47 -9.5,51 -11.5,54 L11.5,54 C9.5,51 8,47 7,42 C4.6,44.6 -4.6,44.6 -7,42 Z')}
         fill={NEUTRAL}
         stroke="none"
       />
