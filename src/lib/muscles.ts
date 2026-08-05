@@ -13,6 +13,10 @@ export type MuscleRegion =
   // donc son antagoniste, et sous le heaume c'est exactement l'inverse qui
   // travaille : la tête bascule en avant, la nuque la retient toute la journée.
   | 'neckExt'
+  // Scalènes : les trois haubans latéraux du cou. Ils inclinent la tête ET
+  // soulèvent les premières côtes à chaque inspiration forcée — sous le heaume
+  // et en apnée d'effort, ils travaillent des deux façons à la fois.
+  | 'scalenes'
   // Élévateur de la scapula : de l'atlas à l'angle supérieur de l'omoplate.
   // Le muscle qui porte le poids d'un heaume ou d'un sac, aux côtés du trapèze
   // supérieur, et la douleur de nuque la plus banale après un portage.
@@ -50,6 +54,11 @@ export type MuscleRegion =
   // l'infra-épineux.
   | 'supraspinatus'
   | 'erectors'
+  // Multifides : les faisceaux courts qui relient chaque vertèbre à la
+  // suivante. Ils stabilisent segment par segment là où les érecteurs tirent
+  // en bloc — c'est eux que travaillent un bird-dog ou un Pallof, et eux qui
+  // s'atrophient les premiers après un lumbago.
+  | 'multifidus'
   // Carré des lombes : de la dernière côte à la crête iliaque. C'est lui qui
   // empêche le bassin de partir de côté sous un port valise, et lui qui tient
   // la flexion latérale — travail que les érecteurs et les obliques
@@ -57,6 +66,9 @@ export type MuscleRegion =
   | 'quadratusLumborum'
   | 'biceps'
   | 'brachialis'
+  // Coraco-brachial : de la coracoïde à l'humérus, le seul fléchisseur pur de
+  // l'épaule du compartiment antérieur du bras.
+  | 'coracobrachialis'
   | 'brachioradialis'
   | 'tricepsLong'
   | 'tricepsLat'
@@ -82,22 +94,37 @@ export type MuscleRegion =
   | 'gluteMax'
   | 'gluteMed'
   | 'tfl'
+  // Rotateurs profonds de hanche (piriforme, obturateurs, jumeaux, carré
+  // fémoral) : la coiffe de la hanche, exactement comme la coiffe des
+  // rotateurs pour l'épaule. Le 90/90 est une rotation profonde de hanche et
+  // n'étiquetait aucun des muscles qui la produisent.
+  | 'hipRotators'
   | 'hipFlexors'
   | 'rectusFemoris'
   | 'vastusLat'
   | 'vastusMed'
   | 'adductors'
+  // Gracile : le seul adducteur BI-ARTICULAIRE — il croise la hanche et le
+  // genou. Les autres s'arrêtent au fémur ; lui encaisse en plus chaque
+  // changement d'appui genou fléchi, c'est-à-dire tout le béhourd.
+  | 'gracilis'
   | 'bicepsFemoris'
   | 'hamsInner'
   | 'gastroc'
   | 'soleus'
   | 'tibialis'
+  // Tibial postérieur : il soutient la voûte plantaire et retient le pied de
+  // s'affaisser en dedans à chaque appui. Sous 35 kg d'armure c'est lui qui
+  // tient l'arche — et « Tibial » ne désignait que l'antérieur, qui fait
+  // l'inverse.
+  | 'tibPost'
   | 'fibularis'
 
 /** Nom affiché quand on touche un muscle sur le schéma. */
 export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   neck: 'Cou — fléchisseurs (sterno-cléido-mastoïdien)',
   neckExt: 'Nuque — extenseurs (splénius, semi-épineux)',
+  scalenes: 'Scalènes',
   levator: 'Élévateur de la scapula',
   trapsUpper: 'Trapèze supérieur',
   trapsMid: 'Trapèze moyen',
@@ -117,9 +144,11 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   subscapularis: 'Sous-scapulaire',
   supraspinatus: 'Supra-épineux',
   erectors: 'Érecteurs du rachis',
+  multifidus: 'Multifides (stabilisateurs segmentaires)',
   quadratusLumborum: 'Carré des lombes',
   biceps: 'Biceps brachial',
   brachialis: 'Brachial antérieur',
+  coracobrachialis: 'Coraco-brachial',
   brachioradialis: 'Brachio-radial (long supinateur)',
   tricepsLong: 'Triceps — longue portion',
   tricepsLat: 'Triceps — portion latérale',
@@ -133,16 +162,19 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   gluteMax: 'Grand fessier',
   gluteMed: 'Moyen fessier',
   tfl: 'Tenseur du fascia lata',
+  hipRotators: 'Rotateurs profonds de hanche (piriforme)',
   hipFlexors: 'Psoas-iliaque (fléchisseurs de hanche)',
   rectusFemoris: 'Droit fémoral',
   vastusLat: 'Vaste latéral',
   vastusMed: 'Vaste médial',
   adductors: 'Adducteurs',
+  gracilis: 'Gracile (droit interne)',
   bicepsFemoris: 'Biceps fémoral',
   hamsInner: 'Ischios internes',
   gastroc: 'Gastrocnémiens (jumeaux)',
   soleus: 'Soléaire',
   tibialis: 'Tibial antérieur',
+  tibPost: 'Tibial postérieur',
   fibularis: 'Fibulaires (péroniers)',
 }
 
@@ -178,6 +210,7 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   // ── Tronc ────────────────────────────────────────────────────────────────
   neck: 'Cou',
   neckExt: 'Nuque',
+  scalenes: 'Nuque',
   levator: 'Nuque',
   // Abdos et obliques séparés : une planche n'est pas un bûcheron à la poulie,
   // et en béhourd c'est l'oblique qui prend, pas le grand droit.
@@ -188,6 +221,7 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   pecMinor: 'Dentelé',
   erectors: 'Lombaires',
   quadratusLumborum: 'Lombaires',
+  multifidus: 'Lombaires',
 
   // ── Dos et épaules ───────────────────────────────────────────────────────
   // Grand dorsal (tirage vertical) et milieu du dos (tirage horizontal) : deux
@@ -211,6 +245,7 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   // ── Bras ─────────────────────────────────────────────────────────────────
   biceps: 'Biceps',
   brachialis: 'Biceps',
+  coracobrachialis: 'Biceps',
   tricepsLong: 'Triceps',
   tricepsLat: 'Triceps',
   // L'avant-bras travaille dès qu'on tient quelque chose : le dissocier
@@ -229,11 +264,13 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   gluteMax: 'Fessiers',
   gluteMed: 'Fessiers',
   tfl: 'Fessiers',
+  hipRotators: 'Rotateurs de hanche',
   hipFlexors: 'Fléchisseurs de hanche',
   rectusFemoris: 'Quadriceps',
   vastusLat: 'Quadriceps',
   vastusMed: 'Quadriceps',
   adductors: 'Adducteurs',
+  gracilis: 'Adducteurs',
   bicepsFemoris: 'Ischios',
   hamsInner: 'Ischios',
   gastroc: 'Mollets',
@@ -242,6 +279,7 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   // l'inverse. Ce sont eux qui tiennent la cheville en armure sur terrain
   // défoncé, et rien ne les travaille par accident.
   tibialis: 'Chevilles',
+  tibPost: 'Chevilles',
   fibularis: 'Chevilles',
 }
 
@@ -319,7 +357,7 @@ const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
 /** Les fléchisseurs du coude. Distinct de la clé « biceps », qui ne désigne que
  *  le biceps brachial depuis qu'un libellé précis doit pouvoir en abaisser un
  *  seul — ici on parle du BRAS, brachial compris. */
-const BICEPS_BRAS: MuscleRegion[] = ['biceps', 'brachialis']
+const BICEPS_BRAS: MuscleRegion[] = ['biceps', 'brachialis', 'coracobrachialis']
 const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt', 'brachioradialis', 'fingerFlex', 'pronators']
 const BACK: MuscleRegion[] = ['lats', 'teres', 'rhomboids', 'trapsMid', 'trapsLow']
 const ABS: MuscleRegion[] = ['rectus', 'obliques', 'transversus']
@@ -327,7 +365,7 @@ const GLUTES: MuscleRegion[] = ['gluteMax', 'gluteMed']
 const QUADS: MuscleRegion[] = ['rectusFemoris', 'vastusLat', 'vastusMed']
 const HAMS: MuscleRegion[] = ['bicepsFemoris', 'hamsInner']
 const CALVES: MuscleRegion[] = ['gastroc', 'soleus']
-const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'tibialis', 'fibularis', 'tfl', 'hipFlexors']
+const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductors', 'gracilis', 'tibialis', 'tibPost', 'fibularis', 'tfl', 'hipFlexors', 'hipRotators']
 // Dédoublonné : BACK et TRAPS contiennent tous deux les trapèzes moyen et
 // inférieur, et le dentelé n'était dans aucune des deux listes — « Haut du
 // corps » l'oubliait donc en silence, alors qu'il plaque l'omoplate sur à peu
@@ -388,7 +426,7 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   quadriceps: QUADS,
   ischios: HAMS,
   mollets: CALVES,
-  lombaires: ['erectors', 'quadratusLumborum'],
+  lombaires: ['erectors', 'quadratusLumborum', 'multifidus'],
   cou: ['neck'],
   // « Bras », « Hanches » et « Chevilles » : trois mots qu'on emploie en
   // parlant et qui n'existaient pas ici. Le sélecteur de ressenti proposait
@@ -396,12 +434,16 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   // strictement rien, en silence. Un libellé proposé qui ne mappe sur aucun
   // muscle est pire qu'un libellé absent : on croit avoir renseigné.
   bras: [...BICEPS_BRAS, ...TRICEPS],
-  hanches: ['tfl', 'hipFlexors'],
-  chevilles: ['tibialis', 'fibularis'],
+  hanches: ['tfl', 'hipFlexors', 'hipRotators'],
+  chevilles: ['tibialis', 'tibPost', 'fibularis'],
   // « Biceps » ne couvre plus le brachial, et « Grand pectoral » plus le
   // faisceau claviculaire (cf. le commentaire au-dessus de MUSCLE_MAP).
   biceps: ['biceps'],
   obliques: ['obliques'],
+  // Zone contre libellé, une fois de plus : « Intérieur de cuisse » est le mot
+  // qu'on emploie en montrant l'endroit, et il couvre le gracile ; le libellé
+  // « Adducteurs » ne désigne que les adducteurs proprement dits.
+  'interieur de cuisse': ['adductors', 'gracilis'],
   adducteurs: ['adductors'],
   // Muscles précis
   'deltoide anterieur': ['deltAnt'],
@@ -417,9 +459,17 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'grand rond': ['teres'],
   'dentele anterieur': ['serratus'],
   'erecteurs du rachis': ['erectors'],
+  multifides: ['multifidus'],
+  scalenes: ['scalenes'],
+  'coraco-brachial': ['coracobrachialis'],
+  gracile: ['gracilis'],
+  'droit interne': ['gracilis'],
+  'rotateurs de hanche': ['hipRotators'],
+  piriforme: ['hipRotators'],
+  'tibial posterieur': ['tibPost'],
   'carre des lombes': ['quadratusLumborum'],
   'extenseurs du cou': ['neckExt'],
-  nuque: ['neckExt'],
+  nuque: ['neckExt', 'levator', 'scalenes'],
   splenius: ['neckExt'],
   'elevateur de la scapula': ['levator'],
   angulaire: ['levator'],
