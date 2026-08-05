@@ -211,7 +211,12 @@ const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
 ]
 
 const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
-  ['neck', 'M-9,44 C-11,50 -11,57 -9,62 L-3,62 C-3,54 -3,48 -3,43 Z'],
+  // La nuque : extenseurs au centre (splénius, semi-épineux), élévateur de la
+  // scapula en oblique vers l'angle de l'omoplate. Vue de dos, le
+  // sterno-cléido-mastoïdien ne se voit plus que sur le bord — il est devant.
+  ['neckExt', 'M-6,43 C-7,50 -7,57 -6,63 L-1,63 C-1,55 -1,48 -1,43 Z'],
+  ['neck', 'M-10,44 C-12,50 -12,57 -10,62 L-7,62 C-7,54 -7,48 -7,43 Z'],
+  ['levator', 'M-7,50 C-11,55 -15,61 -17,67 C-15,69 -13,70 -11,71 C-10,64 -8,56 -7,50 Z'],
   ['deltLat', 'M-32,64 C-43,71 -47,88 -44,102 C-40,103 -37,94 -35,82 C-34,74 -34,68 -34,66 Z'],
   ['deltPost', 'M-27,66 C-35,73 -39,85 -37,97 C-33,97 -30,88 -28,77 C-27,71 -27,68 -27,67 Z'],
   // Trapèze : le grand losange en trois étages, du crâne aux dernières dorsales.
@@ -221,10 +226,14 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // Grand dorsal : le V, de l'aisselle à la crête iliaque.
   ['lats', 'M-30,90 C-33,108 -30,130 -19,146 C-13,151 -5,150 -3,145 C-8,131 -14,114 -20,100 Z'],
   ['rhomboids', 'M-4,72 C-9,77 -14,82 -17,87 C-16,92 -15,97 -14,101 C-10,97 -7,94 -4,91 Z'],
+  // Fosse sus-épineuse : au-dessus de l'épine de l'omoplate. C'est ce couloir
+  // étroit, sous l'acromion, que le tendon doit franchir à chaque abduction.
+  ['supraspinatus', 'M-27,68 C-22,70 -17,74 -15,79 C-18,81 -22,82 -25,83 C-27,77 -27,71 -27,68 Z'],
   ['rotatorCuff', 'M-28,74 C-23,77 -18,81 -16,87 C-19,89 -23,90 -26,92 C-28,85 -28,78 -28,74 Z'],
   ['teres', 'M-30,94 C-25,96 -21,99 -19,104 C-21,107 -25,108 -28,109 C-30,103 -30,98 -30,94 Z'],
   // Érecteurs du rachis : les deux colonnes de part et d'autre des vertèbres.
   ['erectors', 'M-11,126 C-12,140 -12,154 -11,164 L-2,164 L-2,124 Z'],
+  ['quadratusLumborum', 'M-19,130 C-20,142 -20,154 -18,163 L-13,163 C-14,152 -14,140 -14,128 Z'],
   ['tricepsLong', 'M-35,100 C-38,112 -38,130 -36,140 C-33,141 -31,135 -31,124 C-31,113 -31,105 -31,100 Z'],
   ['tricepsLat', 'M-42,102 C-46,113 -46,131 -42,141 L-38,139 C-38,124 -38,113 -39,101 Z'],
   ['brachioradialis', 'M-42,133 C-48,144 -50,159 -48,173 L-44,172 C-43,157 -42,145 -40,135 Z'],

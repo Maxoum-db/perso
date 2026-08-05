@@ -7,6 +7,16 @@
 
 export type MuscleRegion =
   | 'neck'
+  // Les extenseurs du cou (splénius, semi-épineux) : la nuque proprement dite.
+  // Ils n'existaient pas, et « Cou » ne désignait que le sterno-cléido-
+  // mastoïdien — un FLÉCHISSEUR. Une extension cervicale à l'élastique peignait
+  // donc son antagoniste, et sous le heaume c'est exactement l'inverse qui
+  // travaille : la tête bascule en avant, la nuque la retient toute la journée.
+  | 'neckExt'
+  // Élévateur de la scapula : de l'atlas à l'angle supérieur de l'omoplate.
+  // Le muscle qui porte le poids d'un heaume ou d'un sac, aux côtés du trapèze
+  // supérieur, et la douleur de nuque la plus banale après un portage.
+  | 'levator'
   | 'trapsUpper'
   | 'trapsMid'
   | 'trapsLow'
@@ -20,7 +30,17 @@ export type MuscleRegion =
   | 'teres'
   | 'rhomboids'
   | 'rotatorCuff'
+  // Supra-épineux : il amorce les quinze premiers degrés d'abduction et centre
+  // la tête humérale sous l'acromion. C'est LE tendon qui s'use en premier sur
+  // une épaule qui a déjà lâché, et « Coiffe des rotateurs » ne désignait que
+  // l'infra-épineux.
+  | 'supraspinatus'
   | 'erectors'
+  // Carré des lombes : de la dernière côte à la crête iliaque. C'est lui qui
+  // empêche le bassin de partir de côté sous un port valise, et lui qui tient
+  // la flexion latérale — travail que les érecteurs et les obliques
+  // s'attribuaient faute de mieux.
+  | 'quadratusLumborum'
   | 'biceps'
   | 'brachialis'
   | 'brachioradialis'
@@ -47,7 +67,9 @@ export type MuscleRegion =
 
 /** Nom affiché quand on touche un muscle sur le schéma. */
 export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
-  neck: 'Cou (sterno-cléido-mastoïdien)',
+  neck: 'Cou — fléchisseurs (sterno-cléido-mastoïdien)',
+  neckExt: 'Nuque — extenseurs (splénius, semi-épineux)',
+  levator: 'Élévateur de la scapula',
   trapsUpper: 'Trapèze supérieur',
   trapsMid: 'Trapèze moyen',
   trapsLow: 'Trapèze inférieur',
@@ -61,7 +83,9 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   teres: 'Grand rond',
   rhomboids: 'Rhomboïdes',
   rotatorCuff: 'Coiffe des rotateurs (infra-épineux)',
+  supraspinatus: 'Supra-épineux',
   erectors: 'Érecteurs du rachis',
+  quadratusLumborum: 'Carré des lombes',
   biceps: 'Biceps brachial',
   brachialis: 'Brachial antérieur',
   brachioradialis: 'Brachio-radial (long supinateur)',
@@ -118,12 +142,15 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
 export const ZONE_LARGE: Record<MuscleRegion, string> = {
   // ── Tronc ────────────────────────────────────────────────────────────────
   neck: 'Cou',
+  neckExt: 'Nuque',
+  levator: 'Nuque',
   // Abdos et obliques séparés : une planche n'est pas un bûcheron à la poulie,
   // et en béhourd c'est l'oblique qui prend, pas le grand droit.
   rectus: 'Abdominaux',
   obliques: 'Obliques',
   serratus: 'Dentelé',
   erectors: 'Lombaires',
+  quadratusLumborum: 'Lombaires',
 
   // ── Dos et épaules ───────────────────────────────────────────────────────
   // Grand dorsal (tirage vertical) et milieu du dos (tirage horizontal) : deux
@@ -140,6 +167,7 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   deltLat: 'Épaules',
   deltPost: 'Épaules',
   rotatorCuff: 'Coiffe',
+  supraspinatus: 'Coiffe',
 
   // ── Bras ─────────────────────────────────────────────────────────────────
   biceps: 'Biceps',
@@ -235,9 +263,18 @@ function norm(s: string): string {
 // Le groupe large « Pectoraux » reste là pour viser les deux faisceaux d'un coup.
 
 const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
-const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow']
+const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow', 'levator']
 const PECS: MuscleRegion[] = ['pecUpper', 'pecLower']
 const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
+// Ni « Cou » ni « Coiffe des rotateurs » ne s'élargissent à leurs nouveaux
+// voisins : MUSCLE_LABELS les nomme « sterno-cléido-mastoïdien » et
+// « infra-épineux », et un libellé précis ne couvre que son propre muscle —
+// même règle que pour « Biceps » et « Grand pectoral » plus haut. La nuque et
+// le supra-épineux ont donc leur propre libellé, et un exercice qui travaille
+// les deux le DIT, chacun avec sa part.
+//
+// Le sélecteur de ressenti gagne en échange une zone « Nuque » : déclarer une
+// courbature à l'arrière du cou après un béhourd ne colore plus le devant.
 /** Les fléchisseurs du coude. Distinct de la clé « biceps », qui ne désigne que
  *  le biceps brachial depuis qu'un libellé précis doit pouvoir en abaisser un
  *  seul — ici on parle du BRAS, brachial compris. */
@@ -255,7 +292,7 @@ const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductor
 // corps » l'oubliait donc en silence, alors qu'il plaque l'omoplate sur à peu
 // près tout ce qui pousse.
 const UPPER: MuscleRegion[] = [
-  ...new Set<MuscleRegion>([...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'serratus', 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff']),
+  ...new Set<MuscleRegion>([...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'serratus', 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff', 'supraspinatus']),
 ]
 
 /**
@@ -310,7 +347,7 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   quadriceps: QUADS,
   ischios: HAMS,
   mollets: CALVES,
-  lombaires: ['erectors'],
+  lombaires: ['erectors', 'quadratusLumborum'],
   cou: ['neck'],
   // « Bras », « Hanches » et « Chevilles » : trois mots qu'on emploie en
   // parlant et qui n'existaient pas ici. Le sélecteur de ressenti proposait
@@ -339,6 +376,14 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'grand rond': ['teres'],
   'dentele anterieur': ['serratus'],
   'erecteurs du rachis': ['erectors'],
+  'carre des lombes': ['quadratusLumborum'],
+  'extenseurs du cou': ['neckExt'],
+  nuque: ['neckExt'],
+  splenius: ['neckExt'],
+  'elevateur de la scapula': ['levator'],
+  angulaire: ['levator'],
+  'supra-epineux': ['supraspinatus'],
+  supraspinatus: ['supraspinatus'],
   brachial: ['brachialis'],
   'brachio-radial': ['brachioradialis'],
   'long supinateur': ['brachioradialis'],
