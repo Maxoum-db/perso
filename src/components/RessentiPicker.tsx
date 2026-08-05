@@ -22,9 +22,11 @@ import { effortColor } from './MuscleBodyDiagram'
  */
 export const ZONES_RESSENTI = [
   'Cou',
+  'Nuque',
   'Trapèzes',
   'Épaules',
   'Coiffe des rotateurs',
+  'Supra-épineux',
   'Bras',
   'Avant-bras',
   'Dos',

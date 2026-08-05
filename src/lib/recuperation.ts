@@ -125,8 +125,11 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   gluteMed: JAMBES_RAPIDE,
   brachioradialis: RAPIDE,
   // Le cou est minuscule et postural, mais sous le heaume il prend cher :
-  // on ne le pousse pas au palier au-dessus.
+  // on ne le pousse pas au palier au-dessus. Les extenseurs de la nuque sont
+  // logés à la même enseigne — c'est même eux qui retiennent la tête quand le
+  // heaume la tire en avant.
   neck: RAPIDE,
+  neckExt: RAPIDE,
 
   // ── Plutôt rapides ──────────────────────────────────────────────────────
   // Taille moyenne, usage quotidien réel, peu d'excentrique lourd.
@@ -155,8 +158,11 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // La longue portion du triceps est bi-articulaire, contrairement à la
   // latérale : elle encaisse davantage.
   tricepsLong: MOYEN,
-  // Le trapèze supérieur tient la tête toute la journée — et le heaume par-dessus.
+  // Le trapèze supérieur tient la tête toute la journée — et le heaume
+  // par-dessus. L'élévateur de la scapula fait exactement le même travail, du
+  // même côté de la nuque : même palier.
   trapsUpper: MOYEN,
+  levator: MOYEN,
 
   // ── Plutôt lents ────────────────────────────────────────────────────────
   // Grosses masses qui, elles, ne servent à rien entre deux séances : rien
@@ -184,12 +190,20 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // mouvements — squat, soulevé, tirage, portage. Ils sont donc rechargés
   // avant d'avoir fini de récupérer, ce qu'aucun autre muscle ne subit.
   erectors: LENT,
+  // Le carré des lombes est dans le même cas : il tient le bassin de niveau à
+  // chaque pas, et sous un port valise il ne fait que ça.
+  quadratusLumborum: LENT,
 
   // ── Très lents ──────────────────────────────────────────────────────────
   // Petite, mais très tendineuse et mal vascularisée : le tendon met beaucoup
   // plus longtemps que le muscle. Sur une épaule qui a déjà lâché, se tromper
   // dans ce sens-là ne coûte rien ; dans l'autre, si.
   rotatorCuff: TRES_LENT,
+  // Le supra-épineux davantage encore : son tendon passe sous l'acromion, dans
+  // le défilé le plus étroit du corps, et c'est le premier à s'user sur une
+  // épaule qui a déjà lâché. Se tromper en le déclarant trop lent ne coûte
+  // rien ; dans l'autre sens, si.
+  supraspinatus: TRES_LENT,
 }
 
 /** La zone la plus lente du barème — celle qui fixe le pire cas. */

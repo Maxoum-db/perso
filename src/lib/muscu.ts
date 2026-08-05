@@ -587,6 +587,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Brachio-radial',
   'Bras',
   'Cardio',
+  'Carré des lombes',
   'Chevilles',
   'Coiffe des rotateurs',
   'Cou',
@@ -596,9 +597,11 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Dentelé antérieur',
   'Dos',
   'Droit fémoral',
+  'Élévateur de la scapula',
   'Épaules',
   'Érecteurs du rachis',
   'Extenseurs avant-bras',
+  'Extenseurs du cou',
   'Fessiers',
   'Fibulaires',
   'Fléchisseurs avant-bras',
@@ -624,6 +627,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Quadriceps',
   'Rhomboïdes',
   'Soléaire',
+  'Supra-épineux',
   'Tenseur du fascia lata',
   'Tibial antérieur',
   'Trapèze inférieur',
@@ -667,11 +671,15 @@ export function isBodyweightExercise(name: string): boolean {
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
-// Relevé à v24 pour l'audit anatomique des 278 exercices : 1 114 étiquettes
-// musculaires → 1 946. Sans ce relèvement, le catalogue serait resté figé au
-// 30 juillet — six PR de corrections anatomiques n'avaient jamais atteint la
-// base, et c'est ce catalogue périmé qui gouvernait le mannequin.
-const LIBRARY_SEED_KEY = 'muscu_library_v24'
+// Relevé à chaque correction anatomique : c'est la SEULE façon de faire
+// redescendre l'étiquetage dans un catalogue déjà constitué. Oublier de le
+// relever, c'est corriger dans le vide — six PR l'ont fait entre le 30 juillet
+// et v24, et c'est un catalogue périmé qui gouvernait le mannequin.
+//
+// v24 : audit des 278 exercices, 1 114 étiquettes → 1 946.
+// v25 : quatre muscles qui n'existaient pas dans le modèle — extenseurs de la
+//       nuque, élévateur de la scapula, supra-épineux, carré des lombes.
+const LIBRARY_SEED_KEY = 'muscu_library_v25'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
