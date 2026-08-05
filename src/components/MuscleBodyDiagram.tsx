@@ -4,7 +4,7 @@ import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
 import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
 import { VITESSE_RECUP, fmtDelai, reposParMuscle, resteAvantPret, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
-import { deformerX, morphPath, type Sexe } from '../lib/morphologie'
+import { morphPath, type Sexe } from '../lib/morphologie'
 import { historiqueParMuscle, type DernierExo, type HistoriqueMuscle } from '../lib/historiqueMuscle'
 import { INTENSITES } from '../lib/intensite'
 import type { MuscuSession } from '../lib/muscu'
@@ -28,7 +28,19 @@ export type { MuscleRegion, Sollicitation } from '../lib/muscles'
 // Les tracés sont exprimés dans un repère centré (x = 0 au milieu du corps) :
 // on ne décrit qu'une moitié, l'autre est obtenue par symétrie (scale(-1,1)).
 
-const NEUTRAL = '#C9C4BD'
+/**
+ * Les parties non suivies : tête, mains, genoux, pieds, bassin.
+ *
+ * Elles étaient en gris CLAIR sur un fond quasi noir — donc l'élément le plus
+ * lumineux de l'écran, alors qu'elles ne portent aucune information. L'œil
+ * allait aux mains et aux pieds avant d'aller aux muscles. En les enfonçant
+ * dans un graphite chaud, le rapport s'inverse : le corps devient une
+ * silhouette et les muscles deviennent le sujet, ce qu'ils sont.
+ *
+ * Assez clair tout de même pour rester distinct du fond (#171310) et de la
+ * carte (#262019) : c'est un corps, pas un trou.
+ */
+const NEUTRAL = '#544B44'
 
 /**
  * Rampe de couleurs du mannequin, lue comme une échelle de température :
@@ -341,8 +353,8 @@ export function MuscleBodyDiagram({
       <svg
         viewBox="40 0 320 356"
         className="mx-auto w-full max-w-md"
-        stroke="rgba(28,25,23,0.38)"
-        strokeWidth="0.45"
+        stroke="rgba(23,19,16,0.55)"
+        strokeWidth="0.7"
         strokeLinejoin="round"
         strokeLinecap="round"
         aria-label="Récupération musculaire"
@@ -357,18 +369,22 @@ export function MuscleBodyDiagram({
               haut où la lumière tombe ;
             • un liseré interne adoucit la découpe des plaques. */}
         <defs>
-          <filter id="mb-relief" x="-20%" y="-8%" width="140%" height="120%">
-            <feDropShadow dx="0" dy="1.4" stdDeviation="2.2" floodColor="#000" floodOpacity="0.45" />
+          <filter id="mb-relief" x="-24%" y="-10%" width="148%" height="124%">
+            {/* Un halo clair sans décalage détoure la silhouette : le corps est
+                devenu sombre, l'ombre portée seule ne le décollait plus d'un
+                fond sombre. Puis l'ombre, qui donne l'assise. */}
+            <feDropShadow dx="0" dy="0" stdDeviation="1.6" floodColor="#F5EFE7" floodOpacity="0.16" />
+            <feDropShadow dx="0" dy="1.8" stdDeviation="2.6" floodColor="#000" floodOpacity="0.55" />
           </filter>
           <linearGradient id="mb-volume" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0.13" />
-            <stop offset="42%" stopColor="#fff" stopOpacity="0.02" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0.16" />
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.09" />
+            <stop offset="45%" stopColor="#fff" stopOpacity="0.01" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0.22" />
           </linearGradient>
           <radialGradient id="mb-galbe" cx="38%" cy="26%" r="78%">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0.16" />
-            <stop offset="60%" stopColor="#fff" stopOpacity="0" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0.14" />
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.11" />
+            <stop offset="58%" stopColor="#fff" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0.18" />
           </radialGradient>
         </defs>
         <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} sexe={sexe} onZoom={() => setZoom('front')} />
@@ -975,10 +991,23 @@ function Figure({
       <path d={m(BASE_CENTER)} fill={NEUTRAL} stroke="none" />
       {base}
       <g transform="scale(-1,1)">{base}</g>
-      {/* Tête ovoïde et cou, hors muscles suivis */}
-      <ellipse cx="0" cy="24" rx={deformerX(13, 24, sexe)} ry="19.5" fill={NEUTRAL} />
+      {/* Tête et cou, hors muscles suivis. Un seul tracé continu : l'ellipse
+          posée sur un trapèze faisait deux primitives, et le raccord se
+          voyait. Ici la boîte crânienne s'évase aux pariétaux, se resserre aux
+          tempes, et la mâchoire descend dans le cou sans rupture. */}
       <path
-        d={m('M-6.5,41 C-6.5,47 -8,51 -10,54 L10,54 C8,51 6.5,47 6.5,41 Z')}
+        d={m(
+          'M0,4.5 C7.5,4.5 12.8,10 13.5,17.5 C13.9,22 13.2,26.5 12,30.5 ' +
+            'C10.8,35 8,39.5 4.8,42.5 C4.8,45.5 4.8,48.5 3.6,50.5 ' +
+            'C3.6,50.5 -3.6,50.5 -3.6,50.5 C-4.8,48.5 -4.8,45.5 -4.8,42.5 ' +
+            'C-8,39.5 -10.8,35 -12,30.5 C-13.2,26.5 -13.9,22 -13.5,17.5 ' +
+            'C-12.8,10 -7.5,4.5 0,4.5 Z',
+        )}
+        fill={NEUTRAL}
+        stroke="none"
+      />
+      <path
+        d={m('M-6.5,46 C-6.5,49 -8,51.5 -10,54 L10,54 C8,51.5 6.5,49 6.5,46 Z')}
         fill={NEUTRAL}
         stroke="none"
       />
