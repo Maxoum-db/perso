@@ -697,7 +697,7 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       tibial postérieur, scalènes, gracile, coraco-brachial.
 // v28 : de quoi TRAVAILLER le petit pectoral, les scalènes et le tibial
 //       postérieur — trois muscles que le générateur ne savait pas proposer.
-const LIBRARY_SEED_KEY = 'muscu_library_v29'
+const LIBRARY_SEED_KEY = 'muscu_library_v30'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
@@ -831,6 +831,20 @@ export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
     .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })) as CatalogExercise[]
 }
 
+/**
+ * Le nom d'un exercice est unique par utilisateur, garanti en base.
+ *
+ * C'est le NOM qui relie le catalogue aux séances déjà faites — elles ne
+ * portent pas de clé, seulement le libellé recopié. Deux lignes du même nom,
+ * et l'étiquetage rétroactif ne sait plus laquelle fait foi. Postgres refuse
+ * donc le doublon ; reste à ne pas montrer son message à l'écran.
+ */
+function messageLisible(brut: string): string {
+  return /duplicate key|perso_muscu_exercises_user_name_uniq/i.test(brut)
+    ? 'Un exercice porte déjà ce nom. Modifie celui qui existe plutôt que d’en créer un second : c’est le nom qui relie tes séances passées à leur étiquetage.'
+    : brut
+}
+
 export async function saveCatalogExercise(
   userId: string,
   exo: Omit<CatalogExercise, 'id' | 'position'> & { id?: string },
@@ -860,11 +874,11 @@ export async function saveCatalogExercise(
       .from('perso_muscu_exercises')
       .update({ ...base, updated_at: new Date().toISOString() })
       .eq('id', exo.id)
-    if (error) throw new Error(error.message)
+    if (error) throw new Error(messageLisible(error.message))
     if (ancien && ancien !== base.name) await renommerPartout(userId, ancien, base.name)
   } else {
     const { error } = await supabase.from('perso_muscu_exercises').insert({ user_id: userId, ...base })
-    if (error) throw new Error(error.message)
+    if (error) throw new Error(messageLisible(error.message))
   }
 }
 
@@ -1072,7 +1086,30 @@ const SEED_GROUPS: Record<string, string[]> = {
 const SEED_ICONS: Record<string, string> = { push: '💪', pull: '🦾', legs: '🦵', core: '🧱' }
 
 /** Crée les séances types par défaut à la première visite. Renvoie true si un seed a eu lieu. */
-export async function ensureSeeded(userId: string): Promise<boolean> {
+/**
+ * Amorçages en cours, par utilisateur.
+ *
+ * Trois exercices se sont retrouvés en triple exemplaire le 5 août, insérés à
+ * quatre millisecondes d'intervalle : trois exécutions simultanées de ce
+ * passage avaient chacune lu « pas encore fait » avant que la première ne pose
+ * son drapeau — le drapeau n'est écrit qu'À LA FIN, il ne protège de rien
+ * pendant. Un appel concurrent attend désormais celui qui court déjà.
+ *
+ * Ça ne couvre qu'un onglet. Deux onglets, deux appareils, et la course
+ * revient — c'est l'index unique en base qui ferme le cas pour de bon, et
+ * l'insertion qui ignore les conflits qui la rend inoffensive.
+ */
+const amorcages = new Map<string, Promise<boolean>>()
+
+export function ensureSeeded(userId: string): Promise<boolean> {
+  const enCours = amorcages.get(userId)
+  if (enCours) return enCours
+  const p = amorcer(userId).finally(() => amorcages.delete(userId))
+  amorcages.set(userId, p)
+  return p
+}
+
+async function amorcer(userId: string): Promise<boolean> {
   const seeded = await fetchKv<boolean>(userId, SEED_KEY, false)
   let didSeed = false
 
@@ -1130,7 +1167,11 @@ export async function ensureSeeded(userId: string): Promise<boolean> {
       }
     }
     if (rows.length) {
-      const { error } = await supabase.from('perso_muscu_exercises').insert(rows)
+      // Même raison qu'au réalignement : un amorçage concurrent ne doit pas
+      // faire tomber celui-ci, seulement rendre son insertion inutile.
+      const { error } = await supabase
+        .from('perso_muscu_exercises')
+        .upsert(rows, { onConflict: 'user_id,name', ignoreDuplicates: true })
       if (error) throw new Error(error.message)
     }
     await saveKv(userId, CATALOG_SEED_KEY, true)
@@ -1589,7 +1630,13 @@ async function ensureLibrary(userId: string): Promise<boolean> {
   }
 
   if (toAdd.length) {
-    const { error } = await supabase.from('perso_muscu_exercises').insert(toAdd)
+    // `upsert` en ignorant les conflits plutôt qu'`insert` : si un autre onglet
+    // a déjà inséré la même ligne entre-temps, la sienne reste et la nôtre est
+    // simplement abandonnée. Sans ça, l'index unique ferait échouer TOUT
+    // l'amorçage sur une seule collision.
+    const { error } = await supabase
+      .from('perso_muscu_exercises')
+      .upsert(toAdd, { onConflict: 'user_id,name', ignoreDuplicates: true })
     if (error) throw new Error(error.message)
   }
   await saveKv(userId, LIBRARY_SEED_KEY, true)
