@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { ecrireCache, lireCache } from './cache'
 
 // Préférences du Hub, stockées côté Supabase (table perso_settings, 1 ligne par
 // utilisateur) pour être synchronisées entre le téléphone et le PC. Un cache
@@ -28,20 +29,15 @@ const DEFAULTS: PersoSettings = {
   discipline: 'behourd',
 }
 
-const CACHE_KEY = 'hubperso.settings'
-
+// Rattaché au compte : la discipline affichée dans l'onglet, les agendas
+// visibles et le dossier de synthèses sont des réglages PERSONNELS, et le
+// compte suivant sur le même appareil n'a rien à en connaître.
 export function readCachedSettings(): PersoSettings {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) }
-  } catch {
-    /* ignore */
-  }
-  return { ...DEFAULTS }
+  return { ...DEFAULTS, ...lireCache<Partial<PersoSettings>>('settings', {}) }
 }
 
 function writeCache(s: PersoSettings) {
-  localStorage.setItem(CACHE_KEY, JSON.stringify(s))
+  ecrireCache('settings', s)
 }
 
 export async function fetchSettings(userId: string): Promise<PersoSettings> {

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { ecrireCache, lireCache } from './cache'
 
 // Qui voit quoi.
 //
@@ -60,13 +61,24 @@ export const SECTIONS: Array<{ id: Section; label: string; icone: string; route:
  */
 export const TOUJOURS: string[] = ['/', '/reglages']
 
+/**
+ * Ce qu'un compte reçoit à sa création : la musculation et son agenda.
+ *
+ * C'est le socle — sans l'une on ne peut rien enregistrer, sans l'autre on ne
+ * voit pas ses journées. Le reste s'accorde au cas par cas.
+ *
+ * ⚠️ Le défaut qui FAIT FOI est celui du déclencheur `perso_acces_nouveau_compte`
+ * en base : il s'applique à la création du compte, avant même la première
+ * connexion, et rien dans le navigateur ne doit pouvoir en décider. La liste
+ * ci-dessous ne sert qu'à l'afficher. Le banc vérifie qu'elles concordent.
+ */
+export const DEFAUT_NOUVEAU_COMPTE: Section[] = ['musculation', 'agenda']
+
 export interface Acces {
   user_id: string
   email: string | null
   sections: Section[]
 }
-
-const CACHE = 'hubperso.acces'
 
 /**
  * Le cache local, lu tout de suite au démarrage.
@@ -75,21 +87,20 @@ const CACHE = 'hubperso.acces'
  * clignotement à chaque ouverture. Il ne fait AUTORITÉ sur rien : il décide de
  * ce qu'on montre pendant le premier dixième de seconde, la base décide de ce
  * qu'on peut réellement lire.
+ *
+ * Et il est rattaché au COMPTE : sans ça, le compte suivant sur le même
+ * appareil démarrait sur les sections du précédent — et si la lecture en base
+ * échouait, il y restait.
  */
 export function accesEnCache(): Section[] | null {
-  try {
-    const brut = localStorage.getItem(CACHE)
-    return brut ? (JSON.parse(brut) as Section[]) : null
-  } catch {
-    return null
-  }
+  return lireCache<Section[] | null>('acces', null)
 }
 
 /** Les sections du compte courant. Le propriétaire a tout, sans lire la base. */
 export async function chargerAcces(userId: string, email: string | null | undefined): Promise<Section[]> {
   if (estProprietaire(email)) {
     const tout = SECTIONS.map((s) => s.id)
-    localStorage.setItem(CACHE, JSON.stringify(tout))
+    ecrireCache('acces', tout)
     return tout
   }
   const { data, error } = await supabase
@@ -105,7 +116,7 @@ export async function chargerAcces(userId: string, email: string | null | undefi
     return accesEnCache() ?? []
   }
   const sections = ((data?.sections as Section[]) ?? []).filter((s) => SECTIONS.some((x) => x.id === s))
-  localStorage.setItem(CACHE, JSON.stringify(sections))
+  ecrireCache('acces', sections)
   return sections
 }
 
