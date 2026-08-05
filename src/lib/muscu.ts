@@ -605,6 +605,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Fessiers',
   'Fibulaires',
   'Fléchisseurs avant-bras',
+  'Fléchisseurs des doigts',
   'Full body',
   'Gastrocnémiens',
   'Grand dorsal',
@@ -623,13 +624,18 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Obliques',
   'Pectoral supérieur',
   'Pectoraux',
+  'Petit pectoral',
+  'Petit rond',
   'Psoas-iliaque',
   'Quadriceps',
   'Rhomboïdes',
+  'Rond pronateur',
   'Soléaire',
+  'Sous-scapulaire',
   'Supra-épineux',
   'Tenseur du fascia lata',
   'Tibial antérieur',
+  'Transverse',
   'Trapèze inférieur',
   'Trapèze moyen',
   'Trapèze supérieur',
@@ -679,7 +685,9 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 // v24 : audit des 278 exercices, 1 114 étiquettes → 1 946.
 // v25 : quatre muscles qui n'existaient pas dans le modèle — extenseurs de la
 //       nuque, élévateur de la scapula, supra-épineux, carré des lombes.
-const LIBRARY_SEED_KEY = 'muscu_library_v25'
+// v26 : six muscles profonds — transverse, petit rond, sous-scapulaire, petit
+//       pectoral, fléchisseurs des doigts, rond pronateur et supinateur.
+const LIBRARY_SEED_KEY = 'muscu_library_v26'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
