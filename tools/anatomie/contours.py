@@ -68,7 +68,11 @@ for c in palette:
         if not cs:
             continue
         cont = max(cs, key=len)
-        d = chemin(cont, tol=3.0)
+        # Tolérance de simplification. À 3 px, on garde les dentelures que le
+        # filtre médian laisse au bord des aplats : le trapèze ressortait en
+        # scie. À 9, le contour reste fidèle à la forme et perd le bruit — un
+        # muscle n'a pas de dents.
+        d = chemin(cont, tol=9.0)
         if not d:
             continue
         zy, zx = np.where(z)
