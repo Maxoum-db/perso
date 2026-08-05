@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
+import type { Section as SectionAutorisee } from '../lib/acces'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
 import { Section } from '../components/training-ui'
@@ -263,7 +264,11 @@ function lastExo(sessions: MuscuSession[], name: string): MuscuExo | null {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export function Musculation() {
+/**
+ * @param sections Ce que le compte a le droit de voir. Sert à l'amorçage : les
+ *   modèles de béhourd ne sont installés que chez qui en fait.
+ */
+export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }) {
   const { user } = useAuth()
   const [tab, setTab] = useState<'journal' | 'types' | 'progression' | 'sommeil' | 'poids'>('journal')
   // Arrivée depuis la séance proposée sur l'accueil : on la recompose ici plutôt
@@ -308,7 +313,7 @@ export function Musculation() {
       // ses séances. Quand il échouait, la page entière restait vide sur un
       // message de Postgres — alors que toutes les données étaient là, intactes.
       // On le signale et on charge quand même.
-      await ensureSeeded(user.id).catch((e: Error) => {
+      await ensureSeeded(user.id, sections).catch((e: Error) => {
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
