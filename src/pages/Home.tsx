@@ -26,6 +26,7 @@ import { DUREE_PAR_DEFAUT, fmtDuree, loadDuree } from '../lib/duree'
 import { prochaineSeance, type ContexteSeance } from '../lib/prochaine'
 import { finDeJournee, fmtCreneau, premierCreneau, type Occupe } from '../lib/creneau'
 import { chargesCourantes } from '../lib/charges'
+import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
 import { etatParZone, fmtDelai, reposParMuscle, type EtatZone } from '../lib/recuperation'
 import { tronquerZones } from '../lib/muscles'
 import { loadCourbatures, type Courbatures } from '../lib/soreness'
@@ -54,6 +55,7 @@ export function Home() {
   const [focus, setFocus] = useState<FocusId[]>([FOCUS_PAR_DEFAUT])
   const [behourd, setBehourd] = useState(false)
   const [creneau, setCreneau] = useState(DUREE_PAR_DEFAUT)
+  const [sorties, setSorties] = useState<Sortie[]>([])
 
   useEffect(() => {
     if (!user) return
@@ -62,6 +64,12 @@ export function Home() {
       .catch(() => {})
     listSessions(user.id, 40)
       .then(setMuscu)
+      .catch(() => {})
+    // Les sorties de course, à part. Elles pèsent sur la RÉCUPÉRATION — courir
+    // travaille des muscles — mais ne sont ni la dernière séance de l'accueil,
+    // ni du tonnage : elles ont leur propre écran (voir lib/course).
+    listSorties(user.id)
+      .then(setSorties)
       .catch(() => {})
     loadCourbatures(user.id).then(setCourbatures).catch(() => {})
     loadNuits(user.id).then(setNuits).catch(() => {})
@@ -170,6 +178,7 @@ export function Home() {
       <AujourdhuiCard
         events={events}
         sessions={muscu}
+        sorties={sorties}
         courbatures={courbatures}
         nuits={nuits}
         agendaVisible={!needAuth}
@@ -282,6 +291,7 @@ export function AujourdhuiCard({
   nuits,
   agendaVisible,
   contexte,
+  sorties,
 }: {
   events: GEvent[] | null
   sessions: MuscuSession[]
@@ -290,6 +300,8 @@ export function AujourdhuiCard({
   agendaVisible: boolean
   /** De quoi composer la séance — sans les charges, calculées juste en dessous. */
   contexte: Omit<ContexteSeance, 'loads'>
+  /** Sorties de course, converties pour la seule récupération. */
+  sorties: Sortie[]
 }) {
   // Un élément JSX n'est JAMAIS null : tester `<MuscuMoitie/> === null` aurait
   // toujours été faux et la carte se serait affichée vide. On interroge donc les
@@ -311,7 +323,7 @@ export function AujourdhuiCard({
           )}
         </Link>
       ) : null}
-      <MuscuMoitie sessions={sessions} courbatures={courbatures} nuits={nuits} contexte={contexte} events={events} />
+      <MuscuMoitie sessions={sessions} sorties={sorties} courbatures={courbatures} nuits={nuits} contexte={contexte} events={events} />
     </div>
   )
 }
@@ -389,6 +401,7 @@ function dansCombien(ms: number): string {
  */
 function MuscuMoitie({
   sessions,
+  sorties,
   courbatures,
   nuits,
   contexte,
@@ -398,6 +411,8 @@ function MuscuMoitie({
   courbatures: Courbatures
   nuits: Nuits
   contexte: Omit<ContexteSeance, 'loads'>
+  /** Sorties de course, converties pour la seule récupération. */
+  sorties: Sortie[]
   events: GEvent[] | null
 }) {
   const live = loadLive()
@@ -420,7 +435,9 @@ function MuscuMoitie({
 
   if (!last) return null
 
-  const loads = chargesCourantes(sessions, courbatures, nuits)
+  // Courir travaille des muscles : le mannequin et la séance proposée doivent
+  // le savoir. Les sorties entrent ici CONVERTIES, et nulle part ailleurs.
+  const loads = chargesCourantes([...sessions, ...sortiesEnSeances(sorties)], courbatures, nuits)
   const zones = etatParZone(reposParMuscle(loads))
   // La même séance que le module en proposerait : c'est `composerSeance` qui
   // porte le réglage, une fois pour les deux écrans.
