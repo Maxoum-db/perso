@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
-import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES } from '../data/exercises'
+import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES, cleExercice } from '../data/exercises'
 import { partParDefaut, regionsForGroup, type MuscleRegion } from './muscles'
 import type { Courbature } from './soreness'
 import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
@@ -697,7 +697,7 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       tibial postérieur, scalènes, gracile, coraco-brachial.
 // v28 : de quoi TRAVAILLER le petit pectoral, les scalènes et le tibial
 //       postérieur — trois muscles que le générateur ne savait pas proposer.
-const LIBRARY_SEED_KEY = 'muscu_library_v28'
+const LIBRARY_SEED_KEY = 'muscu_library_v29'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
@@ -1546,15 +1546,15 @@ async function ensureLibrary(userId: string): Promise<boolean> {
   // indexé sous son NOUVEAU nom : il sera mis à jour, pas dupliqué.
   const byName = new Map(
     existing.map((e) => {
-      const key = e.name.trim().toLowerCase()
-      return [(EXERCISE_RENAMES[key] ?? e.name).trim().toLowerCase(), e]
+      const key = cleExercice(e.name)
+      return [cleExercice(EXERCISE_RENAMES[key] ?? e.name), e]
     }),
   )
 
   const toAdd: Array<Record<string, unknown>> = []
   let position = 300
   for (const lib of EXERCISE_LIBRARY) {
-    const current = byName.get(lib.name.trim().toLowerCase())
+    const current = byName.get(cleExercice(lib.name))
     if (!current) {
       toAdd.push({
         user_id: userId,
@@ -1576,6 +1576,16 @@ async function ensureLibrary(userId: string): Promise<boolean> {
       .update({ name: lib.name, muscle_group: lib.groups, updated_at: new Date().toISOString() })
       .eq('id', current.id)
     if (error) throw new Error(error.message)
+    // Et le renommage descend dans les séances DÉJÀ FAITES.
+    //
+    // Sans ça, le catalogue passait à « Tirage buste penché à la barre »
+    // pendant que la séance du 13 juillet gardait « Rowing barre » : plus
+    // aucune correspondance de nom, donc plus aucun étiquetage rétroactif, et
+    // douze exercices réellement pratiqués restaient sur ce qu'ils portaient au
+    // premier jour — « Dos », « Full body ». Le renommage à la main, lui,
+    // reportait bien (voir renommerPartout) ; c'est le passage automatique qui
+    // ne le faisait pas.
+    if (current.name.trim() !== lib.name) await renommerPartout(userId, current.name, lib.name)
   }
 
   if (toAdd.length) {
