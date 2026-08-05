@@ -695,7 +695,9 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       pectoral, fléchisseurs des doigts, rond pronateur et supinateur.
 // v27 : six manques fonctionnels — rotateurs profonds de hanche, multifides,
 //       tibial postérieur, scalènes, gracile, coraco-brachial.
-const LIBRARY_SEED_KEY = 'muscu_library_v27'
+// v28 : de quoi TRAVAILLER le petit pectoral, les scalènes et le tibial
+//       postérieur — trois muscles que le générateur ne savait pas proposer.
+const LIBRARY_SEED_KEY = 'muscu_library_v28'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'

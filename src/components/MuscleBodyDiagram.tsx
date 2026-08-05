@@ -175,7 +175,8 @@ const BASE_HALF: string[] = [
 //   43 menton · 63 épaules · 100 bas des pectoraux · 152 crêtes iliaques
 //   172 haut de cuisse · 254 genou · 266 mollet · 312 cheville · 323 pied
 
-const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
+/** Exportés pour que le banc puisse vérifier qu'aucun muscle n'est sans tracé. */
+export const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // Sterno-cléido-mastoïdien : la sangle oblique de la mastoïde au sternum.
   ['neck', 'M-9,44 C-11,50 -11,57 -8,62 C-5,62 -4,59 -4,55 C-4,50 -4,46 -4,43 Z'],
   // Scalènes : les haubans latéraux, entre le sterno-cléido-mastoïdien et la
@@ -234,7 +235,7 @@ const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['neutral', 'M-25,320 C-26,328 -24,333 -19,334 L-4,334 C-3,330 -3,324 -4,318 Z'],
 ]
 
-const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
+export const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // La nuque : extenseurs au centre (splénius, semi-épineux), élévateur de la
   // scapula en oblique vers l'angle de l'omoplate. Vue de dos, le
   // sterno-cléido-mastoïdien ne se voit plus que sur le bord — il est devant.
@@ -340,11 +341,36 @@ export function MuscleBodyDiagram({
       <svg
         viewBox="40 0 320 356"
         className="mx-auto w-full max-w-md"
-        stroke="rgba(255,255,255,0.62)"
-        strokeWidth="0.8"
+        stroke="rgba(28,25,23,0.38)"
+        strokeWidth="0.45"
         strokeLinejoin="round"
+        strokeLinecap="round"
         aria-label="Récupération musculaire"
       >
+        {/* Volume et détourage. Le mannequin restait un aplat découpé : les
+            muscles se lisaient un par un, mais le corps ne se lisait pas comme
+            un corps. Trois effets, aucun ne touche à la teinte — la couleur
+            porte l'information, elle ne doit pas être décorée.
+
+            • une ombre portée décolle la silhouette du fond ;
+            • un dégradé vertical très léger creuse le volume, plus clair en
+              haut où la lumière tombe ;
+            • un liseré interne adoucit la découpe des plaques. */}
+        <defs>
+          <filter id="mb-relief" x="-20%" y="-8%" width="140%" height="120%">
+            <feDropShadow dx="0" dy="1.4" stdDeviation="2.2" floodColor="#000" floodOpacity="0.45" />
+          </filter>
+          <linearGradient id="mb-volume" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.13" />
+            <stop offset="42%" stopColor="#fff" stopOpacity="0.02" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0.16" />
+          </linearGradient>
+          <radialGradient id="mb-galbe" cx="38%" cy="26%" r="78%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.16" />
+            <stop offset="60%" stopColor="#fff" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0.14" />
+          </radialGradient>
+        </defs>
         <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} sexe={sexe} onZoom={() => setZoom('front')} />
         <Figure cx={295} half={BACK_HALF} fill={fill} back sexe={sexe} onZoom={() => setZoom('back')} />
         <text x="105" y="350" textAnchor="middle" fill="#a8a29e" fontSize="11" stroke="none">
@@ -930,13 +956,20 @@ function Figure({
   // Tout tracé passe par la morphologie : un seul jeu de muscles, deux
   // silhouettes. Pour 'H' c'est l'identité, la référence n'est pas déformée.
   const m = (d: string) => morphPath(d, sexe)
-  const side = half.map(([region, d], i) => <path key={i} d={m(d)} fill={fill(region)} {...viser(region)} />)
+  const side = half.map(([region, d], i) => (
+    <path key={i} d={m(d)} fill={fill(region)} data-muscle={region} {...viser(region)} />
+  ))
   const base = BASE_HALF.map((d, i) => <path key={i} d={m(d)} fill={NEUTRAL} stroke="none" />)
+  const voile = BASE_HALF.flatMap((d, i) => [
+    <path key={`v${i}`} d={m(d)} fill="url(#mb-volume)" stroke="none" pointerEvents="none" />,
+    <path key={`g${i}`} d={m(d)} fill="url(#mb-galbe)" stroke="none" pointerEvents="none" />,
+  ])
   return (
     <g
       transform={`translate(${cx},0)`}
       onClick={onZoom}
       style={onZoom ? { cursor: 'zoom-in' } : undefined}
+      filter="url(#mb-relief)"
     >
       {/* Silhouette de base, puis les muscles par-dessus */}
       <path d={m(BASE_CENTER)} fill={NEUTRAL} stroke="none" />
@@ -956,12 +989,14 @@ function Figure({
           <path
             d={m('M-13,100 C-13,118 -13,136 -11,146 C-8,153 8,153 11,146 C13,136 13,118 13,100 C6,97 -6,97 -13,100 Z')}
             fill={fill('rectus')}
+            data-muscle="rectus"
             {...viser('rectus')}
           />
           <path
             d={m('M-12.6,111 L12.6,111 M-12.8,121 L12.8,121 M-12.4,131 L12.4,131 M0,99 L0,150')}
             strokeWidth="0.7"
             fill="none"
+            pointerEvents="none"
           />
           {/* Silhouette mammaire : elle repose SUR le grand pectoral, elle ne le
               remplace pas — un simple sillon sous-mammaire, sans remplissage,
@@ -971,6 +1006,7 @@ function Figure({
               d={m('M-24,74 C-24,88 -17,97 -7,97 M24,74 C24,88 17,97 7,97')}
               strokeWidth="0.9"
               fill="none"
+              pointerEvents="none"
             />
           ) : null}
         </>
@@ -986,6 +1022,14 @@ function Figure({
       />
       {side}
       <g transform="scale(-1,1)">{side}</g>
+      {/* Voile de volume, tout en dernier et transparent au clic : il galbe le
+          corps sans changer une teinte ni voler un clic au zoom.
+          Posé sur la SILHOUETTE et non sur un rectangle — un rectangle laissait
+          voir ses propres bords, un cadre plus clair autour du corps. */}
+      {voile}
+      <g transform="scale(-1,1)">{voile}</g>
+      <path d={m(BASE_CENTER)} fill="url(#mb-volume)" stroke="none" pointerEvents="none" />
+      <path d={m(BASE_CENTER)} fill="url(#mb-galbe)" stroke="none" pointerEvents="none" />
     </g>
   )
 }
