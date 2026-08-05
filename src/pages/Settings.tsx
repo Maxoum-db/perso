@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { hasFreshGoogleToken } from '../lib/google'
-import { fetchSettings, type PersoSettings } from '../lib/settings'
+import { fetchSettings, saveSettings, type Discipline, type PersoSettings } from '../lib/settings'
 import { disablePush, enablePush, isStandalone, pushStatus, sendTestPush } from '../lib/push'
 import { exporterSport, type ContexteExport, type PorteeExport } from '../lib/exportSport'
 import { FENETRE_STATS, listSessions } from '../lib/muscu'
@@ -59,6 +59,12 @@ export function Settings() {
         </Link>
       </section>
 
+      <DisciplineSection
+        userId={user?.id ?? ''}
+        valeur={settings?.discipline ?? 'behourd'}
+        onChange={(d) => setSettings((s) => (s ? { ...s, discipline: d } : s))}
+      />
+
       <ExportSportSection userId={user?.id ?? ''} />
 
       <section className="card p-4">
@@ -77,6 +83,68 @@ export function Settings() {
 
       <p className="px-1 text-center text-xs text-muted/70">Aide · v0.1</p>
     </div>
+  )
+}
+
+/**
+ * Le sport de l'onglet dédié : béhourd ou course à pied.
+ *
+ * Deux personnes utilisent l'application et ne font pas le même sport. Plutôt
+ * que deux onglets dont chacun n'en ouvrira qu'un, l'onglet prend la discipline
+ * choisie ici — les deux pages restent atteignables par leur adresse, seule la
+ * navigation change.
+ */
+const DISCIPLINES: Array<{ id: Discipline; icone: string; label: string; aide: string }> = [
+  { id: 'behourd', icone: '🛡️', label: 'Béhourd', aide: 'Suivi de l’armure, pièce par pièce, et son poids.' },
+  { id: 'course', icone: '🏃', label: 'Course à pied', aide: 'Journal des sorties : allure, dénivelé, cardio, records et volume hebdomadaire.' },
+]
+
+function DisciplineSection({
+  userId,
+  valeur,
+  onChange,
+}: {
+  userId: string
+  valeur: Discipline
+  onChange: (d: Discipline) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  async function choisir(d: Discipline) {
+    if (!userId || d === valeur) return
+    onChange(d)
+    setBusy(true)
+    try {
+      await saveSettings(userId, { discipline: d })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="card p-4">
+      <h2 className="text-sm font-bold text-ink">Discipline suivie</h2>
+      <p className="mt-1 text-sm text-muted">
+        Ce que montre l’onglet dédié. Les deux pages restent accessibles par leur adresse — c’est la navigation qui
+        change, pas les données.
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {DISCIPLINES.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => choisir(d.id)}
+            disabled={busy}
+            className={`rounded-xl2 border p-3 text-left transition ${
+              valeur === d.id ? 'border-copper bg-copper/10' : 'border-line bg-white/5 hover:border-copper/50'
+            }`}
+          >
+            <div className="text-sm font-bold text-ink">
+              {d.icone} {d.label}
+              {valeur === d.id ? <span className="ml-1 text-copper">✓</span> : null}
+            </div>
+            <div className="mt-0.5 text-xs text-muted">{d.aide}</div>
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 

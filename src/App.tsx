@@ -6,6 +6,7 @@ import { Agenda } from './pages/Agenda'
 import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
 import { Behourd } from './pages/Behourd'
+import { Course } from './pages/Course'
 import { Musculation } from './pages/Musculation'
 import { Brassage } from './pages/Brassage'
 import { Notes } from './pages/Notes'
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/taches" element={<Notes initial="taches" />} />
         <Route path="/mails" element={<Mails />} />
         <Route path="/behourd" element={<Behourd />} />
+        <Route path="/course" element={<Course />} />
         <Route path="/musculation" element={<Musculation />} />
         <Route path="/brassage" element={<Brassage />} />
         <Route path="/reglages" element={<Settings />} />

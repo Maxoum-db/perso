@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { fetchSettings, readCachedSettings, type Discipline } from '../lib/settings'
 import { QuickCapture } from './QuickCapture'
 
 type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
@@ -17,12 +18,19 @@ const primaryTabs: Tab[] = [
 // Le menu « Plus » liste toutes les sections (lanceur complet). Réglages n'y est
 // plus : l'écrou de l'en-tête est visible depuis n'importe quel écran, alors que
 // le menu demande deux touchers. Une seule porte, toujours au même endroit.
-const moreTabs: Tab[] = [
+// L'onglet de discipline dépend du réglage : béhourd ou course à pied. Deux
+// personnes utilisent l'application et ne font pas le même sport.
+const DISCIPLINES: Record<Discipline, Tab> = {
+  behourd: { to: '/behourd', label: 'Béhourd', icon: IconShield },
+  course: { to: '/course', label: 'Course', icon: IconRun },
+}
+
+const moreTabs = (discipline: Discipline): Tab[] => [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/partage', label: 'À deux', icon: IconHeart },
-  { to: '/behourd', label: 'Béhourd', icon: IconShield },
+  DISCIPLINES[discipline],
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
 ]
@@ -31,6 +39,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
+  // Le cache local d'abord : la barre de navigation doit être juste dès la
+  // première image, pas après un aller-retour réseau. Le serveur corrige
+  // ensuite si le réglage a changé sur l'autre appareil.
+  const [discipline, setDiscipline] = useState<Discipline>(() => readCachedSettings().discipline)
+  useEffect(() => {
+    if (user) fetchSettings(user.id).then((s) => setDiscipline(s.discipline))
+  }, [user])
+  const sections = moreTabs(discipline)
   const primaryPaths = primaryTabs.map((t) => t.to)
   const moreActive = !primaryPaths.includes(location.pathname)
 
@@ -98,7 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </button>
             </div>
             <div className="grid grid-cols-4 gap-1">
-              {moreTabs.map((t) => (
+              {sections.map((t) => (
                 <NavLink
                   key={t.to}
                   to={t.to}
@@ -185,6 +201,18 @@ function IconNote({ active }: IconProps) {
     </svg>
   )
 }
+function IconRun({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="15.5" cy="4.5" r="1.6" />
+      <path d="M12.5 21l1.8-5.2-3.1-2.6-1 4.4" />
+      <path d="M6.5 12.2l2.6-3.9 3.6-1.2 2.8 2.4 3 1" />
+      <path d="M14.3 15.8l3.2 2.1 1.2 3.1" />
+      <path d="M4 9.5h3.2" />
+    </svg>
+  )
+}
+
 function IconShield({ active }: IconProps) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
