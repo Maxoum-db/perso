@@ -1585,17 +1585,36 @@ async function ensureLibrary(userId: string): Promise<boolean> {
   const existing = await listCatalog(userId)
   // Un exercice renommé (ex. « Hip thrust » → « Poussée de hanches ») est
   // indexé sous son NOUVEAU nom : il sera mis à jour, pas dupliqué.
-  const byName = new Map(
-    existing.map((e) => {
-      const key = cleExercice(e.name)
-      return [cleExercice(EXERCISE_RENAMES[key] ?? e.name), e]
-    }),
-  )
+  //
+  // On REGROUPE, on n'indexe pas : deux lignes peuvent viser le même exercice de
+  // référence — « Farmer's walk » et « Marche du fermier » cohabitent, l'une
+  // saisie à la main, l'autre posée par l'amorçage. Une Map n'en garderait
+  // qu'une, et renommer l'autre sur le nom de référence ferait tomber l'index
+  // unique posé en base. Ce sont deux entrées du même exercice : il faut les
+  // FUSIONNER, pas en renommer une par-dessus l'autre.
+  const parReference = new Map<string, CatalogExercise[]>()
+  for (const e of existing) {
+    const cle = cleExercice(EXERCISE_RENAMES[cleExercice(e.name)] ?? e.name)
+    const lignes = parReference.get(cle) ?? []
+    lignes.push(e)
+    parReference.set(cle, lignes)
+  }
 
   const toAdd: Array<Record<string, unknown>> = []
   let position = 300
   for (const lib of EXERCISE_LIBRARY) {
-    const current = byName.get(cleExercice(lib.name))
+    const lignes = parReference.get(cleExercice(lib.name)) ?? []
+    // Celle qui porte DÉJÀ le nom de référence survit ; à défaut, la première.
+    const current = lignes.find((e) => e.name.trim() === lib.name) ?? lignes[0]
+    // Les autres sont des doublons sous un ancien nom. On reporte leur nom dans
+    // l'historique — sinon les séances qui les citent perdent leur étiquetage —
+    // puis on les supprime.
+    for (const doublon of lignes) {
+      if (doublon.id === current.id) continue
+      await renommerPartout(userId, doublon.name, lib.name)
+      const { error } = await supabase.from('perso_muscu_exercises').delete().eq('id', doublon.id)
+      if (error) throw new Error(error.message)
+    }
     if (!current) {
       toAdd.push({
         user_id: userId,
