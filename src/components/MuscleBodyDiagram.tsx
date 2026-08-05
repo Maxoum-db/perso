@@ -142,6 +142,33 @@ function couleurContinue(jours: number, intensity = 1): string {
  * Sur la partie froide, la position suffit : plus le muscle attend, plus il
  * descend vers le bleu.
  */
+/**
+ * Orientation des fibres d'un muscle, déduite de la forme de son tracé.
+ *
+ * Un muscle est une forme allongée et ses fibres courent dans sa longueur : la
+ * boîte englobante suffit donc à choisir la trame, sans écrire une valeur à la
+ * main pour chacun des cinquante-quatre — et un cinquante-cinquième muscle
+ * ajouté demain sera strié correctement sans qu'on y pense.
+ *
+ * Trois cas seulement : nettement plus haut que large (fibres verticales),
+ * nettement plus large que haut (horizontales), et le reste en oblique.
+ */
+function trameDuTrace(d: string): string {
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
+  for (const paire of d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)) {
+    const x = Number(paire[1]), y = Number(paire[2])
+    if (x < xMin) xMin = x
+    if (x > xMax) xMax = x
+    if (y < yMin) yMin = y
+    if (y > yMax) yMax = y
+  }
+  const largeur = xMax - xMin, hauteur = yMax - yMin
+  if (!isFinite(largeur) || !isFinite(hauteur)) return 'mb-fibres-v'
+  if (hauteur > largeur * 1.6) return 'mb-fibres-v'
+  if (largeur > hauteur * 1.6) return 'mb-fibres-h'
+  return 'mb-fibres-o'
+}
+
 export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
   // Jamais travaillé sur la période : le plus froid de l'échelle.
   if (effectiveDays === undefined) return couleurContinue(21)
@@ -189,114 +216,169 @@ const BASE_HALF: string[] = [
 
 /** Exportés pour que le banc puisse vérifier qu'aucun muscle n'est sans tracé. */
 export const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
+  // Chaque muscle est un VENTRE : effilé en tendon aux deux bouts, renflé au
+  // milieu, et bordé de courbes sur toute sa longueur. Aucun segment droit,
+  // aucun angle vif — un muscle n'a ni l'un ni l'autre, et les dalles
+  // rectangulaires d'avant se voyaient pour ce qu'elles étaient.
+  ['scalenes', 'M-12,49 C-15,53 -16,58 -15,64 C-13,65 -11,63 -11,58 C-11,54 -11,51 -12,49 Z'],
   // Sterno-cléido-mastoïdien : la sangle oblique de la mastoïde au sternum.
-  ['neck', 'M-9,44 C-11,50 -11,57 -8,62 C-5,62 -4,59 -4,55 C-4,50 -4,46 -4,43 Z'],
-  // Scalènes : les haubans latéraux, entre le sterno-cléido-mastoïdien et la
-  // première côte.
-  ['scalenes', 'M-13,50 C-15,55 -16,60 -15,64 L-11,64 C-11,58 -11,53 -11,49 Z'],
-  // Trapèze supérieur : la seule pente cou → épaule, vue de face.
-  ['trapsUpper', 'M-9,48 C-16,52 -24,58 -30,65 C-27,68 -24,70 -21,72 C-17,63 -12,54 -9,48 Z'],
-  ['deltLat', 'M-31,64 C-42,71 -47,88 -44,103 C-40,104 -37,95 -35,83 C-34,75 -34,68 -34,66 Z'],
-  ['deltAnt', 'M-26,67 C-34,73 -38,86 -36,99 C-32,99 -29,89 -27,78 C-26,72 -26,69 -26,68 Z'],
-  // Grand pectoral : faisceau claviculaire en éventail haut…
-  ['pecUpper', 'M-27,68 C-18,63 -6,63 -2,70 C-3,76 -4,80 -5,84 L-25,84 C-27,79 -28,72 -27,68 Z'],
-  // …puis la masse sterno-costale, qui plonge vers l'aisselle.
-  ['pecLower', 'M-25,86 L-5,86 C-4,94 -6,101 -9,106 C-19,111 -28,104 -30,93 C-31,89 -27,86 -25,86 Z'],
-  // Transverse de l'abdomen : la sangle horizontale profonde, celle qui SERRE
-  // la taille. Dessinée sous les obliques, en travers, à la hauteur du nombril.
-  ['transversus', 'M-18,132 C-12,130 -6,130 -1,131 L-1,142 C-6,143 -12,143 -18,141 Z'],
-  // Obliques : la nappe du flanc, du gril costal à la crête iliaque.
-  ['obliques', 'M-20,106 C-23,120 -25,136 -24,152 L-11,152 C-12,136 -13,122 -15,108 Z'],
-  // Dentelé antérieur : les digitations en doigts de gant, par-dessus le flanc.
-  ['serratus', 'M-29,95 C-25,100 -22,107 -21,114 C-21,120 -22,125 -24,129 C-27,120 -29,108 -29,95 Z'],
-  // Petit pectoral et sous-scapulaire sont des muscles PROFONDS : dans le
-  // corps, le grand pectoral les recouvre entièrement. Dessinés dessous, ils
-  // étaient fidèles et invisibles — or un muscle qu'on ne voit pas est un
-  // muscle qu'on ne peut pas lire. Ils sont donc tracés par-dessus, là où ils
-  // affleurent : le petit pectoral sous la clavicule, le sous-scapulaire au
-  // creux de l'aisselle.
-  ['pecMinor', 'M-22,66 C-16,68 -11,71 -8,75 C-11,78 -16,78 -20,77 C-21,73 -22,69 -22,66 Z'],
-  ['subscapularis', 'M-32,79 C-29,82 -27,86 -26,91 C-29,92 -32,92 -34,90 C-34,85 -33,81 -32,79 Z'],
-  // Coraco-brachial : plaqué contre l'humérus, en dedans du biceps.
-  ['coracobrachialis', 'M-30,101 C-32,110 -33,119 -32,126 L-29,125 C-29,117 -29,109 -28,102 Z'],
-  ['biceps', 'M-35,101 C-42,110 -45,126 -41,139 C-37,141 -35,134 -35,122 C-35,112 -35,105 -35,101 Z'],
-  ['brachialis', 'M-43,116 C-46,125 -47,134 -45,141 L-41,139 C-42,131 -42,123 -41,115 Z'],
-  ['brachioradialis', 'M-42,133 C-48,144 -50,159 -48,173 L-44,172 C-43,157 -42,145 -40,135 Z'],
-  ['pronators', 'M-40,139 C-43,146 -44,152 -44,157 L-39,156 C-38,150 -37,144 -36,140 Z'],
-  ['forearmFlex', 'M-39,143 C-45,156 -47,172 -45,188 L-38,186 C-37,170 -37,156 -36,145 Z'],
-  // Fléchisseurs des doigts : le plan profond, qui descend jusqu'au poignet.
-  ['fingerFlex', 'M-37,160 C-41,171 -42,182 -41,190 L-36,188 C-35,179 -35,169 -34,161 Z'],
+  ['neck', 'M-9,43 C-12,49 -12,56 -9,62 C-6,63 -4,60 -4,55 C-4,50 -5,46 -6,43 C-7,42.5 -8,42.5 -9,43 Z'],
+  // Trapèze supérieur : la pente cou → épaule, en éventail qui s'élargit.
+  ['trapsUpper', 'M-9,47 C-17,52 -25,59 -30,66 C-28,70 -25,72 -21,73 C-18,64 -13,54 -9,47 Z'],
+  ['deltLat', 'M-33,65 C-43,72 -47,89 -44,103 C-40,105 -37,96 -35,84 C-34,76 -33,69 -33,65 Z'],
+  ['deltAnt', 'M-26,67 C-35,74 -38,87 -36,99 C-32,100 -29,90 -27,79 C-26,73 -26,69 -26,67 Z'],
+  // Petit pectoral, sous la clavicule : petit éventail court.
+  ['pecMinor', 'M-22,66 C-15,68 -10,71 -8,75 C-11,78 -16,78 -20,77 C-21,73 -22,69 -22,66 Z'],
+  ['subscapularis', 'M-32,79 C-29,83 -27,87 -26,91 C-29,93 -32,92 -34,90 C-34,85 -33,81 -32,79 Z'],
+  // Grand pectoral : faisceau claviculaire en éventail, à bords bombés.
+  ['pecUpper', 'M-27,69 C-19,63 -7,63 -2,70 C-3,76 -4,80 -5,84 C-12,86 -20,86 -25,84 C-27,79 -28,73 -27,69 Z'],
+  // …puis la masse sterno-costale, qui plonge en s'arrondissant vers l'aisselle.
+  ['pecLower', 'M-25,86 C-17,84 -9,84 -5,87 C-4,95 -6,102 -9,107 C-19,112 -28,105 -30,93 C-30,89 -27,86 -25,86 Z'],
+  // Obliques : nappe du flanc, plus large en haut, effilée vers la crête iliaque.
+  ['obliques', 'M-20,106 C-24,120 -25,137 -23,152 C-19,153 -13,153 -11,151 C-12,136 -13,122 -15,108 C-17,106 -19,105 -20,106 Z'],
+  // Dentelé antérieur : les digitations en doigts de gant, chacune arrondie.
+  ['serratus', 'M-29,95 C-25,101 -22,108 -21,115 C-21,121 -22,126 -24,130 C-27,121 -29,109 -29,95 Z'],
+  // Transverse : la sangle horizontale profonde, en croissant.
+  ['transversus', 'M-18,133 C-12,130 -6,130 -1,132 C-1,137 -1,140 -1,142 C-7,144 -13,144 -18,141 C-19,138 -19,135 -18,133 Z'],
+  ['coracobrachialis', 'M-30,101 C-33,110 -33,119 -32,126 C-30,127 -29,122 -29,114 C-29,107 -29,103 -30,101 Z'],
+  ['biceps', 'M-36,101 C-43,111 -45,127 -41,139 C-37,141 -35,133 -35,121 C-35,111 -35,104 -36,101 Z'],
+  ['brachialis', 'M-43,116 C-47,126 -47,135 -45,141 C-42,141 -41,133 -41,124 C-41,119 -42,116 -43,116 Z'],
+  ['brachioradialis', 'M-42,133 C-49,145 -50,160 -48,173 C-45,173 -43,159 -42,147 C-41,140 -41,135 -42,133 Z'],
+  ['pronators', 'M-40,139 C-44,146 -45,152 -44,157 C-41,157 -39,151 -37,145 C-36,142 -37,139 -40,139 Z'],
+  ['forearmFlex', 'M-39,143 C-46,157 -47,173 -45,188 C-41,189 -38,174 -37,158 C-36,150 -36,145 -39,143 Z'],
+  ['fingerFlex', 'M-37,160 C-41,172 -42,182 -41,190 C-38,191 -36,181 -35,171 C-34,164 -34,160 -37,160 Z'],
+  // Main : galet arrondi, hors muscles suivis.
   ['neutral', 'M-45,190 C-51,196 -51,207 -45,211 C-39,207 -39,196 -45,190 Z'],
-  // Quadriceps : vaste latéral en dehors, droit fémoral au centre, vaste médial
-  // en goutte au-dessus du genou. Les adducteurs ferment la face interne.
-  ['hipFlexors', 'M-16,138 C-15,150 -13,163 -10,173 C-7,178 -4,177 -3,173 C-5,161 -7,149 -8,139 Z'],
-  ['vastusLat', 'M-28,172 C-32,196 -31,222 -27,244 C-24,249 -20,247 -19,242 C-19,214 -20,192 -21,172 Z'],
-  ['tfl', 'M-28,158 C-31,168 -31,180 -30,192 C-28,193 -26,191 -26,187 C-26,177 -26,167 -26,160 Z'],
-  ['rectusFemoris', 'M-18,172 C-21,198 -20,226 -16,248 L-9,248 C-8,222 -9,196 -10,172 Z'],
-  // Gracile : la lame la plus interne de la cuisse, seule à descendre sous le
-  // genou.
-  ['gracilis', 'M-6,178 C-7,200 -7,224 -5,244 L-1,244 L-1,177 Z'],
-  ['adductors', 'M-8,174 C-12,196 -13,216 -11,232 L-3,232 C-3,214 -3,192 -3,174 Z'],
-  ['vastusMed', 'M-18,226 C-17,239 -13,249 -7,252 C-4,250 -3,246 -4,242 C-8,238 -12,234 -13,224 Z'],
-  ['neutral', 'M-27,254 C-20,260 -10,260 -5,254 L-5,264 C-11,270 -21,270 -27,264 Z'],
-  ['fibularis', 'M-25,268 C-26,284 -25,299 -23,309 L-20,308 C-20,292 -21,278 -22,266 Z'],
-  ['tibialis', 'M-21,264 C-23,283 -21,301 -19,313 L-14,313 C-13,294 -14,277 -16,262 Z'],
-  // Tibial postérieur : profond, il affleure au bord interne du tibia.
-  ['tibPost', 'M-9,266 C-10,283 -9,299 -7,310 L-4,309 C-3,292 -4,278 -5,265 Z'],
-  ['gastroc', 'M-12,264 C-13,282 -11,299 -9,311 L-4,311 C-3,292 -4,277 -5,263 Z'],
-  ['neutral', 'M-25,320 C-26,328 -24,333 -19,334 L-4,334 C-3,330 -3,324 -4,318 Z'],
+  // Psoas : fuseau profond qui plonge vers le petit trochanter.
+  ['hipFlexors', 'M-16,138 C-15,151 -13,164 -10,174 C-7,179 -4,177 -3,173 C-5,161 -8,149 -10,139 C-12,137 -15,136 -16,138 Z'],
+  // Tenseur du fascia lata : lame effilée sur le bord de la hanche.
+  ['tfl', 'M-28,158 C-32,169 -32,181 -30,192 C-27,193 -26,190 -26,186 C-26,176 -26,166 -27,160 C-27,158 -28,157 -28,158 Z'],
+  // Quadriceps : trois ventres renflés au tiers supérieur, effilés au genou.
+  ['vastusLat', 'M-27,172 C-33,196 -32,223 -27,244 C-23,249 -20,246 -19,241 C-20,213 -21,191 -22,173 C-24,170 -26,170 -27,172 Z'],
+  ['rectusFemoris', 'M-17,172 C-22,199 -21,227 -16,248 C-12,250 -9,248 -9,244 C-8,219 -9,194 -10,173 C-13,170 -15,170 -17,172 Z'],
+  ['adductors', 'M-8,175 C-13,197 -13,217 -10,232 C-7,234 -4,233 -3,230 C-3,212 -3,192 -4,176 C-5,173 -7,173 -8,175 Z'],
+  ['gracilis', 'M-6,178 C-8,200 -8,224 -5,244 C-3,245 -1,243 -1,238 C-1,217 -1,196 -2,178 C-3,176 -5,176 -6,178 Z'],
+  ['vastusMed', 'M-18,225 C-17,239 -13,249 -7,252 C-3,251 -2,246 -4,242 C-9,238 -13,234 -14,225 C-16,222 -18,222 -18,225 Z'],
+  // Genou : rotule arrondie, hors muscles suivis.
+  ['neutral', 'M-27,254 C-20,261 -10,261 -5,254 C-4,259 -5,263 -6,266 C-13,271 -21,270 -26,265 C-27,261 -27,257 -27,254 Z'],
+  ['fibularis', 'M-25,268 C-27,285 -26,300 -23,309 C-20,309 -20,293 -21,279 C-22,271 -23,267 -25,268 Z'],
+  ['tibialis', 'M-21,264 C-24,284 -22,302 -19,313 C-15,314 -13,296 -15,277 C-16,268 -18,262 -21,264 Z'],
+  ['tibPost', 'M-9,266 C-11,283 -10,299 -7,310 C-4,310 -3,293 -4,278 C-5,269 -7,264 -9,266 Z'],
+  ['gastroc', 'M-12,264 C-14,283 -12,300 -9,311 C-5,312 -3,293 -5,276 C-6,267 -9,262 -12,264 Z'],
+  // Pied : galet allongé, hors muscles suivis.
+  ['neutral', 'M-25,320 C-27,329 -24,334 -18,335 C-11,335 -5,333 -4,328 C-3,323 -4,319 -6,317 C-13,317 -21,317 -25,320 Z'],
 ]
 
 export const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
-  // La nuque : extenseurs au centre (splénius, semi-épineux), élévateur de la
-  // scapula en oblique vers l'angle de l'omoplate. Vue de dos, le
-  // sterno-cléido-mastoïdien ne se voit plus que sur le bord — il est devant.
-  ['neckExt', 'M-6,43 C-7,50 -7,57 -6,63 L-1,63 C-1,55 -1,48 -1,43 Z'],
-  ['neck', 'M-10,44 C-12,50 -12,57 -10,62 L-7,62 C-7,54 -7,48 -7,43 Z'],
-  ['levator', 'M-7,50 C-11,55 -15,61 -17,67 C-15,69 -13,70 -11,71 C-10,64 -8,56 -7,50 Z'],
-  ['deltLat', 'M-32,64 C-43,71 -47,88 -44,102 C-40,103 -37,94 -35,82 C-34,74 -34,68 -34,66 Z'],
-  ['deltPost', 'M-27,66 C-35,73 -39,85 -37,97 C-33,97 -30,88 -28,77 C-27,71 -27,68 -27,67 Z'],
-  // Trapèze : le grand losange en trois étages, du crâne aux dernières dorsales.
-  ['trapsUpper', 'M0,42 L-9,45 C-18,51 -26,58 -31,66 C-27,69 -24,71 -21,73 C-15,63 -7,54 0,50 Z'],
-  ['trapsMid', 'M0,55 C-8,64 -16,73 -22,80 C-21,88 -20,95 -19,101 C-13,96 -6,91 0,88 Z'],
-  ['trapsLow', 'M0,90 C-6,94 -12,99 -18,103 C-15,113 -11,123 -8,130 C-5,126 -2,124 0,123 Z'],
-  // Grand dorsal : le V, de l'aisselle à la crête iliaque.
-  ['lats', 'M-30,90 C-33,108 -30,130 -19,146 C-13,151 -5,150 -3,145 C-8,131 -14,114 -20,100 Z'],
-  ['rhomboids', 'M-4,72 C-9,77 -14,82 -17,87 C-16,92 -15,97 -14,101 C-10,97 -7,94 -4,91 Z'],
-  // Fosse sus-épineuse : au-dessus de l'épine de l'omoplate. C'est ce couloir
-  // étroit, sous l'acromion, que le tendon doit franchir à chaque abduction.
-  ['supraspinatus', 'M-27,68 C-22,70 -17,74 -15,79 C-18,81 -22,82 -25,83 C-27,77 -27,71 -27,68 Z'],
-  ['rotatorCuff', 'M-28,74 C-23,77 -18,81 -16,87 C-19,89 -23,90 -26,92 C-28,85 -28,78 -28,74 Z'],
-  // Petit rond : la bandelette entre l'infra-épineux et le grand rond. Deux
-  // muscles voisins, deux fonctions opposées — l'un tourne l'humérus dehors,
-  // l'autre dedans.
-  ['teresMinor', 'M-29,86 C-24,88 -20,91 -18,95 C-21,97 -25,98 -28,98 C-29,94 -29,89 -29,86 Z'],
-  ['teres', 'M-30,99 C-25,101 -21,104 -19,108 C-21,111 -25,112 -28,112 C-30,107 -30,102 -30,99 Z'],
-  // Multifides : les faisceaux courts collés aux vertèbres, en dedans des
-  // érecteurs — un étage par segment.
-  ['multifidus', 'M-5,124 C-6,140 -6,155 -5,165 L-1,165 L-1,123 Z'],
-  // Érecteurs du rachis : les deux colonnes de part et d'autre des vertèbres.
-  ['erectors', 'M-11,126 C-12,140 -12,154 -11,164 L-2,164 L-2,124 Z'],
-  ['quadratusLumborum', 'M-19,130 C-20,142 -20,154 -18,163 L-13,163 C-14,152 -14,140 -14,128 Z'],
-  ['tricepsLong', 'M-35,100 C-38,112 -38,130 -36,140 C-33,141 -31,135 -31,124 C-31,113 -31,105 -31,100 Z'],
-  ['tricepsLat', 'M-42,102 C-46,113 -46,131 -42,141 L-38,139 C-38,124 -38,113 -39,101 Z'],
-  ['brachioradialis', 'M-42,133 C-48,144 -50,159 -48,173 L-44,172 C-43,157 -42,145 -40,135 Z'],
-  ['forearmExt', 'M-40,143 C-47,156 -49,172 -46,188 L-39,186 C-38,170 -38,156 -38,145 Z'],
+  // Même règle qu'à la face : des ventres, pas des dalles. Les tracés du dos
+  // sont plus larges et se recouvrent en couches, comme dans le corps —
+  // profonds d'abord, superficiels par-dessus.
+  ['neckExt', 'M-6,43 C-8,50 -8,57 -6,63 C-3,64 -1,60 -1,54 C-1,49 -1,45 -2,43 C-3,42.5 -5,42.5 -6,43 Z'],
+  ['neck', 'M-10,44 C-12,50 -12,57 -10,62 C-8,63 -7,59 -7,53 C-7,48 -7,45 -8,43 C-9,43 -10,43 -10,44 Z'],
+  ['levator', 'M-7,50 C-11,56 -15,62 -17,68 C-15,70 -13,71 -11,71 C-10,64 -8,56 -7,50 Z'],
+  ['deltLat', 'M-34,65 C-44,72 -47,89 -44,102 C-40,104 -37,95 -35,83 C-34,75 -34,68 -34,65 Z'],
+  ['deltPost', 'M-27,66 C-36,74 -39,86 -37,97 C-33,98 -30,89 -28,78 C-27,72 -27,68 -27,66 Z'],
+  // Trapèze : le grand losange en trois étages, aux bords tous incurvés.
+  ['trapsUpper', 'M0,42 C-4,43 -7,45 -9,46 C-19,52 -27,59 -31,67 C-28,70 -24,72 -21,73 C-15,63 -8,55 0,50 C0,47 0,44 0,42 Z'],
+  ['trapsMid', 'M0,55 C-8,65 -16,74 -22,81 C-21,88 -20,95 -19,101 C-13,96 -6,92 0,88 C0,77 0,66 0,55 Z'],
+  ['trapsLow', 'M0,90 C-7,95 -13,100 -18,104 C-15,114 -11,124 -8,131 C-5,127 -2,124 0,123 C0,112 0,101 0,90 Z'],
+  // Grand dorsal : le V, large sous l'aisselle, effilé vers la crête iliaque.
+  ['lats', 'M-30,90 C-34,109 -30,131 -19,147 C-13,152 -5,150 -3,145 C-9,131 -15,114 -21,100 C-24,96 -28,88 -30,90 Z'],
+  ['rhomboids', 'M-4,72 C-10,78 -15,83 -17,88 C-16,93 -15,98 -14,102 C-10,98 -7,94 -4,91 C-4,85 -4,78 -4,72 Z'],
+  // Fosse sus-épineuse : au-dessus de l'épine de l'omoplate.
+  ['supraspinatus', 'M-27,68 C-21,70 -17,74 -15,79 C-19,82 -23,83 -26,83 C-27,78 -27,72 -27,68 Z'],
+  ['rotatorCuff', 'M-28,74 C-22,78 -18,82 -16,87 C-20,90 -24,91 -27,92 C-28,86 -28,79 -28,74 Z'],
+  // Petit rond puis grand rond : deux bandelettes empilées, chacune bombée.
+  ['teresMinor', 'M-29,86 C-24,89 -20,92 -18,95 C-21,98 -25,99 -28,99 C-29,95 -29,90 -29,86 Z'],
+  ['teres', 'M-30,99 C-25,102 -21,105 -19,108 C-22,112 -26,113 -29,112 C-30,108 -30,103 -30,99 Z'],
+  // Multifides collés aux vertèbres, érecteurs en colonnes, carré des lombes
+  // en dehors : trois couches du plus profond au plus superficiel.
+  ['multifidus', 'M-5,124 C-7,140 -7,155 -5,165 C-3,166 -1,164 -1,158 C-1,145 -1,131 -1,124 C-2,122 -4,122 -5,124 Z'],
+  ['erectors', 'M-11,126 C-13,141 -13,155 -11,165 C-8,166 -4,166 -2,164 C-2,150 -2,136 -2,124 C-6,122 -9,123 -11,126 Z'],
+  ['quadratusLumborum', 'M-19,130 C-21,143 -21,155 -18,164 C-15,165 -13,163 -13,158 C-13,148 -13,138 -14,129 C-16,127 -18,127 -19,130 Z'],
+  ['tricepsLong', 'M-35,100 C-39,113 -38,131 -36,140 C-33,141 -31,133 -31,122 C-31,112 -32,104 -35,100 Z'],
+  ['tricepsLat', 'M-42,102 C-47,114 -46,132 -42,141 C-39,141 -38,127 -38,114 C-38,106 -39,101 -42,102 Z'],
+  ['brachioradialis', 'M-42,133 C-49,145 -50,160 -48,173 C-45,173 -43,159 -42,147 C-41,140 -41,135 -42,133 Z'],
+  ['forearmExt', 'M-40,143 C-47,157 -49,173 -46,188 C-42,189 -39,174 -38,158 C-37,150 -37,145 -40,143 Z'],
   ['neutral', 'M-45,190 C-51,196 -51,207 -45,211 C-39,207 -39,196 -45,190 Z'],
-  ['gluteMed', 'M-28,156 C-31,166 -31,176 -28,183 C-25,182 -22,180 -21,178 C-22,170 -23,163 -23,157 Z'],
-  // Rotateurs profonds : la barre du piriforme, sous le grand fessier, du
-  // sacrum au grand trochanter. Tracée par-dessus pour rester lisible.
-  ['hipRotators', 'M-22,172 C-17,174 -11,176 -6,177 L-6,183 C-12,183 -18,181 -22,179 Z'],
-  ['gluteMax', 'M-24,166 C-29,180 -27,197 -18,204 C-8,205 -2,194 -2,182 L-2,168 Z'],
-  ['bicepsFemoris', 'M-27,204 C-30,226 -29,246 -24,260 L-17,260 C-17,236 -18,216 -20,205 Z'],
-  ['hamsInner', 'M-15,205 C-16,227 -15,246 -13,260 L-4,260 C-3,238 -5,216 -8,204 Z'],
-  ['neutral', 'M-27,262 C-20,268 -9,268 -4,262 L-4,272 C-10,278 -21,278 -27,272 Z'],
-  // Les deux chefs du jumeau, puis le soléaire qui déborde en dessous.
-  ['gastroc', 'M-25,274 C-28,290 -26,303 -22,309 L-16,308 C-16,294 -17,283 -18,272 Z'],
-  ['gastroc', 'M-14,274 C-14,290 -13,303 -11,309 L-5,308 C-4,294 -5,283 -6,272 Z'],
-  ['soleus', 'M-24,310 C-25,317 -23,322 -19,323 L-7,323 C-4,319 -4,313 -5,309 Z'],
-  ['neutral', 'M-24,325 C-25,331 -23,334 -19,334 L-4,334 C-3,331 -3,328 -4,323 Z'],
+  // Moyen fessier en éventail, rotateurs profonds en barre, grand fessier en
+  // masse ronde par-dessus.
+  ['gluteMed', 'M-28,156 C-32,166 -32,177 -28,184 C-24,183 -22,180 -21,177 C-22,170 -23,163 -24,157 C-25,155 -27,154 -28,156 Z'],
+  ['hipRotators', 'M-22,172 C-16,174 -10,176 -6,177 C-6,180 -6,182 -6,183 C-12,184 -18,182 -22,179 C-23,177 -23,174 -22,172 Z'],
+  ['gluteMax', 'M-24,166 C-30,181 -27,198 -18,205 C-8,206 -2,195 -2,182 C-2,175 -2,170 -3,167 C-10,163 -19,162 -24,166 Z'],
+  ['bicepsFemoris', 'M-27,204 C-31,227 -29,247 -24,260 C-20,262 -17,259 -17,254 C-17,232 -18,214 -20,205 C-23,202 -25,202 -27,204 Z'],
+  ['hamsInner', 'M-15,205 C-17,228 -15,247 -13,260 C-9,262 -5,259 -4,254 C-3,234 -5,215 -8,204 C-11,202 -13,202 -15,205 Z'],
+  ['neutral', 'M-27,262 C-20,269 -9,269 -4,262 C-3,266 -4,270 -5,273 C-12,278 -21,277 -26,272 C-27,269 -27,265 -27,262 Z'],
+  // Les deux chefs du jumeau, chacun bombé, puis le soléaire qui déborde.
+  ['gastroc', 'M-25,274 C-29,291 -26,304 -22,309 C-18,310 -16,296 -17,282 C-17,275 -22,270 -25,274 Z'],
+  ['gastroc', 'M-14,274 C-15,291 -13,304 -11,309 C-7,310 -5,296 -6,282 C-6,275 -11,270 -14,274 Z'],
+  ['soleus', 'M-24,310 C-26,318 -23,323 -19,324 C-13,325 -8,324 -6,321 C-4,318 -4,313 -6,310 C-12,308 -19,308 -24,310 Z'],
+  ['neutral', 'M-24,325 C-26,332 -23,335 -18,335 C-11,335 -6,334 -5,330 C-4,327 -4,324 -5,322 C-11,322 -19,322 -24,325 Z'],
 ]
+
+
+/**
+ * Trames, dégradés et relief, définis UNE SEULE FOIS pour toute la page.
+ *
+ * Ils vivaient dans le SVG de la vignette. En plein écran, c'est un autre SVG :
+ * les références n'y résolvaient que par accident, tant que la vignette restait
+ * montée derrière. Les dupliquer donnerait deux fois les mêmes identifiants
+ * dans le document, ce qui n'est pas valide — d'où ce composant unique.
+ */
+function MannequinDefs() {
+  return (
+      <defs>
+        {/* Un halo clair sans décalage détoure la silhouette : le corps est
+            devenu sombre, l'ombre portée seule ne le décollait plus d'un fond
+            sombre. Puis l'ombre, qui donne l'assise.
+
+            Réglé en unités RELATIVES à la boîte du tracé : la vignette fait
+            320 unités de large et le plein écran 120, donc un rayon absolu
+            donnait un liseré discret d'un côté et une auréole envahissante de
+            l'autre. */}
+        <filter
+          id="mb-relief"
+          x="-14%"
+          y="-8%"
+          width="128%"
+          height="118%"
+          primitiveUnits="objectBoundingBox"
+        >
+          <feDropShadow dx="0" dy="0" stdDeviation="0.006" floodColor="#F5EFE7" floodOpacity="0.22" />
+          <feDropShadow dx="0" dy="0.006" stdDeviation="0.010" floodColor="#000" floodOpacity="0.55" />
+        </filter>
+        <linearGradient id="mb-volume" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.09" />
+          <stop offset="45%" stopColor="#fff" stopOpacity="0.01" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.22" />
+        </linearGradient>
+        <radialGradient id="mb-galbe" cx="38%" cy="26%" r="78%">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.11" />
+          <stop offset="58%" stopColor="#fff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.18" />
+        </radialGradient>
+        {/* Trames de fibres. Des traits sombres très fins et très espacés :
+            à la taille d'une vignette, une trame dense vire au gris uni et
+            mange la couleur, qui est la seule information portée. */}
+        {[
+          ['mb-fibres-v', 'M0,0 L0,4', 0],
+          ['mb-fibres-h', 'M0,0 L4,0', 0],
+          ['mb-fibres-o', 'M0,0 L0,4', 32],
+        ].map(([id, trait, angle]) => (
+          <pattern
+            key={String(id)}
+            id={String(id)}
+            width="2.1"
+            height="4"
+            patternUnits="userSpaceOnUse"
+            patternTransform={`rotate(${angle})`}
+          >
+            <path d={String(trait)} stroke="rgba(20,16,13,0.30)" strokeWidth="0.55" fill="none" />
+          </pattern>
+        ))}
+      </defs>
+  )
+}
 
 export function MuscleBodyDiagram({
   loads,
@@ -368,25 +450,7 @@ export function MuscleBodyDiagram({
             • un dégradé vertical très léger creuse le volume, plus clair en
               haut où la lumière tombe ;
             • un liseré interne adoucit la découpe des plaques. */}
-        <defs>
-          <filter id="mb-relief" x="-24%" y="-10%" width="148%" height="124%">
-            {/* Un halo clair sans décalage détoure la silhouette : le corps est
-                devenu sombre, l'ombre portée seule ne le décollait plus d'un
-                fond sombre. Puis l'ombre, qui donne l'assise. */}
-            <feDropShadow dx="0" dy="0" stdDeviation="1.6" floodColor="#F5EFE7" floodOpacity="0.16" />
-            <feDropShadow dx="0" dy="1.8" stdDeviation="2.6" floodColor="#000" floodOpacity="0.55" />
-          </filter>
-          <linearGradient id="mb-volume" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0.09" />
-            <stop offset="45%" stopColor="#fff" stopOpacity="0.01" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0.22" />
-          </linearGradient>
-          <radialGradient id="mb-galbe" cx="38%" cy="26%" r="78%">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0.11" />
-            <stop offset="58%" stopColor="#fff" stopOpacity="0" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0.18" />
-          </radialGradient>
-        </defs>
+        <MannequinDefs />
         <Figure cx={105} half={FRONT_HALF} fill={fill} back={false} sexe={sexe} onZoom={() => setZoom('front')} />
         <Figure cx={295} half={BACK_HALF} fill={fill} back sexe={sexe} onZoom={() => setZoom('back')} />
         <text x="105" y="350" textAnchor="middle" fill="#a8a29e" fontSize="11" stroke="none">
@@ -539,9 +603,10 @@ function ZoomBody({
       <svg
         viewBox="-60 0 120 342"
         className="min-h-0 w-full flex-1"
-        stroke="rgba(255,255,255,0.62)"
-        strokeWidth="0.55"
+        stroke="rgba(23,19,16,0.55)"
+        strokeWidth="0.5"
         strokeLinejoin="round"
+        strokeLinecap="round"
         aria-label={face === 'front' ? 'Corps de face' : 'Corps de dos'}
       >
         <Figure
@@ -972,9 +1037,21 @@ function Figure({
   // Tout tracé passe par la morphologie : un seul jeu de muscles, deux
   // silhouettes. Pour 'H' c'est l'identité, la référence n'est pas déformée.
   const m = (d: string) => morphPath(d, sexe)
-  const side = half.map(([region, d], i) => (
-    <path key={i} d={m(d)} fill={fill(region)} data-muscle={region} {...viser(region)} />
-  ))
+  const side = half.flatMap(([region, d], i) => {
+    const trace = m(d)
+    return [
+      <path key={i} d={trace} fill={fill(region)} data-muscle={region} {...viser(region)} />,
+      // Les stries par-dessus, transparentes au pointeur : elles décorent, elles
+      // ne captent pas le clic — la leçon des intersections tendineuses.
+      <path
+        key={`f${i}`}
+        d={trace}
+        fill={`url(#${trameDuTrace(trace)})`}
+        stroke="none"
+        pointerEvents="none"
+      />,
+    ]
+  })
   const base = BASE_HALF.map((d, i) => <path key={i} d={m(d)} fill={NEUTRAL} stroke="none" />)
   const voile = BASE_HALF.flatMap((d, i) => [
     <path key={`v${i}`} d={m(d)} fill="url(#mb-volume)" stroke="none" pointerEvents="none" />,
