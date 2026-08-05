@@ -36,3 +36,8 @@ yarn-error.log*
 
 # Bancs d’essai locaux (hors dépôt)
 .bench
+
+# Découpes intermédiaires des planches anatomiques : régénérables par
+# `python3 tools/anatomie/decoupe.py`, seules les planches font foi.
+tools/anatomie/planches/*-parts*
+tools/anatomie/__pycache__/
