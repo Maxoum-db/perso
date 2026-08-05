@@ -304,7 +304,14 @@ export function Musculation() {
   async function reload() {
     if (!user) return
     try {
-      await ensureSeeded(user.id)
+      // L'amorçage est une tâche de MAINTENANCE, pas une condition pour lire
+      // ses séances. Quand il échouait, la page entière restait vide sur un
+      // message de Postgres — alors que toutes les données étaient là, intactes.
+      // On le signale et on charge quand même.
+      await ensureSeeded(user.id).catch((e: Error) => {
+        console.warn('Amorçage du catalogue échoué :', e.message)
+        setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
+      })
       const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
