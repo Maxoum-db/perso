@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
 import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES, cleExercice } from '../data/exercises'
+import type { Section } from './acces'
 import { partParDefaut, regionsForGroup, type MuscleRegion } from './muscles'
 import type { Courbature } from './soreness'
 import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
@@ -1101,15 +1102,15 @@ const SEED_ICONS: Record<string, string> = { push: '💪', pull: '🦾', legs: '
  */
 const amorcages = new Map<string, Promise<boolean>>()
 
-export function ensureSeeded(userId: string): Promise<boolean> {
+export function ensureSeeded(userId: string, sections: Section[] = []): Promise<boolean> {
   const enCours = amorcages.get(userId)
   if (enCours) return enCours
-  const p = amorcer(userId).finally(() => amorcages.delete(userId))
+  const p = amorcer(userId, sections).finally(() => amorcages.delete(userId))
   amorcages.set(userId, p)
   return p
 }
 
-async function amorcer(userId: string): Promise<boolean> {
+async function amorcer(userId: string, sections: Section[]): Promise<boolean> {
   const seeded = await fetchKv<boolean>(userId, SEED_KEY, false)
   let didSeed = false
 
@@ -1187,11 +1188,14 @@ async function amorcer(userId: string): Promise<boolean> {
   // consignes de sécurité rapatriées dans la bibliothèque, et c'est
   // `ensureLibrary` ci-dessous qui ajoute ces exercices — au bon étiquetage.
 
+  // Les modèles d'armure ne partent qu'aux comptes qui font du béhourd.
+  const behourd = sections.includes('behourd')
   if (await ensureLibrary(userId)) didSeed = true
-  if (await ensureTemplates(userId, RECUP_TEMPLATES_KEY, RECUP_TEMPLATES)) didSeed = true
-  if (await ensureTemplates(userId, COMBAT_TEMPLATES_KEY, COMBAT_TEMPLATES)) didSeed = true
-  if (await ensureTemplates(userId, MISE_EN_FORME_KEY, MISE_EN_FORME_TEMPLATES)) didSeed = true
-  if (await ensureTemplates(userId, PROTOCOLE_TEMPLATES_KEY, PROTOCOLE_TEMPLATES)) didSeed = true
+  if (await ensureTemplates(userId, RECUP_TEMPLATES_KEY, RECUP_TEMPLATES, behourd)) didSeed = true
+  if (await ensureTemplates(userId, COMBAT_TEMPLATES_KEY, COMBAT_TEMPLATES, behourd)) didSeed = true
+  if (await ensureTemplates(userId, MISE_EN_FORME_KEY, MISE_EN_FORME_TEMPLATES, behourd)) didSeed = true
+  if (await ensureTemplates(userId, PROTOCOLE_TEMPLATES_KEY, PROTOCOLE_TEMPLATES, behourd)) didSeed = true
+  if (!behourd && (await retirerModelesBehourd(userId))) didSeed = true
 
   return didSeed
 }
@@ -1213,6 +1217,15 @@ interface SeanceModele {
   duration: number
   notes: string
   exos: LigneModele[]
+  /**
+   * Discipline à laquelle ce modèle appartient. Absent = tout le monde.
+   *
+   * Sans ça, le programme béhourd — « Samedi — Béhourd en armure », « Récup —
+   * lendemain de béhourd », la ceinture abdominale de combat — était installé
+   * dans TOUS les comptes à leur première visite. Un objectif d'armure n'a rien
+   * à faire chez quelqu'un qui court.
+   */
+  pour?: 'behourd'
 }
 
 /**
@@ -1223,6 +1236,7 @@ interface SeanceModele {
 export const RECUP_TEMPLATES: SeanceModele[] = [
   {
     name: 'Récup — lendemain de béhourd',
+    pour: 'behourd',
     icon: '🧘',
     duration: 35,
     notes: 'Le lendemain d’un sparring : relancer la circulation sans rien casser.',
@@ -1308,6 +1322,7 @@ export const RECUP_TEMPLATES: SeanceModele[] = [
 export const COMBAT_TEMPLATES: SeanceModele[] = [
   {
     name: 'Ceinture abdominale lourde (combat)',
+    pour: 'behourd',
     icon: '🛡️',
     duration: 60,
     notes:
@@ -1354,6 +1369,7 @@ export const COMBAT_TEMPLATES: SeanceModele[] = [
 export const MISE_EN_FORME_TEMPLATES: SeanceModele[] = [
   {
     name: 'Août A — Push & épaules (Basic Fit)',
+    pour: 'behourd',
     icon: '🅰️',
     duration: 60,
     notes:
@@ -1369,6 +1385,7 @@ export const MISE_EN_FORME_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Août B — Tirage, cou & préhension (Basic Fit)',
+    pour: 'behourd',
     icon: '🅱️',
     duration: 65,
     notes:
@@ -1386,6 +1403,7 @@ export const MISE_EN_FORME_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Août C — Jambes & ancrage (Basic Fit)',
+    pour: 'behourd',
     icon: '🅾️',
     duration: 65,
     notes:
@@ -1433,6 +1451,7 @@ export const MISE_EN_FORME_TEMPLATES: SeanceModele[] = [
 export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
   {
     name: 'Lundi — Kickboxing (récup active)',
+    pour: 'behourd',
     icon: '🥊',
     duration: 60,
     notes:
@@ -1442,6 +1461,7 @@ export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Mardi — Push / Force',
+    pour: 'behourd',
     icon: '💪',
     duration: 60,
     notes:
@@ -1458,6 +1478,7 @@ export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Mercredi — Pull / Grip / Cou',
+    pour: 'behourd',
     icon: '🦾',
     duration: 65,
     notes:
@@ -1475,6 +1496,7 @@ export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Jeudi — Legs / Ancrage',
+    pour: 'behourd',
     icon: '🦵',
     duration: 75,
     notes:
@@ -1492,6 +1514,7 @@ export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Vendredi — Cardioboxing (masque)',
+    pour: 'behourd',
     icon: '😤',
     duration: 45,
     notes:
@@ -1504,6 +1527,7 @@ export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
   },
   {
     name: 'Samedi — Béhourd en armure',
+    pour: 'behourd',
     icon: '⚔️',
     duration: 120,
     notes:
@@ -1527,13 +1551,19 @@ export const PROTOCOLE_TEMPLATES: SeanceModele[] = [
  * jour où le format d'une ligne change. Une séance déjà présente sous le même
  * nom n'est jamais réécrite : elle a pu être modifiée à la main.
  */
-async function ensureTemplates(userId: string, cle: string, modeles: SeanceModele[]): Promise<boolean> {
+async function ensureTemplates(
+  userId: string,
+  cle: string,
+  modeles: SeanceModele[],
+  behourd: boolean,
+): Promise<boolean> {
   const done = await fetchKv<boolean>(userId, cle, false)
   if (done) return false
 
   const existants = new Set((await listTemplates(userId)).map((t) => t.name.trim().toLowerCase()))
   const lib = new Map(EXERCISE_LIBRARY.map((e) => [e.name, e]))
   for (const tpl of modeles) {
+    if (tpl.pour === 'behourd' && !behourd) continue
     if (existants.has(tpl.name.trim().toLowerCase())) continue
     await saveTemplate(
       userId,
@@ -1556,6 +1586,49 @@ async function ensureTemplates(userId: string, cle: string, modeles: SeanceModel
     )
   }
   await saveKv(userId, cle, true)
+  return true
+}
+
+/** Tous les modèles livrés qui appartiennent au béhourd, par nom normalisé. */
+function nomsBehourd(): Set<string> {
+  return new Set(
+    [...RECUP_TEMPLATES, ...COMBAT_TEMPLATES, ...MISE_EN_FORME_TEMPLATES, ...PROTOCOLE_TEMPLATES]
+      .filter((t) => t.pour === 'behourd')
+      .map((t) => t.name.trim().toLowerCase()),
+  )
+}
+
+/**
+ * Retire d'un compte NON béhourd les modèles d'armure qu'on lui avait installés.
+ *
+ * Filtrer l'amorçage ne suffit pas : les drapeaux sont déjà posés sur les
+ * comptes existants, et « Samedi — Béhourd en armure » y restera éternellement.
+ * Il faut donc défaire, et pas seulement cesser de faire.
+ *
+ * Deux garde-fous. On ne retire qu'un modèle dont le nom est EXACTEMENT celui
+ * d'un modèle livré — ce qu'on a écrit soi-même n'est jamais touché. Et jamais
+ * un modèle qui a SERVI : une séance faite garde le lien vers son modèle, et
+ * effacer celui-ci amputerait l'historique de ce qui l'explique.
+ */
+async function retirerModelesBehourd(userId: string): Promise<boolean> {
+  const livres = nomsBehourd()
+  const aRetirer = (await listTemplates(userId)).filter((t) =>
+    livres.has(t.name.trim().toLowerCase()),
+  )
+  if (!aRetirer.length) return false
+
+  const { data, error } = await supabase
+    .from('perso_muscu_sessions')
+    .select('template_id')
+    .eq('user_id', userId)
+    .in('template_id', aRetirer.map((t) => t.id))
+  if (error) throw new Error(error.message)
+  const servis = new Set((data ?? []).map((r) => String((r as { template_id: string }).template_id)))
+
+  const ids = aRetirer.filter((t) => !servis.has(t.id)).map((t) => t.id)
+  if (!ids.length) return false
+  const { error: err } = await supabase.from('perso_muscu_templates').delete().in('id', ids)
+  if (err) throw new Error(err.message)
   return true
 }
 

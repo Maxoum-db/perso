@@ -79,7 +79,7 @@ export default function App() {
         <Route path="/mails" element={garde('/mails', <Mails />)} />
         <Route path="/behourd" element={garde('/behourd', <Behourd />)} />
         <Route path="/course" element={garde('/course', <Course />)} />
-        <Route path="/musculation" element={garde('/musculation', <Musculation />)} />
+        <Route path="/musculation" element={garde('/musculation', <Musculation sections={sections} />)} />
         <Route path="/brassage" element={garde('/brassage', <Brassage />)} />
         <Route path="/reglages" element={<Settings />} />
         {/* Mails en veille : la route reste accessible en direct, mais la
