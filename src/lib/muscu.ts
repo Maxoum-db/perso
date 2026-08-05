@@ -590,6 +590,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Carré des lombes',
   'Chevilles',
   'Coiffe des rotateurs',
+  'Coraco-brachial',
   'Cou',
   'Deltoïde antérieur',
   'Deltoïde latéral',
@@ -608,6 +609,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Fléchisseurs des doigts',
   'Full body',
   'Gastrocnémiens',
+  'Gracile',
   'Grand dorsal',
   'Grand droit',
   'Grand fessier',
@@ -621,6 +623,7 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Lombaires',
   'Mollets',
   'Moyen fessier',
+  'Multifides',
   'Obliques',
   'Pectoral supérieur',
   'Pectoraux',
@@ -630,11 +633,14 @@ export const MUSCLE_GROUPS_DEFAULT = [
   'Quadriceps',
   'Rhomboïdes',
   'Rond pronateur',
+  'Rotateurs de hanche',
+  'Scalènes',
   'Soléaire',
   'Sous-scapulaire',
   'Supra-épineux',
   'Tenseur du fascia lata',
   'Tibial antérieur',
+  'Tibial postérieur',
   'Transverse',
   'Trapèze inférieur',
   'Trapèze moyen',
@@ -687,7 +693,9 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       nuque, élévateur de la scapula, supra-épineux, carré des lombes.
 // v26 : six muscles profonds — transverse, petit rond, sous-scapulaire, petit
 //       pectoral, fléchisseurs des doigts, rond pronateur et supinateur.
-const LIBRARY_SEED_KEY = 'muscu_library_v26'
+// v27 : six manques fonctionnels — rotateurs profonds de hanche, multifides,
+//       tibial postérieur, scalènes, gracile, coraco-brachial.
+const LIBRARY_SEED_KEY = 'muscu_library_v27'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'

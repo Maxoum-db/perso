@@ -115,6 +115,10 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   fingerFlex: TRES_RAPIDE,
   pronators: TRES_RAPIDE,
   tibialis: JAMBES_TRES_RAPIDE,
+  // Le tibial postérieur tient la voûte à chaque appui, du matin au soir : le
+  // muscle revient aussi vite que son voisin antérieur. C'est son TENDON qui
+  // s'use — et un tendon ne se lit pas sur ce barème.
+  tibPost: JAMBES_TRES_RAPIDE,
   fibularis: JAMBES_TRES_RAPIDE,
   tfl: JAMBES_TRES_RAPIDE,
 
@@ -141,11 +145,15 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // heaume la tire en avant.
   neck: RAPIDE,
   neckExt: RAPIDE,
+  // Les scalènes respirent avec toi : ils n'arrêtent jamais, donc ils ne
+  // restent jamais fatigués longtemps.
+  scalenes: RAPIDE,
 
   // ── Plutôt rapides ──────────────────────────────────────────────────────
   // Taille moyenne, usage quotidien réel, peu d'excentrique lourd.
   biceps: PLUTOT_RAPIDE,
   brachialis: PLUTOT_RAPIDE,
+  coracobrachialis: PLUTOT_RAPIDE,
   tricepsLat: PLUTOT_RAPIDE,
   deltAnt: PLUTOT_RAPIDE,
   deltPost: PLUTOT_RAPIDE,
@@ -189,6 +197,13 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // exactement le profil du béhourd.
   // https://complete-physio.co.uk/groin-strain-adductor-tendinopathy/
   adductors: JAMBES_PLUTOT_LENT,
+  // Le gracile est le seul adducteur bi-articulaire : il encaisse en plus tout
+  // ce qui se passe au genou, donc au moins autant que ses voisins.
+  gracilis: JAMBES_PLUTOT_LENT,
+  // Les rotateurs profonds de hanche sont à la hanche ce que la coiffe est à
+  // l'épaule : petits, profonds, stabilisateurs — et une irritation du
+  // piriforme se compte en semaines, pas en jours.
+  hipRotators: JAMBES_PLUTOT_LENT,
 
   // Les ischios sont bi-articulaires et prennent l'essentiel de l'excentrique
   // — soulevé roumain, freinage de course —, le mode qui abîme le plus. Ils
@@ -201,6 +216,9 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // mouvements — squat, soulevé, tirage, portage. Ils sont donc rechargés
   // avant d'avoir fini de récupérer, ce qu'aucun autre muscle ne subit.
   erectors: LENT,
+  // Les multifides sont dans le même cas, en pire : ils stabilisent vertèbre
+  // par vertèbre à chaque mouvement de la journée, sans exception.
+  multifidus: LENT,
   // Le carré des lombes est dans le même cas : il tient le bassin de niveau à
   // chaque pas, et sous un port valise il ne fait que ça.
   quadratusLumborum: LENT,

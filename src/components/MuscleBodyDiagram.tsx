@@ -178,6 +178,9 @@ const BASE_HALF: string[] = [
 const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // Sterno-cléido-mastoïdien : la sangle oblique de la mastoïde au sternum.
   ['neck', 'M-9,44 C-11,50 -11,57 -8,62 C-5,62 -4,59 -4,55 C-4,50 -4,46 -4,43 Z'],
+  // Scalènes : les haubans latéraux, entre le sterno-cléido-mastoïdien et la
+  // première côte.
+  ['scalenes', 'M-13,50 C-15,55 -16,60 -15,64 L-11,64 C-11,58 -11,53 -11,49 Z'],
   // Trapèze supérieur : la seule pente cou → épaule, vue de face.
   ['trapsUpper', 'M-9,48 C-16,52 -24,58 -30,65 C-27,68 -24,70 -21,72 C-17,63 -12,54 -9,48 Z'],
   ['deltLat', 'M-31,64 C-42,71 -47,88 -44,103 C-40,104 -37,95 -35,83 C-34,75 -34,68 -34,66 Z'],
@@ -201,6 +204,8 @@ const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // creux de l'aisselle.
   ['pecMinor', 'M-22,66 C-16,68 -11,71 -8,75 C-11,78 -16,78 -20,77 C-21,73 -22,69 -22,66 Z'],
   ['subscapularis', 'M-32,79 C-29,82 -27,86 -26,91 C-29,92 -32,92 -34,90 C-34,85 -33,81 -32,79 Z'],
+  // Coraco-brachial : plaqué contre l'humérus, en dedans du biceps.
+  ['coracobrachialis', 'M-30,101 C-32,110 -33,119 -32,126 L-29,125 C-29,117 -29,109 -28,102 Z'],
   ['biceps', 'M-35,101 C-42,110 -45,126 -41,139 C-37,141 -35,134 -35,122 C-35,112 -35,105 -35,101 Z'],
   ['brachialis', 'M-43,116 C-46,125 -47,134 -45,141 L-41,139 C-42,131 -42,123 -41,115 Z'],
   ['brachioradialis', 'M-42,133 C-48,144 -50,159 -48,173 L-44,172 C-43,157 -42,145 -40,135 Z'],
@@ -215,11 +220,16 @@ const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['vastusLat', 'M-28,172 C-32,196 -31,222 -27,244 C-24,249 -20,247 -19,242 C-19,214 -20,192 -21,172 Z'],
   ['tfl', 'M-28,158 C-31,168 -31,180 -30,192 C-28,193 -26,191 -26,187 C-26,177 -26,167 -26,160 Z'],
   ['rectusFemoris', 'M-18,172 C-21,198 -20,226 -16,248 L-9,248 C-8,222 -9,196 -10,172 Z'],
+  // Gracile : la lame la plus interne de la cuisse, seule à descendre sous le
+  // genou.
+  ['gracilis', 'M-6,178 C-7,200 -7,224 -5,244 L-1,244 L-1,177 Z'],
   ['adductors', 'M-8,174 C-12,196 -13,216 -11,232 L-3,232 C-3,214 -3,192 -3,174 Z'],
   ['vastusMed', 'M-18,226 C-17,239 -13,249 -7,252 C-4,250 -3,246 -4,242 C-8,238 -12,234 -13,224 Z'],
   ['neutral', 'M-27,254 C-20,260 -10,260 -5,254 L-5,264 C-11,270 -21,270 -27,264 Z'],
   ['fibularis', 'M-25,268 C-26,284 -25,299 -23,309 L-20,308 C-20,292 -21,278 -22,266 Z'],
   ['tibialis', 'M-21,264 C-23,283 -21,301 -19,313 L-14,313 C-13,294 -14,277 -16,262 Z'],
+  // Tibial postérieur : profond, il affleure au bord interne du tibia.
+  ['tibPost', 'M-9,266 C-10,283 -9,299 -7,310 L-4,309 C-3,292 -4,278 -5,265 Z'],
   ['gastroc', 'M-12,264 C-13,282 -11,299 -9,311 L-4,311 C-3,292 -4,277 -5,263 Z'],
   ['neutral', 'M-25,320 C-26,328 -24,333 -19,334 L-4,334 C-3,330 -3,324 -4,318 Z'],
 ]
@@ -249,6 +259,9 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // l'autre dedans.
   ['teresMinor', 'M-29,86 C-24,88 -20,91 -18,95 C-21,97 -25,98 -28,98 C-29,94 -29,89 -29,86 Z'],
   ['teres', 'M-30,99 C-25,101 -21,104 -19,108 C-21,111 -25,112 -28,112 C-30,107 -30,102 -30,99 Z'],
+  // Multifides : les faisceaux courts collés aux vertèbres, en dedans des
+  // érecteurs — un étage par segment.
+  ['multifidus', 'M-5,124 C-6,140 -6,155 -5,165 L-1,165 L-1,123 Z'],
   // Érecteurs du rachis : les deux colonnes de part et d'autre des vertèbres.
   ['erectors', 'M-11,126 C-12,140 -12,154 -11,164 L-2,164 L-2,124 Z'],
   ['quadratusLumborum', 'M-19,130 C-20,142 -20,154 -18,163 L-13,163 C-14,152 -14,140 -14,128 Z'],
@@ -258,6 +271,9 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['forearmExt', 'M-40,143 C-47,156 -49,172 -46,188 L-39,186 C-38,170 -38,156 -38,145 Z'],
   ['neutral', 'M-45,190 C-51,196 -51,207 -45,211 C-39,207 -39,196 -45,190 Z'],
   ['gluteMed', 'M-28,156 C-31,166 -31,176 -28,183 C-25,182 -22,180 -21,178 C-22,170 -23,163 -23,157 Z'],
+  // Rotateurs profonds : la barre du piriforme, sous le grand fessier, du
+  // sacrum au grand trochanter. Tracée par-dessus pour rester lisible.
+  ['hipRotators', 'M-22,172 C-17,174 -11,176 -6,177 L-6,183 C-12,183 -18,181 -22,179 Z'],
   ['gluteMax', 'M-24,166 C-29,180 -27,197 -18,204 C-8,205 -2,194 -2,182 L-2,168 Z'],
   ['bicepsFemoris', 'M-27,204 C-30,226 -29,246 -24,260 L-17,260 C-17,236 -18,216 -20,205 Z'],
   ['hamsInner', 'M-15,205 C-16,227 -15,246 -13,260 L-4,260 C-3,238 -5,216 -8,204 Z'],
