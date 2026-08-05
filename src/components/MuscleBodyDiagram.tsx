@@ -186,14 +186,28 @@ const FRONT_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   ['pecUpper', 'M-27,68 C-18,63 -6,63 -2,70 C-3,76 -4,80 -5,84 L-25,84 C-27,79 -28,72 -27,68 Z'],
   // …puis la masse sterno-costale, qui plonge vers l'aisselle.
   ['pecLower', 'M-25,86 L-5,86 C-4,94 -6,101 -9,106 C-19,111 -28,104 -30,93 C-31,89 -27,86 -25,86 Z'],
+  // Transverse de l'abdomen : la sangle horizontale profonde, celle qui SERRE
+  // la taille. Dessinée sous les obliques, en travers, à la hauteur du nombril.
+  ['transversus', 'M-18,132 C-12,130 -6,130 -1,131 L-1,142 C-6,143 -12,143 -18,141 Z'],
   // Obliques : la nappe du flanc, du gril costal à la crête iliaque.
   ['obliques', 'M-20,106 C-23,120 -25,136 -24,152 L-11,152 C-12,136 -13,122 -15,108 Z'],
   // Dentelé antérieur : les digitations en doigts de gant, par-dessus le flanc.
   ['serratus', 'M-29,95 C-25,100 -22,107 -21,114 C-21,120 -22,125 -24,129 C-27,120 -29,108 -29,95 Z'],
+  // Petit pectoral et sous-scapulaire sont des muscles PROFONDS : dans le
+  // corps, le grand pectoral les recouvre entièrement. Dessinés dessous, ils
+  // étaient fidèles et invisibles — or un muscle qu'on ne voit pas est un
+  // muscle qu'on ne peut pas lire. Ils sont donc tracés par-dessus, là où ils
+  // affleurent : le petit pectoral sous la clavicule, le sous-scapulaire au
+  // creux de l'aisselle.
+  ['pecMinor', 'M-22,66 C-16,68 -11,71 -8,75 C-11,78 -16,78 -20,77 C-21,73 -22,69 -22,66 Z'],
+  ['subscapularis', 'M-32,79 C-29,82 -27,86 -26,91 C-29,92 -32,92 -34,90 C-34,85 -33,81 -32,79 Z'],
   ['biceps', 'M-35,101 C-42,110 -45,126 -41,139 C-37,141 -35,134 -35,122 C-35,112 -35,105 -35,101 Z'],
   ['brachialis', 'M-43,116 C-46,125 -47,134 -45,141 L-41,139 C-42,131 -42,123 -41,115 Z'],
   ['brachioradialis', 'M-42,133 C-48,144 -50,159 -48,173 L-44,172 C-43,157 -42,145 -40,135 Z'],
+  ['pronators', 'M-40,139 C-43,146 -44,152 -44,157 L-39,156 C-38,150 -37,144 -36,140 Z'],
   ['forearmFlex', 'M-39,143 C-45,156 -47,172 -45,188 L-38,186 C-37,170 -37,156 -36,145 Z'],
+  // Fléchisseurs des doigts : le plan profond, qui descend jusqu'au poignet.
+  ['fingerFlex', 'M-37,160 C-41,171 -42,182 -41,190 L-36,188 C-35,179 -35,169 -34,161 Z'],
   ['neutral', 'M-45,190 C-51,196 -51,207 -45,211 C-39,207 -39,196 -45,190 Z'],
   // Quadriceps : vaste latéral en dehors, droit fémoral au centre, vaste médial
   // en goutte au-dessus du genou. Les adducteurs ferment la face interne.
@@ -230,7 +244,11 @@ const BACK_HALF: Array<[MuscleRegion | 'neutral', string]> = [
   // étroit, sous l'acromion, que le tendon doit franchir à chaque abduction.
   ['supraspinatus', 'M-27,68 C-22,70 -17,74 -15,79 C-18,81 -22,82 -25,83 C-27,77 -27,71 -27,68 Z'],
   ['rotatorCuff', 'M-28,74 C-23,77 -18,81 -16,87 C-19,89 -23,90 -26,92 C-28,85 -28,78 -28,74 Z'],
-  ['teres', 'M-30,94 C-25,96 -21,99 -19,104 C-21,107 -25,108 -28,109 C-30,103 -30,98 -30,94 Z'],
+  // Petit rond : la bandelette entre l'infra-épineux et le grand rond. Deux
+  // muscles voisins, deux fonctions opposées — l'un tourne l'humérus dehors,
+  // l'autre dedans.
+  ['teresMinor', 'M-29,86 C-24,88 -20,91 -18,95 C-21,97 -25,98 -28,98 C-29,94 -29,89 -29,86 Z'],
+  ['teres', 'M-30,99 C-25,101 -21,104 -19,108 C-21,111 -25,112 -28,112 C-30,107 -30,102 -30,99 Z'],
   // Érecteurs du rachis : les deux colonnes de part et d'autre des vertèbres.
   ['erectors', 'M-11,126 C-12,140 -12,154 -11,164 L-2,164 L-2,124 Z'],
   ['quadratusLumborum', 'M-19,130 C-20,142 -20,154 -18,163 L-13,163 C-14,152 -14,140 -14,128 Z'],

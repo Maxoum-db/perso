@@ -26,10 +26,24 @@ export type MuscleRegion =
   | 'pecUpper'
   | 'pecLower'
   | 'serratus'
+  // Petit pectoral : de la coracoïde aux 3e-5e côtes. Il bascule l'omoplate
+  // vers l'avant, et raccourci il ferme le défilé sous-acromial — le mécanisme
+  // même de l'accrochage d'épaule. Invisible, jamais étiqueté, et pourtant au
+  // cœur de la posture d'épaule.
+  | 'pecMinor'
   | 'lats'
   | 'teres'
   | 'rhomboids'
   | 'rotatorCuff'
+  // Petit rond : le second rotateur externe, juste sous l'infra-épineux. Avec
+  // le supra-épineux et le sous-scapulaire, la coiffe est enfin complète — on
+  // n'en représentait qu'un quart.
+  | 'teresMinor'
+  // Sous-scapulaire : plaqué sur la face antérieure de l'omoplate, seul
+  // rotateur INTERNE de la coiffe, et le plus puissant des quatre. C'est lui
+  // qui retient la tête humérale vers l'avant — exactement la direction dans
+  // laquelle une acromio-claviculaire lâche.
+  | 'subscapularis'
   // Supra-épineux : il amorce les quinze premiers degrés d'abduction et centre
   // la tête humérale sous l'acromion. C'est LE tendon qui s'use en premier sur
   // une épaule qui a déjà lâché, et « Coiffe des rotateurs » ne désignait que
@@ -48,8 +62,23 @@ export type MuscleRegion =
   | 'tricepsLat'
   | 'forearmFlex'
   | 'forearmExt'
+  // Fléchisseurs profonds des doigts : la prise de force proprement dite.
+  // Distincts des fléchisseurs du poignet, avec lesquels ils étaient confondus
+  // — or serrer un anneau à 40 kg et fléchir le poignet contre charge ne sont
+  // pas le même geste, et c'est le premier qui décide d'un corps à corps.
+  | 'fingerFlex'
+  // Rond pronateur et supinateur : la rotation de l'avant-bras. Un exercice de
+  // la bibliothèque s'appelle « Pronation-supination » et n'étiquetait aucun
+  // des deux muscles qui la produisent.
+  | 'pronators'
   | 'rectus'
   | 'obliques'
+  // Transverse de l'abdomen : la ceinture profonde, horizontale, qui serre la
+  // taille comme un corset. Le libellé « Transverse » pointait sur le GRAND
+  // DROIT — la plaque de chocolat, qui fléchit le tronc et ne serre rien. Un
+  // vacuum abdominal, dont la note dit « transverse profond », peignait donc
+  // les abdominaux de surface.
+  | 'transversus'
   | 'gluteMax'
   | 'gluteMed'
   | 'tfl'
@@ -79,10 +108,13 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   pecUpper: 'Pectoral supérieur (faisceau claviculaire)',
   pecLower: 'Grand pectoral',
   serratus: 'Dentelé antérieur',
+  pecMinor: 'Petit pectoral',
   lats: 'Grand dorsal',
   teres: 'Grand rond',
   rhomboids: 'Rhomboïdes',
   rotatorCuff: 'Coiffe des rotateurs (infra-épineux)',
+  teresMinor: 'Petit rond',
+  subscapularis: 'Sous-scapulaire',
   supraspinatus: 'Supra-épineux',
   erectors: 'Érecteurs du rachis',
   quadratusLumborum: 'Carré des lombes',
@@ -93,8 +125,11 @@ export const MUSCLE_LABELS: Record<MuscleRegion, string> = {
   tricepsLat: 'Triceps — portion latérale',
   forearmFlex: 'Fléchisseurs de l’avant-bras',
   forearmExt: 'Extenseurs de l’avant-bras',
+  fingerFlex: 'Fléchisseurs des doigts (prise de force)',
+  pronators: 'Rond pronateur et supinateur',
   rectus: 'Grand droit de l’abdomen',
   obliques: 'Obliques',
+  transversus: 'Transverse de l’abdomen',
   gluteMax: 'Grand fessier',
   gluteMed: 'Moyen fessier',
   tfl: 'Tenseur du fascia lata',
@@ -148,7 +183,9 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   // et en béhourd c'est l'oblique qui prend, pas le grand droit.
   rectus: 'Abdominaux',
   obliques: 'Obliques',
+  transversus: 'Sangle profonde',
   serratus: 'Dentelé',
+  pecMinor: 'Dentelé',
   erectors: 'Lombaires',
   quadratusLumborum: 'Lombaires',
 
@@ -167,6 +204,8 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   deltLat: 'Épaules',
   deltPost: 'Épaules',
   rotatorCuff: 'Coiffe',
+  teresMinor: 'Coiffe',
+  subscapularis: 'Sous-scapulaire',
   supraspinatus: 'Coiffe',
 
   // ── Bras ─────────────────────────────────────────────────────────────────
@@ -179,6 +218,8 @@ export const ZONE_LARGE: Record<MuscleRegion, string> = {
   brachioradialis: 'Avant-bras',
   forearmFlex: 'Avant-bras',
   forearmExt: 'Avant-bras',
+  fingerFlex: 'Préhension',
+  pronators: 'Pronation',
 
   // ── Poitrine ─────────────────────────────────────────────────────────────
   pecUpper: 'Pectoraux',
@@ -264,7 +305,7 @@ function norm(s: string): string {
 
 const DELTS: MuscleRegion[] = ['deltAnt', 'deltLat', 'deltPost']
 const TRAPS: MuscleRegion[] = ['trapsUpper', 'trapsMid', 'trapsLow', 'levator']
-const PECS: MuscleRegion[] = ['pecUpper', 'pecLower']
+const PECS: MuscleRegion[] = ['pecUpper', 'pecLower', 'pecMinor']
 const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
 // Ni « Cou » ni « Coiffe des rotateurs » ne s'élargissent à leurs nouveaux
 // voisins : MUSCLE_LABELS les nomme « sterno-cléido-mastoïdien » et
@@ -279,9 +320,9 @@ const TRICEPS: MuscleRegion[] = ['tricepsLong', 'tricepsLat']
  *  le biceps brachial depuis qu'un libellé précis doit pouvoir en abaisser un
  *  seul — ici on parle du BRAS, brachial compris. */
 const BICEPS_BRAS: MuscleRegion[] = ['biceps', 'brachialis']
-const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt', 'brachioradialis']
+const FOREARMS: MuscleRegion[] = ['forearmFlex', 'forearmExt', 'brachioradialis', 'fingerFlex', 'pronators']
 const BACK: MuscleRegion[] = ['lats', 'teres', 'rhomboids', 'trapsMid', 'trapsLow']
-const ABS: MuscleRegion[] = ['rectus', 'obliques']
+const ABS: MuscleRegion[] = ['rectus', 'obliques', 'transversus']
 const GLUTES: MuscleRegion[] = ['gluteMax', 'gluteMed']
 const QUADS: MuscleRegion[] = ['rectusFemoris', 'vastusLat', 'vastusMed']
 const HAMS: MuscleRegion[] = ['bicepsFemoris', 'hamsInner']
@@ -292,7 +333,7 @@ const LEGS: MuscleRegion[] = [...QUADS, ...HAMS, ...CALVES, ...GLUTES, 'adductor
 // corps » l'oubliait donc en silence, alors qu'il plaque l'omoplate sur à peu
 // près tout ce qui pousse.
 const UPPER: MuscleRegion[] = [
-  ...new Set<MuscleRegion>([...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'serratus', 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff', 'supraspinatus']),
+  ...new Set<MuscleRegion>([...PECS, ...BACK, ...DELTS, ...TRICEPS, ...TRAPS, 'serratus', 'biceps', 'brachialis', 'brachioradialis', 'rotatorCuff', 'supraspinatus', 'teresMinor', 'subscapularis', 'pecMinor']),
 ]
 
 /**
@@ -387,7 +428,16 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   brachial: ['brachialis'],
   'brachio-radial': ['brachioradialis'],
   'long supinateur': ['brachioradialis'],
+  coiffe: ['rotatorCuff', 'supraspinatus', 'teresMinor'],
   'coiffe des rotateurs': ['rotatorCuff'],
+  'petit rond': ['teresMinor'],
+  'sous-scapulaire': ['subscapularis'],
+  'petit pectoral': ['pecMinor'],
+  'flechisseurs des doigts': ['fingerFlex'],
+  prehension: ['fingerFlex'],
+  'rond pronateur': ['pronators'],
+  pronateurs: ['pronators'],
+  supinateur: ['pronators'],
   'infra-epineux': ['rotatorCuff'],
   rotateurs: ['rotatorCuff'],
   'psoas-iliaque': ['hipFlexors'],
@@ -402,7 +452,9 @@ const MUSCLE_MAP: Record<string, MuscleRegion[]> = {
   'flechisseurs avant-bras': ['forearmFlex'],
   'extenseurs avant-bras': ['forearmExt'],
   'grand droit': ['rectus'],
-  transverse: ['rectus'],
+  transverse: ['transversus'],
+  'transverse de l’abdomen': ['transversus'],
+  'sangle profonde': ['transversus'],
   'grand fessier': ['gluteMax'],
   'moyen fessier': ['gluteMed'],
   'droit femoral': ['rectusFemoris'],

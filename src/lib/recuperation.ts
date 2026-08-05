@@ -109,6 +109,11 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // stabilisent chaque pas, le tenseur du fascia lata aussi.
   forearmFlex: TRES_RAPIDE,
   forearmExt: TRES_RAPIDE,
+  // Les fléchisseurs des doigts tiennent quelque chose du matin au soir : ils
+  // reviennent aussi vite que le reste de la main. Ce sont leurs TENDONS qui
+  // encaissent — et un tendon ne se lit pas sur ce barème.
+  fingerFlex: TRES_RAPIDE,
+  pronators: TRES_RAPIDE,
   tibialis: JAMBES_TRES_RAPIDE,
   fibularis: JAMBES_TRES_RAPIDE,
   tfl: JAMBES_TRES_RAPIDE,
@@ -121,6 +126,12 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   rectus: RAPIDE,
   obliques: RAPIDE,
   serratus: RAPIDE,
+  // Le transverse est un muscle postural pur : il travaille à chaque
+  // expiration, toute la journée. Il ne reste jamais fatigué longtemps.
+  transversus: RAPIDE,
+  // Le petit pectoral est minuscule et tire en permanence sur la coracoïde,
+  // assis comme debout.
+  pecMinor: RAPIDE,
   deltLat: RAPIDE,
   gluteMed: JAMBES_RAPIDE,
   brachioradialis: RAPIDE,
@@ -199,6 +210,12 @@ export const VITESSE_RECUP: Record<MuscleRegion, number> = {
   // plus longtemps que le muscle. Sur une épaule qui a déjà lâché, se tromper
   // dans ce sens-là ne coûte rien ; dans l'autre, si.
   rotatorCuff: TRES_LENT,
+  // Les trois autres chefs de la coiffe partagent le sort du premier : petits,
+  // très tendineux, mal vascularisés. Le sous-scapulaire est le plus puissant
+  // des quatre et le plus sollicité en corps à corps — c'est lui qui empêche
+  // la tête humérale de partir vers l'avant.
+  teresMinor: TRES_LENT,
+  subscapularis: TRES_LENT,
   // Le supra-épineux davantage encore : son tendon passe sous l'acromion, dans
   // le défilé le plus étroit du corps, et c'est le premier à s'user sur une
   // épaule qui a déjà lâché. Se tromper en le déclarant trop lent ne coûte
