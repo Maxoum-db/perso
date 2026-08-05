@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { fetchSettings, readCachedSettings, type Discipline } from '../lib/settings'
+import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
 
 type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
@@ -9,7 +10,11 @@ type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
 // 4 destinations principales dans la barre + le reste dans le menu « Plus »
 // (éviter une barre surchargée sur téléphone).
 // La barre : 🏠 Accueil (dashboard) à gauche, puis le player et l'essentiel.
-const primaryTabs: Tab[] = [
+//
+// Elle est filtrée par les accès : un compte à qui la musculation n'est pas
+// accordée ne doit pas voir son onglet. L'accueil y reste toujours — c'est la
+// porte de sortie de tout écran.
+const TOUS_PRINCIPAUX: Tab[] = [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
@@ -25,17 +30,17 @@ const DISCIPLINES: Record<Discipline, Tab> = {
   course: { to: '/course', label: 'Course', icon: IconRun },
 }
 
-const moreTabs = (discipline: Discipline): Tab[] => [
+const moreTabs = (onglet: Tab | null): Tab[] => [
   { to: '/', label: 'Accueil', icon: IconHome },
   { to: '/agenda', label: 'Agenda', icon: IconCalendar },
   { to: '/notes', label: 'Notes', icon: IconNote },
   { to: '/partage', label: 'À deux', icon: IconHeart },
-  DISCIPLINES[discipline],
+  ...(onglet ? [onglet] : []),
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
 ]
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout({ children, sections }: { children: ReactNode; sections: Section[] }) {
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -46,7 +51,10 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user) fetchSettings(user.id).then((s) => setDiscipline(s.discipline))
   }, [user])
-  const sections = moreTabs(discipline)
+  const ouvert = (t: Tab) => routeAutorisee(t.to, sections)
+  const primaryTabs = TOUS_PRINCIPAUX.filter(ouvert)
+  const affichee = disciplineAffichee(discipline, sections)
+  const rubriques = moreTabs(affichee ? DISCIPLINES[affichee] : null).filter(ouvert)
   const primaryPaths = primaryTabs.map((t) => t.to)
   const moreActive = !primaryPaths.includes(location.pathname)
 
@@ -114,7 +122,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </button>
             </div>
             <div className="grid grid-cols-4 gap-1">
-              {sections.map((t) => (
+              {rubriques.map((t) => (
                 <NavLink
                   key={t.to}
                   to={t.to}

@@ -12,6 +12,15 @@ import { loadObservations } from '../lib/observations'
 import { loadCourbatures } from '../lib/soreness'
 import { loadProfil } from '../lib/profil'
 import { loadBehourd, loadFocus } from '../lib/focus'
+import {
+  enregistrerAcces,
+  estProprietaire,
+  listerComptes,
+  PROPRIETAIRE,
+  SECTIONS,
+  type Acces,
+  type Section,
+} from '../lib/acces'
 
 export function Settings() {
   const { user, signInWithGoogle, signOut } = useAuth()
@@ -80,6 +89,8 @@ export function Settings() {
       </section>
 
       <NotificationsSection userId={user?.id ?? ''} />
+
+      {estProprietaire(user?.email) ? <AccesSection monId={user?.id ?? ''} /> : null}
 
       <p className="px-1 text-center text-xs text-muted/70">Aide · v0.1</p>
     </div>
@@ -329,6 +340,108 @@ function NotificationsSection({ userId }: { userId: string }) {
       )}
 
       {msg ? <p className="mt-2 text-xs text-copper">{msg}</p> : null}
+    </section>
+  )
+}
+
+/**
+ * Qui voit quoi — visible du seul propriétaire.
+ *
+ * Le rendre conditionnel à l'écran ne protège rien en soi : c'est la base qui
+ * refuse l'écriture à tout autre compte, et c'est elle seule qui compte. Mais
+ * afficher un panneau d'administration à qui ne peut rien en faire n'apprend
+ * qu'une chose, l'existence du panneau.
+ */
+function AccesSection({ monId }: { monId: string }) {
+  const [comptes, setComptes] = useState<Acces[] | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    listerComptes()
+      .then(setComptes)
+      .catch((e: Error) => setMsg(e.message))
+  }, [])
+
+  async function basculer(c: Acces, section: Section) {
+    const sections = c.sections.includes(section)
+      ? c.sections.filter((s) => s !== section)
+      : [...c.sections, section]
+    // On peint tout de suite et on écrit derrière : une case à cocher qui
+    // attend le réseau donne l'impression de n'avoir pas été touchée, et on la
+    // touche deux fois.
+    setComptes((liste) => (liste ?? []).map((x) => (x.user_id === c.user_id ? { ...x, sections } : x)))
+    setBusy(c.user_id)
+    try {
+      await enregistrerAcces(c.user_id, sections)
+      setMsg(null)
+    } catch (e) {
+      setMsg((e as Error).message)
+      setComptes(await listerComptes().catch(() => comptes ?? []))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <section className="card p-4">
+      <h2 className="text-sm font-bold text-ink">🔑 Accès des comptes</h2>
+      <p className="mt-1 text-sm text-muted">
+        Ton compte voit tout, toujours. Pour les autres, c'est ici que ça se décide, section par section. L'accueil et
+        les réglages restent ouverts à tous — les fermer enfermerait le compte dans une application sans porte de
+        sortie.
+      </p>
+
+      {msg ? <p className="mt-2 text-xs text-clay">{msg}</p> : null}
+      {comptes === null ? <p className="mt-3 text-xs text-muted">Chargement…</p> : null}
+
+      <div className="mt-3 space-y-3">
+        {(comptes ?? []).map((c) => {
+          const moi = c.user_id === monId || estProprietaire(c.email)
+          return (
+            <div key={c.user_id} className="rounded-xl2 border border-line bg-white/5 p-3">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <b className="text-sm text-ink">{c.email ?? c.user_id.slice(0, 8)}</b>
+                {moi ? (
+                  <span className="rounded-full bg-copper/20 px-1.5 py-0.5 text-[9px] font-bold text-copper">
+                    accès total
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted">
+                    {c.sections.length} section{c.sections.length > 1 ? 's' : ''} sur {SECTIONS.length}
+                  </span>
+                )}
+              </div>
+
+              {moi ? (
+                <p className="mt-1 text-[11px] italic text-muted">
+                  Le propriétaire est reconnu à son adresse ({PROPRIETAIRE}), et la base le sait aussi : ses accès ne
+                  se règlent pas, ils sont acquis.
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {SECTIONS.map((s) => {
+                    const ouvert = c.sections.includes(s.id)
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => basculer(c, s.id)}
+                        disabled={busy === c.user_id}
+                        title={s.aide}
+                        className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                          ouvert ? 'bg-sage text-white' : 'bg-white/5 text-muted hover:text-ink'
+                        }`}
+                      >
+                        {s.icone} {s.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </section>
   )
 }
