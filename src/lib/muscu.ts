@@ -667,7 +667,11 @@ export function isBodyweightExercise(name: string): boolean {
 const GROUPS_KEY = 'muscu_groups'
 const SEED_KEY = 'muscu_seeded'
 const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
-const LIBRARY_SEED_KEY = 'muscu_library_v23'
+// Relevé à v24 pour l'audit anatomique des 278 exercices : 1 114 étiquettes
+// musculaires → 1 946. Sans ce relèvement, le catalogue serait resté figé au
+// 30 juillet — six PR de corrections anatomiques n'avaient jamais atteint la
+// base, et c'est ce catalogue périmé qui gouvernait le mannequin.
+const LIBRARY_SEED_KEY = 'muscu_library_v24'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
@@ -1490,11 +1494,22 @@ async function ensureTemplates(userId: string, cle: string, modeles: SeanceModel
 
 /**
  * Aligne le catalogue sur la bibliothèque de référence :
- *  - complète les groupes musculaires des exercices qui n'en avaient qu'un,
- *    avec leurs coefficients d'intensité ;
+ *  - réécrit le nom et les muscles de tout exercice que la bibliothèque
+ *    connaît, sur sa version de référence ;
  *  - ajoute les exercices absents.
- * Les exercices dont l'utilisateur a lui-même défini plusieurs groupes ne sont
- * jamais réécrits.
+ *
+ * Ce que TU as créé toi-même n'est pas dans la bibliothèque : ces exercices-là
+ * ne sont jamais touchés, quel que soit le drapeau.
+ *
+ * ⚠️ En revanche une retouche faite à la main SUR un exercice de la
+ * bibliothèque est bien remplacée — rien en base ne distingue une retouche
+ * d'une entrée simplement périmée, et deviner reviendrait à figer les erreurs
+ * qu'on veut corriger. Le commentaire disait auparavant l'inverse ; c'était
+ * faux, et c'est le genre de fausse garantie sur laquelle on se repose.
+ *
+ * Le passage n'a lieu qu'une fois par version du drapeau : relever
+ * LIBRARY_SEED_KEY est donc la seule façon de faire redescendre une correction
+ * anatomique dans un catalogue déjà constitué.
  */
 async function ensureLibrary(userId: string): Promise<boolean> {
   const done = await fetchKv<boolean>(userId, LIBRARY_SEED_KEY, false)
