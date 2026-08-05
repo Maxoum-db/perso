@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { fixerCompte, viderCaches } from './cache'
 import {
   storeGoogleToken,
   clearGoogleToken,
@@ -53,6 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     supabase.auth.getSession().then(({ data }) => {
+      // Avant TOUTE lecture de cache : c'est cet appel qui purge les données du
+      // compte précédent si ce n'est pas le même. Une session expirée puis
+      // rouverte sur un autre compte ne passe pas par le bouton de déconnexion.
+      if (data.session?.user) fixerCompte(data.session.user.id)
       setSession(data.session)
       capture(data.session)
       // Au rechargement, provider_token est absent : on régénère via le serveur.
@@ -61,9 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (s?.user) fixerCompte(s.user.id)
       setSession(s)
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') capture(s)
-      if (event === 'SIGNED_OUT') clearGoogleToken()
+      // On ne laisse rien derrière soi sur un appareil partagé : les
+      // courbatures, les réglages et les accès du compte qui part sont effacés
+      // en même temps que son jeton.
+      if (event === 'SIGNED_OUT') {
+        clearGoogleToken()
+        viderCaches()
+      }
     })
 
     return () => sub.subscription.unsubscribe()
@@ -99,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     clearGoogleToken()
+    viderCaches()
     await supabase.auth.signOut()
   }
 

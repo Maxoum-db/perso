@@ -13,6 +13,7 @@ import { loadCourbatures } from '../lib/soreness'
 import { loadProfil } from '../lib/profil'
 import { loadBehourd, loadFocus } from '../lib/focus'
 import {
+  DEFAUT_NOUVEAU_COMPTE,
   enregistrerAcces,
   estProprietaire,
   listerComptes,
@@ -390,6 +391,11 @@ function AccesSection({ monId }: { monId: string }) {
         Ton compte voit tout, toujours. Pour les autres, c'est ici que ça se décide, section par section. L'accueil et
         les réglages restent ouverts à tous — les fermer enfermerait le compte dans une application sans porte de
         sortie.
+      </p>
+      <p className="mt-1 text-xs italic text-muted">
+        Un compte qui arrive part avec{' '}
+        {DEFAUT_NOUVEAU_COMPTE.map((id) => SECTIONS.find((s) => s.id === id)?.label ?? id).join(' et ')}. Le reste
+        attend que tu l'ouvres.
       </p>
 
       {msg ? <p className="mt-2 text-xs text-clay">{msg}</p> : null}
