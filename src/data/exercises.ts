@@ -107,8 +107,8 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Rowing prise large coudes hauts', groups: 'Rhomboïdes:1, Trapèze moyen:0.9, Deltoïde postérieur:0.7, Grand dorsal:0.5, Biceps:0.4, Brachial:0.4, Trapèze inférieur:0.4, Coiffe des rotateurs:0.4, Grand rond:0.4, Fléchisseurs avant-bras:0.3', sets: 3, reps: '12' },
   // Dentelé antérieur : il plaque l'omoplate contre les côtes. Faible, l'omoplate
   // décolle et l'épaule perd sa base — critique avec une AC abîmée.
-  { name: 'Pompe scapulaire (protraction)', groups: 'Dentelé antérieur:1, Trapèze inférieur:0.4, Grand droit:0.4, Grand pectoral:0.3, Deltoïde antérieur:0.3, Triceps:0.3', sets: 3, reps: '15', notes: 'En planche, coudes verrouillés : on ne bouge que les omoplates.', adaptable: true },
-  { name: 'Poussée dentelé à la poulie (serratus punch)', groups: 'Dentelé antérieur:1, Deltoïde antérieur:0.4, Grand pectoral:0.3, Trapèze inférieur:0.3, Obliques:0.3', sets: 3, reps: '15/bras' },
+  { name: 'Pompe scapulaire (protraction)', groups: 'Dentelé antérieur:1, Petit pectoral:0.6, Trapèze inférieur:0.4, Grand droit:0.4, Grand pectoral:0.3, Deltoïde antérieur:0.3, Triceps:0.3', sets: 3, reps: '15', notes: 'En planche, coudes verrouillés : on ne bouge que les omoplates.', adaptable: true },
+  { name: 'Poussée dentelé à la poulie (serratus punch)', groups: 'Dentelé antérieur:1, Petit pectoral:0.5, Deltoïde antérieur:0.4, Grand pectoral:0.3, Trapèze inférieur:0.3, Obliques:0.3', sets: 3, reps: '15/bras' },
   { name: 'Rotation externe d’épaule (poulie ou élastique)', groups: 'Coiffe des rotateurs:1, Petit rond:0.9, Supra-épineux:0.5, Deltoïde postérieur:0.4, Trapèze moyen:0.3, Trapèze inférieur:0.3', sets: 2, reps: '15/bras', adaptable: true },
   // Bras à 90° d'abduction : la position d'armé, celle où l'épaule est la plus
   // exposée sous le heaume. C'est là que la coiffe doit tenir.
@@ -155,9 +155,9 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Poussée de hanches (barre ou machine)', groups: 'Grand fessier:1, Adducteurs:0.6, Ischios:0.5, Quadriceps:0.4, Grand droit:0.4', sets: 4, reps: '12' },
   { name: 'Abducteurs (machine)', groups: 'Moyen fessier:1, Tenseur du fascia lata:0.6, Rotateurs de hanche:0.5, Grand fessier:0.3, Obliques:0.3', sets: 3, reps: '15' },
   { name: 'Adducteurs (machine)', groups: 'Adducteurs:1, Gracile:0.7, Ischios internes:0.4, Grand droit:0.3', sets: 3, reps: '15' },
-  { name: 'Mollets debout (machine)', groups: 'Gastrocnémiens:1, Soléaire:0.5, Fibulaires:0.4', sets: 4, reps: '20' },
-  { name: 'Mollets assis (machine)', groups: 'Soléaire:1, Gastrocnémiens:0.4, Fibulaires:0.3', sets: 4, reps: '20' },
-  { name: 'Mollets à la presse', groups: 'Gastrocnémiens:1, Soléaire:0.6, Fibulaires:0.4', sets: 4, reps: '15' },
+  { name: 'Mollets debout (machine)', groups: 'Gastrocnémiens:1, Tibial postérieur:0.6, Soléaire:0.5, Fibulaires:0.4', sets: 4, reps: '20' },
+  { name: 'Mollets assis (machine)', groups: 'Soléaire:1, Tibial postérieur:0.5, Gastrocnémiens:0.4, Fibulaires:0.3', sets: 4, reps: '20' },
+  { name: 'Mollets à la presse', groups: 'Gastrocnémiens:1, Soléaire:0.6, Tibial postérieur:0.6, Fibulaires:0.4', sets: 4, reps: '15' },
   { name: 'Extension terminale du genou (élastique)', groups: 'Vaste médial:1, Vaste latéral:0.4, Droit fémoral:0.4', sets: 3, reps: '15', adaptable: true },
 
   // ── Core ──────────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
 
   // ── Fonctionnel / béhourd ────────────────────────────────────────────────
   { name: 'Extensions cervicales (élastique)', groups: 'Extenseurs du cou:1, Trapèze supérieur:0.5, Élévateur de la scapula:0.4, Érecteurs du rachis:0.3', sets: 3, reps: '15', notes: 'Amplitude contrôlée, sans à-coup. Renforce la nuque — prévention commotion sous heaume.', adaptable: true },
-  { name: 'Pont cervical (front bridge)', groups: 'Extenseurs du cou:1, Cou:0.7, Érecteurs du rachis:0.5, Trapèze supérieur:0.4, Élévateur de la scapula:0.4, Grand fessier:0.3', sets: 3, reps: '30 s', notes: 'Isométrique doux, appui sur un tapis. Progresser très lentement en durée.' },
+  { name: 'Pont cervical (front bridge)', groups: 'Extenseurs du cou:1, Cou:0.7, Scalènes:0.6, Érecteurs du rachis:0.5, Trapèze supérieur:0.4, Élévateur de la scapula:0.4, Grand fessier:0.3', sets: 3, reps: '30 s', notes: 'Isométrique doux, appui sur un tapis. Progresser très lentement en durée.' },
   { name: 'Flexions latérales de nuque', groups: 'Élévateur de la scapula:1, Scalènes:0.9, Cou:0.8, Extenseurs du cou:0.6, Trapèze supérieur:0.5, Carré des lombes:0.3', sets: 3, reps: '12/côté', notes: 'Résistance manuelle légère. Essentiel pour encaisser les frappes latérales.', adaptable: true },
   // Les portages sont les exercices les mieux documentés en EMG du catalogue, et
   // c'étaient les moins bien étiquetés : il leur manquait les DEUX muscles qui
@@ -190,7 +190,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Marche du fermier', groups: 'Fléchisseurs des doigts:1, Fléchisseurs avant-bras:0.9, Trapèze supérieur:0.8, Carré des lombes:0.7, Obliques:0.6, Érecteurs du rachis:0.6, Moyen fessier:0.6, Grand droit:0.5, Extenseurs avant-bras:0.5, Élévateur de la scapula:0.5, Quadriceps:0.4, Cou:0.4, Brachio-radial:0.4, Trapèze moyen:0.4, Soléaire:0.4, Adducteurs:0.3', sets: 4, reps: '30 m' },
   // Charge d'un seul côté : c'est la version où le moyen fessier et les obliques
   // encaissent le plus, puisque rien ne contrebalance de l'autre main.
-  { name: 'Port valise (haltère à une main)', groups: 'Obliques:1, Carré des lombes:0.9, Fléchisseurs des doigts:0.9, Grand droit:0.8, Fléchisseurs avant-bras:0.8, Moyen fessier:0.7, Trapèze supérieur:0.5, Érecteurs du rachis:0.5, Extenseurs avant-bras:0.4, Brachio-radial:0.4, Tenseur du fascia lata:0.4, Élévateur de la scapula:0.4, Cou:0.3, Adducteurs:0.3', sets: 3, reps: '30 m/côté' },
+  { name: 'Port valise (haltère à une main)', groups: 'Obliques:1, Carré des lombes:0.9, Fléchisseurs des doigts:0.9, Grand droit:0.8, Fléchisseurs avant-bras:0.8, Moyen fessier:0.7, Scalènes:0.5, Trapèze supérieur:0.5, Érecteurs du rachis:0.5, Extenseurs avant-bras:0.4, Brachio-radial:0.4, Tenseur du fascia lata:0.4, Élévateur de la scapula:0.4, Cou:0.3, Adducteurs:0.3', sets: 3, reps: '30 m/côté' },
   { name: 'Balancier à la kettlebell', groups: 'Grand fessier:1, Ischios:0.8, Érecteurs du rachis:0.5, Grand droit:0.5, Adducteurs:0.5, Grand dorsal:0.5, Fléchisseurs avant-bras:0.4, Trapèze supérieur:0.4, Obliques:0.4, Deltoïde postérieur:0.3', sets: 4, reps: '15' },
   { name: 'Relevé turc', groups: 'Grand droit:1, Obliques:0.8, Deltoïde antérieur:0.8, Coiffe des rotateurs:0.6, Deltoïde latéral:0.5, Trapèze inférieur:0.5, Dentelé antérieur:0.5, Grand fessier:0.5, Fléchisseurs avant-bras:0.5, Triceps:0.5, Quadriceps:0.4, Adducteurs:0.3', sets: 3, reps: '5/côté' },
   { name: 'Burpees', groups: 'Cardio:1, Quadriceps:1, Grand pectoral:0.5, Triceps:0.5, Grand droit:0.5, Grand fessier:0.5, Psoas-iliaque:0.5, Gastrocnémiens:0.5, Deltoïde antérieur:0.4, Ischios:0.4, Dentelé antérieur:0.3, Érecteurs du rachis:0.3', sets: 4, reps: '10' },
@@ -340,7 +340,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Fentes à la barre guidée', groups: 'Quadriceps:1, Grand fessier:0.8, Adducteurs:0.5, Moyen fessier:0.4, Ischios:0.4, Soléaire:0.3', sets: 3, reps: '10/jambe' },
   { name: 'Poussée de hanches à la barre guidée', groups: 'Grand fessier:1, Adducteurs:0.6, Ischios:0.5, Quadriceps:0.4, Grand droit:0.3', sets: 4, reps: '12' },
   { name: 'Haussements d’épaules à la barre guidée', groups: 'Trapèze supérieur:1, Élévateur de la scapula:0.7, Trapèze moyen:0.4, Fléchisseurs avant-bras:0.4, Cou:0.4, Rhomboïdes:0.3', sets: 4, reps: '15', notes: 'Charge lourde possible sans lâcher la barre : idéal pour les trapèzes du harnois.' },
-  { name: 'Mollets debout à la barre guidée', groups: 'Gastrocnémiens:1, Soléaire:0.5, Fibulaires:0.4', sets: 4, reps: '20' },
+  { name: 'Mollets debout à la barre guidée', groups: 'Gastrocnémiens:1, Tibial postérieur:0.6, Soléaire:0.5, Fibulaires:0.4', sets: 4, reps: '20' },
 
   // Machines guidées
   { name: 'Développé pectoraux convergent (machine)', groups: 'Grand pectoral:1, Pectoral supérieur:0.5, Triceps:0.5, Deltoïde antérieur:0.4, Dentelé antérieur:0.3', sets: 4, reps: '10' },
@@ -378,7 +378,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
 
   // Zone cross-training
   { name: 'Sangles de suspension — tirage', groups: 'Grand dorsal:1, Trapèze moyen:0.6, Biceps:0.5, Brachial:0.5, Grand droit:0.5, Rhomboïdes:0.5, Deltoïde postérieur:0.4, Fléchisseurs avant-bras:0.4, Grand rond:0.4, Trapèze inférieur:0.3, Obliques:0.3', sets: 3, reps: '12' },
-  { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Triceps:0.6, Deltoïde antérieur:0.5, Grand droit:0.5, Coiffe des rotateurs:0.5, Pectoral supérieur:0.4, Dentelé antérieur:0.4, Obliques:0.4, Grand fessier:0.3', sets: 3, reps: '12' },
+  { name: 'Sangles de suspension — pompes', groups: 'Grand pectoral:1, Triceps:0.6, Petit pectoral:0.6, Deltoïde antérieur:0.5, Grand droit:0.5, Coiffe des rotateurs:0.5, Pectoral supérieur:0.4, Dentelé antérieur:0.4, Obliques:0.4, Grand fessier:0.3', sets: 3, reps: '12' },
   { name: 'Marche latérale élastique (mini-band)', groups: 'Moyen fessier:1, Tenseur du fascia lata:0.7, Rotateurs de hanche:0.5, Grand fessier:0.4, Obliques:0.3, Fibulaires:0.3', sets: 3, reps: '15/côté', notes: 'Échauffement de hanche : réveille le moyen fessier avant le travail lourd de jambes.', adaptable: true },
   // Tenseur du fascia lata : abduction hanche TENDUE. En gainage latéral il
   // passe devant le moyen fessier, qui préfère la hanche fléchie.

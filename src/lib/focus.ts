@@ -17,27 +17,27 @@ export const FOCUS: Record<FocusId, Focus> = {
   core: {
     label: 'Ceinture abdominale',
     emoji: '🌀',
-    regions: ['rectus', 'obliques', 'erectors', 'serratus'],
+    regions: ['rectus', 'obliques', 'transversus', 'erectors', 'multifidus', 'quadratusLumborum', 'serratus'],
   },
   prehension: {
     label: 'Préhension',
     emoji: '✊',
-    regions: ['forearmFlex', 'forearmExt'],
+    regions: ['fingerFlex', 'forearmFlex', 'forearmExt', 'brachioradialis', 'pronators'],
   },
   cou: {
     label: 'Cou & trapèzes',
     emoji: '🪖',
-    regions: ['neck', 'trapsUpper'],
+    regions: ['neck', 'neckExt', 'scalenes', 'levator', 'trapsUpper'],
   },
   jambes: {
     label: 'Jambes',
     emoji: '🦵',
-    regions: ['gluteMax', 'gluteMed', 'vastusLat', 'vastusMed', 'bicepsFemoris', 'hamsInner'],
+    regions: ['gluteMax', 'gluteMed', 'hipRotators', 'vastusLat', 'vastusMed', 'rectusFemoris', 'bicepsFemoris', 'hamsInner', 'adductors', 'gracilis', 'tfl', 'hipFlexors', 'gastroc', 'soleus', 'tibialis', 'tibPost', 'fibularis'],
   },
   haut: {
     label: 'Haut du corps',
     emoji: '💪',
-    regions: ['pecUpper', 'pecLower', 'lats', 'deltAnt', 'deltLat', 'deltPost', 'trapsMid'],
+    regions: ['pecUpper', 'pecLower', 'pecMinor', 'lats', 'teres', 'deltAnt', 'deltLat', 'deltPost', 'trapsMid', 'trapsLow', 'rhomboids', 'serratus', 'rotatorCuff', 'supraspinatus', 'teresMinor', 'subscapularis', 'biceps', 'brachialis', 'coracobrachialis', 'tricepsLong', 'tricepsLat'],
   },
   /**
    * Cas à part : il ne vise pas un muscle mais un ÉTAT. Le générateur bascule
