@@ -235,17 +235,56 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Kayak / aviron sur l’eau', groups: 'Grand dorsal:1, Grand droit:0.7, Deltoïde postérieur:0.7, Cardio:0.7, Obliques:0.6, Biceps:0.6, Trapèze moyen:0.5, Brachial:0.5, Fléchisseurs avant-bras:0.5, Érecteurs du rachis:0.5, Rhomboïdes:0.4, Grand rond:0.4', sets: 1, reps: '40 min', notes: 'Tirage + rotation du tronc, gainage constant.', kind: 'activite' },
   { name: 'Escalade / bloc', groups: 'Fléchisseurs des doigts:1, Grand dorsal:1, Fléchisseurs avant-bras:0.9, Biceps:0.7, Grand droit:0.6, Brachio-radial:0.6, Brachial:0.5, Grand rond:0.5, Obliques:0.5, Vaste latéral:0.5, Extenseurs avant-bras:0.5, Vaste médial:0.5, Deltoïde postérieur:0.4, Trapèze inférieur:0.4, Adducteurs:0.4, Droit fémoral:0.3', sets: 1, reps: '60 min', notes: 'Grip + dos + biceps, au poids du corps. ⚠️ AC droite : éviter les grands jetés.', kind: 'activite' },
   { name: 'Jardinage (bêchage)', groups: 'Érecteurs du rachis:0.7, Grand dorsal:0.6, Grand fessier:0.6, Obliques:0.5, Fléchisseurs avant-bras:0.5, Deltoïde antérieur:0.5, Vaste latéral:0.5, Vaste médial:0.5, Grand droit:0.4, Biceps:0.4, Trapèze supérieur:0.4, Biceps fémoral:0.4, Ischios internes:0.4, Droit fémoral:0.3', sets: 1, reps: '45 min', notes: 'Hinge répété sous charge légère. Dos droit, fessiers serrés.', kind: 'activite' },
-  // Slackline : la sangle oscille en permanence, le corps répond par des
-  // micro-corrections continues. Ce sont les érecteurs et les stabilisateurs
-  // frontaux de hanche qui encaissent ça, en isométrie — pas seulement les
-  // chevilles et la sangle abdominale.
-  // Les coefficients disent QUELS muscles portent le mouvement — et sur une
-  // sangle, c'est bien la chaîne lombaire et les stabilisateurs de cheville.
-  // Mais ils servent aussi à estimer la FATIGUE, et là il faut rester mesuré :
-  // stabiliser à vide n'est pas un soulevé de terre. Tagués à 1, les érecteurs
-  // coûtaient plus de récupération après une slackline qu'après 150 kg au sol,
-  // et deux séances par semaine suffisaient à ne plus jamais les voir verts.
-  { name: 'Slackline (travail d’équilibre)', groups: 'Tibial postérieur:0.8, Érecteurs du rachis:0.7, Fibulaires:0.7, Moyen fessier:0.6, Grand droit:0.6, Obliques:0.6, Multifides:0.6, Tenseur du fascia lata:0.5, Soléaire:0.5, Tibial antérieur:0.5, Rotateurs de hanche:0.5, Psoas-iliaque:0.4, Vaste latéral:0.4, Vaste médial:0.4, Droit fémoral:0.3, Adducteurs:0.3, Gastrocnémiens:0.3', sets: 3, reps: '5 min', notes: 'Le bas du dos travaille en continu, mais sans charge : ça compte comme du volume lombaire léger, pas comme une séance de soulevé.', kind: 'activite' },
+  // ── 🪢 Slackline ───────────────────────────────────────────────────────────
+  //
+  // Cinq entrées plutôt qu'une : sur une sangle, l'appui statique sur une jambe
+  // et le rebond à deux pieds ne chargent pas les mêmes muscles, et les fondre
+  // en une ligne moyenne fait mentir le mannequin dans les deux cas.
+  //
+  // Ce que la littérature soutient, et sur quoi reposent les coefficients :
+  //
+  //  · les stabilisateurs LATÉRAUX de la cheville mènent. Le fibulaire (long
+  //    péronier) est ce qui freine l'inversion de l'arrière-pied, et les
+  //    premiers essais sur sangle se soldent par une oscillation latérale
+  //    incontrôlée de la jambe d'appui — c'est exactement ce qu'il retient.
+  //    Le tibial postérieur tient l'arche interne en regard ;
+  //  · le SOLÉAIRE est au cœur de la boucle. Keller et coll. (Scand J Med Sci
+  //    Sports, 2012) montrent qu'après dix séances le réflexe H du soléaire
+  //    DIMINUE : le contrôle quitte la boucle réflexe spinale pour passer au
+  //    niveau supraspinal. Le muscle travaille, mais l'adaptation n'est pas de
+  //    la force, c'est du pilotage ;
+  //  · le QUADRICEPS est plus impliqué qu'il n'y paraît. Pfusterschmied et
+  //    coll. (J Sci Med Sport, 2013) trouvent, après quatre semaines, une
+  //    activation accrue du droit fémoral en phase PRÉPARATOIRE et une
+  //    tendance à la co-activation droit fémoral / biceps fémoral, avec une
+  //    correction articulaire réduite au genou. Leur conclusion porte sur la
+  //    stabilité fonctionnelle du genou. Gabel et coll. (J Sci Med Sport, 2015)
+  //    classent d'ailleurs la montée sur sangle parmi les exercices de
+  //    rééducation du genou, en chaîne « composite » ;
+  //  · la chaîne LATÉRALE du tronc encaisse le reste. Les pratiquants réguliers
+  //    tiennent 45 % plus longtemps en planche et 36 % de plus en gainage
+  //    latéral que des sédentaires (Retos, 2021), avec une corrélation entre
+  //    les années de pratique et l'endurance des fléchisseurs et des latéraux
+  //    du tronc. D'où obliques et carré des lombes hauts, et le grand droit
+  //    plus bas : sur une sangle on résiste à l'inclinaison, on ne fléchit pas.
+  //
+  // Ce que la littérature ne soutient PAS, et qu'il ne faut donc pas croire :
+  // le transfert. La méta-analyse de Donath et coll. (Sports Med, 2017) et les
+  // trois mois de Ringhof et Stein (PLOS One, 2018) disent la même chose — les
+  // progrès sont énormes SUR LA SANGLE et ne se retrouvent presque pas sur une
+  // tâche d'équilibre non entraînée. C'est une compétence à part entière, pas
+  // un multiplicateur d'équilibre général.
+  //
+  // Les coefficients servent aussi à estimer la FATIGUE, et là il faut rester
+  // mesuré : stabiliser à vide n'est pas un soulevé de terre. Tagués à 1, les
+  // érecteurs coûtaient plus de récupération après une slackline qu'après
+  // 150 kg au sol, et deux séances par semaine suffisaient à ne plus jamais
+  // les voir verts. Ils plafonnent donc à 0,7, quoi que fasse la sangle.
+  { name: 'Slackline (travail d’équilibre)', groups: 'Fibulaires:1, Tibial postérieur:0.9, Moyen fessier:0.8, Soléaire:0.8, Tibial antérieur:0.7, Obliques:0.7, Vaste médial:0.6, Droit fémoral:0.6, Vaste latéral:0.6, Multifides:0.6, Carré des lombes:0.6, Rotateurs de hanche:0.5, Érecteurs du rachis:0.5, Transverse:0.5, Tenseur du fascia lata:0.5, Psoas-iliaque:0.5, Grand fessier:0.4, Grand droit:0.4, Gastrocnémiens:0.4, Adducteurs:0.4, Biceps fémoral:0.4, Ischios internes:0.4, Deltoïde latéral:0.4, Deltoïde antérieur:0.3, Gracile:0.3', sets: 4, reps: '5 min', notes: 'Séance libre, mélangée : c’est la moyenne des variantes. Si tu sais ce que tu as fait, prends l’entrée précise — statique, marche, surf ou longline ne chargent pas les mêmes muscles. ⚠️ AC droite : les bras restent en l’air tout le temps de l’exercice, et une chute se rattrape sur la main tendue. Sangle basse, zone de réception dégagée.', kind: 'activite' },
+  { name: 'Slackline — appui statique sur une jambe', groups: 'Fibulaires:1, Tibial postérieur:0.9, Moyen fessier:0.9, Soléaire:0.8, Tibial antérieur:0.7, Obliques:0.7, Carré des lombes:0.7, Rotateurs de hanche:0.6, Vaste médial:0.6, Multifides:0.6, Vaste latéral:0.5, Droit fémoral:0.5, Tenseur du fascia lata:0.5, Érecteurs du rachis:0.5, Transverse:0.5, Grand droit:0.4, Grand fessier:0.4, Adducteurs:0.4, Biceps fémoral:0.4, Ischios internes:0.4, Gastrocnémiens:0.4, Deltoïde latéral:0.4, Psoas-iliaque:0.3, Gracile:0.3, Deltoïde antérieur:0.3', sets: 5, reps: '30 s/jambe', notes: 'La variante la plus exigeante pour le plan frontal : pas de propulsion, que de la stabilisation, donc le temps sous tension maximal pour les fibulaires et le moyen fessier. C’est aussi celle qui parle le plus à tes rotules — appui fermé, genou légèrement fléchi, vaste médial en co-contraction continue. Chronomètre chaque jambe : l’écart entre les deux est l’information, pas le total.', kind: 'activite' },
+  { name: 'Slackline — marche aller-retour', groups: 'Fibulaires:1, Tibial postérieur:0.9, Moyen fessier:0.8, Soléaire:0.8, Tibial antérieur:0.7, Droit fémoral:0.7, Vaste médial:0.7, Vaste latéral:0.7, Obliques:0.6, Multifides:0.6, Carré des lombes:0.6, Psoas-iliaque:0.6, Rotateurs de hanche:0.5, Érecteurs du rachis:0.5, Grand fessier:0.5, Transverse:0.5, Tenseur du fascia lata:0.5, Gastrocnémiens:0.5, Grand droit:0.4, Biceps fémoral:0.4, Ischios internes:0.4, Adducteurs:0.4, Deltoïde latéral:0.4, Deltoïde antérieur:0.3, Gracile:0.3', sets: 6, reps: '1 traversée', notes: 'Appui unipodal alterné avec propulsion : le droit fémoral et le psoas montent par rapport au statique, la stabilisation par jambe baisse d’autant. Regard au bout de la sangle, jamais sur les pieds. Compte en traversées réussies, pas en minutes.', kind: 'activite' },
+  { name: 'Slackline — surf (rebond sur les deux pieds)', groups: 'Vaste latéral:1, Vaste médial:1, Fibulaires:0.9, Droit fémoral:0.8, Soléaire:0.8, Gastrocnémiens:0.8, Tibial postérieur:0.8, Grand fessier:0.7, Moyen fessier:0.6, Tibial antérieur:0.6, Obliques:0.6, Biceps fémoral:0.6, Ischios internes:0.6, Grand droit:0.5, Érecteurs du rachis:0.5, Multifides:0.5, Transverse:0.5, Carré des lombes:0.4, Adducteurs:0.4, Rotateurs de hanche:0.4, Tenseur du fascia lata:0.4, Psoas-iliaque:0.3, Deltoïde latéral:0.3', sets: 4, reps: '45 s', notes: 'La seule variante où le quadriceps mène : le rebond est un cycle flexion-extension de genou sous charge élastique, avec réception excentrique à chaque oscillation. ⚠️ Dysplasie rotulienne : c’est aussi la seule qui charge vraiment le fémoro-patellaire. Amplitude courte, jamais dans la douleur, et on arrête dès que le genou part en dedans.', kind: 'activite' },
+  { name: 'Slackline — longline (20 m et plus)', groups: 'Fibulaires:1, Tibial postérieur:0.9, Obliques:0.8, Moyen fessier:0.8, Soléaire:0.8, Carré des lombes:0.8, Multifides:0.7, Érecteurs du rachis:0.7, Tibial antérieur:0.7, Transverse:0.6, Droit fémoral:0.6, Vaste médial:0.6, Vaste latéral:0.6, Grand droit:0.6, Rotateurs de hanche:0.6, Psoas-iliaque:0.5, Tenseur du fascia lata:0.5, Grand fessier:0.5, Gastrocnémiens:0.5, Deltoïde latéral:0.5, Adducteurs:0.4, Biceps fémoral:0.4, Ischios internes:0.4, Deltoïde antérieur:0.4, Trapèze supérieur:0.3, Gracile:0.3', sets: 3, reps: '10 min', notes: 'Sangle longue : oscillation plus ample et plus lente, efforts bien plus longs. Le tronc encaisse davantage que sur une courte — c’est l’endurance des obliques et du carré des lombes qui limite avant les chevilles. À 102 kg la sangle descend bas au milieu : vérifie la tension et la hauteur avant de monter.', kind: 'activite' },
   { name: 'Étirement fléchisseurs de hanche (fente basse)', groups: 'Psoas-iliaque:1, Droit fémoral:0.6, Adducteurs:0.4, Grand fessier:0.4, Grand droit:0.3', sets: 2, reps: '45 s/côté', kind: 'recuperation', notes: 'Bassin en rétroversion, on pousse la hanche vers l’avant. Indispensable avec l’antéversion du bassin.' },
   // ── ⚔️ Béhourd ────────────────────────────────────────────────────────────
   // Discipline de combat en armure : le cou encaisse les frappes sous heaume,
