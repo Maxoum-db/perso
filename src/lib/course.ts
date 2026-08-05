@@ -1,4 +1,7 @@
 import { supabase } from './supabase'
+import { EXERCISE_LIBRARY } from '../data/exercises'
+import type { MuscuSession } from './muscu'
+import type { IntensiteId } from './intensite'
 
 // La course à pied : saisie des sorties, et ce qu'on peut en lire.
 //
@@ -470,4 +473,102 @@ export function lireSplits(txt: string): number[] {
     .filter(Boolean)
     .map(lireDuree)
     .filter((v) => v > 0)
+}
+
+
+// ── Ce qu'une sortie fait au mannequin ──────────────────────────────────────
+//
+// Courir travaille des muscles, et le mannequin doit le savoir : sans ça, une
+// coureuse voit ses jambes vertes le lendemain d'un fractionné, et le
+// générateur lui propose des squats.
+//
+// On ne recalcule RIEN. Chaque sortie est convertie en une séance de
+// musculation d'une seule ligne, dont l'étiquetage vient de la bibliothèque —
+// la même qui sert à tout le reste. Le moteur de récupération, les courbatures,
+// le sommeil, l'intensité : tout s'applique ensuite sans qu'on y touche. Une
+// seconde façon de calculer la charge serait une seconde vérité, et deux
+// vérités finissent toujours par se contredire.
+
+/**
+ * L'exercice de la bibliothèque qui décrit le mieux chaque type de sortie.
+ *
+ * Le seuil n'a pas son entrée : il sollicite les mêmes muscles que l'endurance,
+ * plus fort. C'est l'INTENSITÉ qui porte la différence, pas l'étiquetage — et
+ * c'est déjà ce que fait le modèle pour une séance de force menée à fond.
+ */
+const EXERCICE_PAR_TYPE: Record<TypeSortie, string> = {
+  recuperation: 'Course à pied — endurance (zone 2)',
+  endurance: 'Course à pied — endurance (zone 2)',
+  longue: 'Course à pied — endurance (zone 2)',
+  seuil: 'Course à pied — endurance (zone 2)',
+  course: 'Course à pied — endurance (zone 2)',
+  fractionne: 'Fractionné 30/30',
+  cotes: 'Sprints en côte',
+  trail: 'Course en sentier',
+}
+
+/** À défaut d'effort perçu saisi, ce que le type de sortie vaut d'ordinaire. */
+const INTENSITE_PAR_TYPE: Record<TypeSortie, IntensiteId> = {
+  recuperation: 'tranquille',
+  endurance: 'normal',
+  longue: 'normal',
+  seuil: 'soutenu',
+  trail: 'soutenu',
+  fractionne: 'fond',
+  cotes: 'fond',
+  course: 'fond',
+}
+
+/**
+ * L'effort perçu décide, le type de sortie ne fait que suppléer.
+ *
+ * Une sortie longue menée à 9/10 n'est pas « normale » parce qu'elle s'appelle
+ * « longue », et un fractionné avorté à 4/10 n'est pas « à fond ». Ce qui a été
+ * ressenti l'emporte toujours sur ce qui était prévu.
+ */
+export function intensiteSortie(s: Sortie): IntensiteId {
+  if (s.rpe === null) return INTENSITE_PAR_TYPE[s.type]
+  return s.rpe <= 3 ? 'tranquille' : s.rpe <= 6 ? 'normal' : s.rpe <= 8 ? 'soutenu' : 'fond'
+}
+
+/**
+ * Une sortie, vue comme une séance — pour le mannequin et lui seul.
+ *
+ * L'identifiant est préfixé : ces séances ne doivent jamais être confondues
+ * avec celles du journal, ni modifiables, ni comptées deux fois au tonnage.
+ * Elles n'existent que le temps d'un calcul de récupération.
+ */
+export function sortieEnSeance(s: Sortie): MuscuSession {
+  const ref = EXERCISE_LIBRARY.find((e) => e.name === EXERCICE_PAR_TYPE[s.type])
+  const type = TYPES_SORTIE.find((t) => t.id === s.type)
+  return {
+    id: `course:${s.id}`,
+    date: s.date,
+    created_at: `${s.date}T${s.heure ?? '12:00'}:00`,
+    name: `${type?.icone ?? '🏃'} ${type?.label ?? 'Course'} — ${s.distance_km.toFixed(1)} km`,
+    notes: '',
+    duration_min: Math.round(s.duree_s / 60),
+    template_id: null,
+    intensite: intensiteSortie(s),
+    exercises: [
+      {
+        id: `course:${s.id}:1`,
+        position: 0,
+        name: ref?.name ?? 'Course à pied — endurance (zone 2)',
+        muscle_group: ref?.groups ?? '',
+        sets: 1,
+        reps: `${Math.round(s.duree_s / 60)} min`,
+        weight_kg: null,
+        notes: '',
+        // Un footing de récupération SOULAGE au lieu de charger : c'est le
+        // même mécanisme que la marche ou les étirements, et il rend des jours
+        // aux jambes au lieu d'en prendre.
+        doux: s.type === 'recuperation' ? true : undefined,
+      },
+    ],
+  } as MuscuSession
+}
+
+export function sortiesEnSeances(sorties: Sortie[]): MuscuSession[] {
+  return sorties.map(sortieEnSeance)
 }

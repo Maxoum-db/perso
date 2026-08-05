@@ -28,6 +28,7 @@ import {
 } from '../lib/soreness'
 import { evaluerForme } from '../lib/forme'
 import { chargesCourantes } from '../lib/charges'
+import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
 import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '../lib/duree'
 import { composerSeance } from '../lib/prochaine'
 import {
@@ -304,6 +305,9 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [nuits, setNuits] = useState<Nuits>({})
   // Base des ressentis déclarés : elle servira à affiner le barème.
   const [observations, setObservations] = useState<Observations>([])
+  // Les sorties de course. Elles ne rejoignent PAS le journal — elles ont le
+  // leur — mais elles pèsent sur la récupération : courir travaille des muscles.
+  const [sorties, setSorties] = useState<Sortie[]>([])
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
@@ -317,7 +321,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -332,6 +336,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadBehourd(user.id).catch(() => false),
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
+        // Un compte sans la course n'a pas de sorties : on ne demande rien.
+        sections.includes('course') ? listSorties(user.id).catch(() => [] as Sortie[]) : [],
       ])
       setTemplates(t)
       setSessions(s)
@@ -349,6 +355,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       setObservations(ob)
       setBehourd(bh)
       setDuree(du)
+      setSorties(so)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -388,13 +395,17 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       ) : tab === 'progression' ? (
         <div className="space-y-3">
           <ProgressTab progress={exerciseProgress(sessions)} />
-          <NeglectedMuscles loads={chargesCourantes(sessions, courbatures, nuits)} focus={focus} />
+          <NeglectedMuscles
+            loads={chargesCourantes([...(sessions ?? []), ...sortiesEnSeances(sorties)], courbatures, nuits)}
+            focus={focus}
+          />
           {/* La base des ressentis vit ici et non dans le journal : c'est de la
               donnée d'analyse, au même titre que les courbes de progression. */}
           <ObservationsCard observations={observations} />
         </div>
       ) : tab === 'journal' ? (
         <Journal
+          pourLaRecup={[...(sessions ?? []), ...sortiesEnSeances(sorties)]}
           composerAuto={composerAuto}
           // Consommée une fois : sans ça, revenir en arrière ou rafraîchir
           // relancerait une composition qu'on n'a pas demandée.
@@ -470,6 +481,7 @@ interface SessionDraft {
 function Journal({
   userId,
   sessions,
+  pourLaRecup,
   templates,
   catalog,
   groups,
@@ -529,6 +541,14 @@ function Journal({
   /** Arrivée depuis l'accueil : composer la séance dès l'affichage. */
   composerAuto?: boolean
   onComposeConsomme?: () => void
+  /**
+   * Les séances augmentées des sorties de course, converties.
+   *
+   * Uniquement pour la RÉCUPÉRATION : courir travaille des muscles, et le
+   * mannequin doit le savoir. Elles ne rejoignent ni le journal, ni le tonnage,
+   * ni les records — elles ont leur propre écran pour ça.
+   */
+  pourLaRecup: MuscuSession[]
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
   const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
@@ -543,7 +563,11 @@ function Journal({
 
   // Une seule source de vérité : la récup automatique, corrigée du sommeil puis
   // des courbatures déclarées. La composition vit dans lib/charges.
-  const loads = chargesCourantes(sessions, courbatures, nuits)
+  //
+  // Les sorties de course y entrent CONVERTIES en séances, et seulement ici :
+  // elles pèsent sur la récupération sans jamais rejoindre le journal, ni le
+  // tonnage, ni les records — elles ont leur propre écran pour ça.
+  const loads = chargesCourantes(pourLaRecup, courbatures, nuits)
   // État de forme : charge d'entraînement + balance énergétique déduite du poids.
   // C'est lui qui dicte le volume et les charges de la séance proposée.
   const forme = evaluerForme(sessions, weighins)
