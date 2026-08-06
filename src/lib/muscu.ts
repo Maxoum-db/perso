@@ -767,7 +767,11 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       un roadster nu il n'y a pas de carénage : la nuque encaisse le vent,
 //       les avant-bras les trois commandes, les lombaires portent le buste.
 //       Une grosse balade cessait d'exister pour le mannequin.
-const LIBRARY_SEED_KEY = 'muscu_library_v33'
+// v34 : la moto séparée par TYPE DE ROUTE. Une entrée « balade » moyennait
+//       deux efforts opposés — l'autoroute où le casque fait voile et la nuque
+//       devient motrice, la petite route où ce sont les jambes qui pilotent.
+//       Moyenner les deux, c'était n'en décrire aucun.
+const LIBRARY_SEED_KEY = 'muscu_library_v34'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
