@@ -786,7 +786,11 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       deux efforts opposés — l'autoroute où le casque fait voile et la nuque
 //       devient motrice, la petite route où ce sont les jambes qui pilotent.
 //       Moyenner les deux, c'était n'en décrire aucun.
-const LIBRARY_SEED_KEY = 'muscu_library_v34'
+// v35 : à moto, ce sont les JAMBES qui tiennent la machine. L'étiquetage
+//       mettait les avant-bras devant les cuisses sur trois entrées sur
+//       quatre, et l'autoroute ne chargeait pas les cuisses du tout — ça
+//       décrivait quelqu'un qui se tient au guidon.
+const LIBRARY_SEED_KEY = 'muscu_library_v35'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
