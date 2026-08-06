@@ -790,7 +790,12 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       mettait les avant-bras devant les cuisses sur trois entrées sur
 //       quatre, et l'autoroute ne chargeait pas les cuisses du tout — ça
 //       décrivait quelqu'un qui se tient au guidon.
-const LIBRARY_SEED_KEY = 'muscu_library_v35'
+// v36 : la moto recalibrée sous l'ANCRE. Chaque entrée s'était calibrée sur
+//       elle-même — « la nuque est ce qui lâche en premier » était devenu « la
+//       nuque est au maximum » —, et une balade sortait au-dessus d'une heure
+//       de port du harnois sous 35 kg. Plus aucun moteur plein, et rien ne
+//       dépasse l'armure sur les muscles qu'elle mesure.
+const LIBRARY_SEED_KEY = 'muscu_library_v36'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
