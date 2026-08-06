@@ -763,7 +763,11 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       contrepartie, les curls cessent de serrer les doigts : la barre y
 //       repose dans la main, la bibliothèque le disait déjà pour les
 //       développés et se contredisait sur un curl.
-const LIBRARY_SEED_KEY = 'muscu_library_v32'
+// v33 : la moto entre au catalogue — trois entrées pour la Speed Triple. Sur
+//       un roadster nu il n'y a pas de carénage : la nuque encaisse le vent,
+//       les avant-bras les trois commandes, les lombaires portent le buste.
+//       Une grosse balade cessait d'exister pour le mannequin.
+const LIBRARY_SEED_KEY = 'muscu_library_v33'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'

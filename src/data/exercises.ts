@@ -317,6 +317,42 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // risqué du lot, d'où la consigne d'amplitude en toutes lettres.
   { name: 'Sangle cervicale (neck harness) — flexion/extension', groups: 'Extenseurs du cou:1, Cou:1, Scalènes:0.6, Trapèze supérieur:0.5, Élévateur de la scapula:0.5, Érecteurs du rachis:0.4, Trapèze moyen:0.3', sets: 3, reps: '12', notes: '⚠️ Le muscle qui ne pardonne pas l’ego : montée en charge par très petites marches, amplitude contrôlée, JAMAIS à l’échec ni en à-coup. Commencer sans charge pendant deux semaines. En cas d’antécédent cervical, faire valider les mouvements avant de charger.' },
 
+  // ── 🏍️ Moto (Triumph Speed Triple 1050) ──────────────────────────────────
+  //
+  // Une grosse balade N'EST PAS du repos, et le mannequin doit le savoir : sur
+  // un roadster nu, il n'y a pas de carénage. Tout ce que la moto ne bloque
+  // pas, c'est le corps qui l'encaisse.
+  //
+  //   · La NUQUE d'abord. Le casque pèse un kilo et demi, et à vitesse
+  //     stabilisée la pression du vent tire la tête en arrière sans jamais
+  //     s'interrompre. C'est le premier point qui lâche sur une moto sans bulle,
+  //     et c'est la raison pour laquelle les pilotes de vitesse travaillent le
+  //     cou comme un groupe à part entière. Un béhourd de plus dans la semaine,
+  //     en somme — sauf que celui-là ne se déclare nulle part.
+  //
+  //   · Les AVANT-BRAS ensuite. Poignée de gaz, levier d'embrayage, frein
+  //     avant : la main ne se relâche jamais complètement pendant deux heures.
+  //     L'engourdissement d'avant-bras du motard est un syndrome de loge
+  //     d'effort documenté, le même que celui des pilotes de motocross.
+  //
+  //   · Le BAS DU DOS enfin, avec les multifides et le carré des lombes : le
+  //     buste est porté vers l'avant contre le vent, et chaque irrégularité de
+  //     la route se rattrape en segmentaire. C'est la plainte numéro un après
+  //     une longue étape, et elle n'a rien d'une fatalité de selle.
+  //
+  // S'y ajoutent deux choses qu'on n'attend pas : les ADDUCTEURS, qui serrent
+  // le réservoir à chaque appui et à chaque freinage, et le TIBIAL ANTÉRIEUR,
+  // qui tient l'avant-pied sur le sélecteur pendant toute la sortie.
+  //
+  // Les coefficients restent modérés — 0,4 à 0,8, aucun moteur plein. C'est un
+  // effort long et continu, pas une série maximale : il fatigue par la durée,
+  // et le mannequin doit le dire dans ces termes-là. Trois entrées parce que
+  // les trois usages n'ont ni la même durée ni les mêmes muscles limitants.
+
+  { name: 'Moto — grande balade (route)', groups: 'Extenseurs du cou:0.8, Érecteurs du rachis:0.7, Cou:0.6, Trapèze supérieur:0.6, Fléchisseurs des doigts:0.6, Fléchisseurs avant-bras:0.6, Multifides:0.5, Carré des lombes:0.5, Deltoïde antérieur:0.5, Grand droit:0.5, Obliques:0.5, Adducteurs:0.5, Extenseurs avant-bras:0.5, Brachio-radial:0.5, Scalènes:0.4, Élévateur de la scapula:0.4, Transverse:0.4, Coiffe des rotateurs:0.4, Triceps latéral:0.4, Vaste latéral:0.4, Vaste médial:0.4, Grand fessier:0.4, Moyen fessier:0.4, Tibial antérieur:0.4, Soléaire:0.4, Cardio:0.3', sets: 1, reps: '180 min', notes: 'Speed Triple 1050, roadster nu : aucune protection au vent, la nuque et les érecteurs portent le buste pendant toute l’étape. Une pause toutes les heures, épaules relâchées sur les lignes droites. ⚠️ AC droite : ne pas verrouiller le bras droit sur le guidon, c’est lui qui encaisse les vibrations et le frein avant. ⚠️ Antéversion du bassin : les lombaires travaillent en extension prolongée — étirer les fléchisseurs de hanche à l’arrivée.', kind: 'activite' },
+  { name: 'Moto — routes sinueuses (cols, petites routes)', groups: 'Obliques:0.8, Adducteurs:0.7, Fléchisseurs des doigts:0.7, Fléchisseurs avant-bras:0.7, Érecteurs du rachis:0.6, Extenseurs du cou:0.6, Cou:0.6, Vaste latéral:0.6, Vaste médial:0.6, Grand droit:0.6, Multifides:0.6, Carré des lombes:0.6, Deltoïde antérieur:0.6, Brachio-radial:0.5, Extenseurs avant-bras:0.5, Grand fessier:0.5, Moyen fessier:0.5, Transverse:0.5, Triceps latéral:0.5, Cardio:0.5, Coiffe des rotateurs:0.4, Trapèze supérieur:0.4, Gracile:0.4, Tibial antérieur:0.4, Soléaire:0.4, Droit fémoral:0.3', sets: 1, reps: '90 min', notes: 'Moins de vent qu’en ligne droite, beaucoup plus de travail : changements d’angle, freinage appuyé, déhanché léger. Les cuisses et les adducteurs pilotent la moto autant que les bras — serrer le réservoir aux genoux décharge d’autant les avant-bras. ⚠️ Dysplasie rotulienne : rester en appui sur les repose-pieds, pas en torsion sur le genou.', kind: 'activite' },
+  { name: 'Moto — trajet urbain', groups: 'Fléchisseurs des doigts:0.6, Fléchisseurs avant-bras:0.5, Extenseurs avant-bras:0.4, Brachio-radial:0.4, Cou:0.4, Extenseurs du cou:0.4, Trapèze supérieur:0.4, Érecteurs du rachis:0.4, Grand droit:0.3, Obliques:0.3, Deltoïde antérieur:0.3, Tibial antérieur:0.3, Adducteurs:0.3, Élévateur de la scapula:0.3, Multifides:0.3, Cardio:0.3', sets: 1, reps: '30 min', notes: 'Embrayage et frein en continu, contrôles de tête permanents : c’est la main et la nuque qui travaillent, pas le reste. Léger — à ne pas confondre avec une balade, sinon le mannequin croit à une sortie qui n’a pas eu lieu.', kind: 'activite' },
+
   // ── Compléments : machines Basic Fit et variantes courantes ───────────────
   { name: 'Développé couché prise serrée', groups: 'Triceps latéral:1, Triceps longue portion:0.8, Grand pectoral:0.6, Pectoral supérieur:0.4, Deltoïde antérieur:0.4, Dentelé antérieur:0.3, Coiffe des rotateurs:0.3, Fléchisseurs avant-bras:0.3', sets: 3, reps: '10', notes: 'Mains à largeur d’épaules, coudes le long du corps.' },
   { name: 'Écarté incliné haltères', groups: 'Pectoral supérieur:1, Grand pectoral:0.6, Deltoïde antérieur:0.4, Coiffe des rotateurs:0.4, Petit pectoral:0.4, Biceps:0.3, Dentelé antérieur:0.3, Fléchisseurs des doigts:0.3', sets: 3, reps: '12', notes: '⚠️ AC droite : amplitude limitée, coudes jamais sous la ligne du buste.' },
@@ -607,6 +643,11 @@ export function cleExercice(nom: string): string {
 }
 
 export const EXERCISE_RENAMES: Record<string, string> = {
+  moto: 'Moto — grande balade (route)',
+  'balade moto': 'Moto — grande balade (route)',
+  'sortie moto': 'Moto — grande balade (route)',
+  'speed triple': 'Moto — grande balade (route)',
+  'virées moto': 'Moto — routes sinueuses (cols, petites routes)',
   'chest press (machine assise)': 'Développé pectoraux à la machine',
   'press incliné (machine)': 'Développé incliné à la machine',
   'converging incline press': 'Développé incliné convergent (machine)',
