@@ -755,7 +755,15 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       proposer aucun d'eux : ils restaient éternellement frais au mannequin,
 //       et éternellement non travaillés. Aucun muscle du modèle n'est
 //       désormais sans cible. 54 sur 54.
-const LIBRARY_SEED_KEY = 'muscu_library_v31'
+// v32 : approfondissement des exercices DÉJÀ LÀ — 66 réétiquetés, 2 767 →
+//       2 999 étiquettes, médiane 8 → 9. Quatre manques systématiques : les
+//       fléchisseurs des DOIGTS (fermer la main sur la barre n'est pas plier
+//       le poignet), les fléchisseurs du cou dans les crunchs, les multifides
+//       dans toute rotation du rachis, le supinateur dans tout curl. En
+//       contrepartie, les curls cessent de serrer les doigts : la barre y
+//       repose dans la main, la bibliothèque le disait déjà pour les
+//       développés et se contredisait sur un curl.
+const LIBRARY_SEED_KEY = 'muscu_library_v32'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
