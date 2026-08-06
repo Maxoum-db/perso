@@ -437,7 +437,15 @@ function MuscuMoitie({
 
   // Courir travaille des muscles : le mannequin et la séance proposée doivent
   // le savoir. Les sorties entrent ici CONVERTIES, et nulle part ailleurs.
-  const loads = chargesCourantes([...sessions, ...sortiesEnSeances(sorties)], courbatures, nuits)
+  const loads = chargesCourantes(
+    [...sessions, ...sortiesEnSeances(sorties)],
+    courbatures,
+    nuits,
+    Date.now(),
+    // Le poids de la série ne veut rien dire sans celui de la personne : c'est
+    // la dernière pesée qui donne son échelle au mannequin (cf. `lib/effort`).
+    contexte.bodyWeight,
+  )
   const zones = etatParZone(reposParMuscle(loads))
   // La même séance que le module en proposerait : c'est `composerSeance` qui
   // porte le réglage, une fois pour les deux écrans.

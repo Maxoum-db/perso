@@ -9,7 +9,9 @@ import { applySommeil, type Nuits } from './sommeil'
  * s'empiler DANS CET ORDRE partout :
  *
  *   1. `groupLoads` — les jours écoulés, pondérés par la part du muscle dans
- *      l'exercice et par l'intensité déclarée de la séance ;
+ *      l'exercice, par le poids de la série face au maximum de la personne
+ *      (`poidsCorps`, cf. `lib/effort`) et par l'intensité déclarée de la
+ *      séance ;
  *   2. `applySommeil` — les nuits depuis la séance, qui repose le plafond orange
  *      après coup (un bon sommeil n'efface pas la journée qui vient de passer) ;
  *   3. `rattacherCourbatures` — ton ressenti déclaré à la main, qui a le dernier
@@ -30,9 +32,13 @@ export function chargesCourantes(
   courbatures: Courbatures,
   nuits: Nuits,
   maintenant = Date.now(),
+  poidsCorps: number | null = null,
 ): Record<string, GroupLoad> {
   const jour = new Date(maintenant).toLocaleDateString('en-CA')
-  return rattacherCourbatures(applySommeil(groupLoads(sessions, maintenant), nuits, jour), courbatures)
+  return rattacherCourbatures(
+    applySommeil(groupLoads(sessions, maintenant, poidsCorps), nuits, jour),
+    courbatures,
+  )
 }
 
 // ── Projection ──────────────────────────────────────────────────────────────
@@ -76,6 +82,7 @@ export function chargesProjetees(
   nuits: Nuits,
   heures: number,
   maintenant = Date.now(),
+  poidsCorps: number | null = null,
 ): Record<string, GroupLoad> {
-  return chargesCourantes(sessions, courbatures, nuits, maintenant + heures * 3600000)
+  return chargesCourantes(sessions, courbatures, nuits, maintenant + heures * 3600000, poidsCorps)
 }

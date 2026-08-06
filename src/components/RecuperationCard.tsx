@@ -21,6 +21,7 @@ export function RecuperationCard({
   courbatures,
   nuits,
   loads,
+  poidsCorps,
   sexe,
   onSoreness,
   onPret,
@@ -32,6 +33,8 @@ export function RecuperationCard({
   nuits: Nuits
   /** La récup réelle, déjà calculée par la page — l'horizon « Auj. ». */
   loads: Record<string, GroupLoad>
+  /** Poids de corps, pour que la projection pèse les séries comme la page. */
+  poidsCorps: number | null
   sexe: Sexe
   onSoreness: (region: MuscleRegion, extra: number) => void
   onPret: (region: MuscleRegion, pret: boolean) => void
@@ -52,8 +55,11 @@ export function RecuperationCard({
   // c'est la même chose, et deux chemins pour le même état finissent toujours
   // par diverger d'une correction.
   const affiches = useMemo(
-    () => (projette ? chargesProjetees(sessions, courbatures, nuits, heures) : loads),
-    [projette, sessions, courbatures, nuits, heures, loads],
+    () =>
+      projette
+        ? chargesProjetees(sessions, courbatures, nuits, heures, Date.now(), poidsCorps)
+        : loads,
+    [projette, sessions, courbatures, nuits, heures, loads, poidsCorps],
   )
 
   // Ce que la projection fait gagner, dit en clair : sans ce compte, il faut
