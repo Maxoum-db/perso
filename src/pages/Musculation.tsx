@@ -1042,11 +1042,12 @@ function Journal({
                     </div>
                   </div>
                 </button>
-                {/* La case n'apparaît qu'une fois la séance dépliée — SAUF si
-                    elle est décochée. Une séance retirée du calcul doit rester
-                    repérable dans la liste sans avoir à ouvrir chaque ligne,
-                    et une case vide le dit sans un mot. */}
-                {comptageReglable(s) && (openId === s.id || exclues[s.id]) ? (
+                {/* Sur toutes les séances déjà faites, dépliées ou non : c'est
+                    la liste entière qui devient réglable d'un coup d'œil, et une
+                    séance retirée du calcul se repère sans ouvrir une seule
+                    ligne. Rien sur une séance datée à venir — le moteur l'ignore
+                    déjà, la case n'y changerait rien. */}
+                {comptageReglable(s) ? (
                   <CaseMannequin
                     compte={!exclues[s.id]}
                     onChange={async (compte) => {
@@ -2016,7 +2017,7 @@ export function CaseMannequin({
       onChange={(e) => onChange(e.target.checked)}
       title={compte ? 'Compte dans le mannequin' : 'Décochée : le mannequin ignore cette séance'}
       aria-label="Compte dans le mannequin"
-      className="mx-1 h-5 w-5 shrink-0 cursor-pointer accent-copper"
+      className="ml-1 mr-3 h-5 w-5 shrink-0 cursor-pointer accent-copper"
     />
   )
 }
