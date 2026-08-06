@@ -17,7 +17,8 @@ import { MuscleBodyDiagram } from './MuscleBodyDiagram'
 // viré au vert d'ici là se voit d'un coup d'œil, sur le corps entier.
 
 export function RecuperationCard({
-  sessions,
+  journal,
+  pourLaRecup,
   courbatures,
   nuits,
   loads,
@@ -29,7 +30,24 @@ export function RecuperationCard({
   onExercice,
   onSeance,
 }: {
-  sessions: MuscuSession[]
+  /**
+   * Les séances du JOURNAL, pour l'historique affiché dans la fiche d'un
+   * muscle — « quelles séances l'ont travaillé ». Cliquables : elles doivent
+   * exister dans la liste à l'écran.
+   */
+  journal: MuscuSession[]
+  /**
+   * Les séances qui ENTRENT DANS LE CALCUL : décochages appliqués, sorties de
+   * course converties comprises. Ce n'est pas la même liste que `journal`, et
+   * c'est précisément là qu'était le défaut — la carte projetait à partir du
+   * journal brut pendant que l'horizon « Auj. » lisait `loads`, calculé sur
+   * celle-ci. Décocher une séance ne changeait donc rien à +12 h, et les
+   * sorties de course n'y figuraient pas du tout.
+   *
+   * Les deux noms sont explicites pour que l'erreur ne se reproduise pas par
+   * inattention : `sessions` avait l'air d'être la bonne liste.
+   */
+  pourLaRecup: MuscuSession[]
   courbatures: Courbatures
   nuits: Nuits
   /** La récup réelle, déjà calculée par la page — l'horizon « Auj. ». */
@@ -67,9 +85,9 @@ export function RecuperationCard({
   const affiches = useMemo(
     () =>
       projette
-        ? chargesProjetees(sessions, courbatures, nuits, heures, Date.now(), poidsCorps)
+        ? chargesProjetees(pourLaRecup, courbatures, nuits, heures, Date.now(), poidsCorps)
         : loads,
-    [projette, sessions, courbatures, nuits, heures, loads, poidsCorps],
+    [projette, pourLaRecup, courbatures, nuits, heures, loads, poidsCorps],
   )
 
   // Ce que la projection fait gagner, dit en clair : sans ce compte, il faut
@@ -128,7 +146,7 @@ export function RecuperationCard({
 
       <MuscleBodyDiagram
         loads={affiches}
-        sessions={sessions}
+        sessions={journal}
         sexe={sexe}
         maintenant={maintenant}
         // Pas de déclaration sur un corps projeté : « j'ai des courbatures » se

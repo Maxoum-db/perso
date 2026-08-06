@@ -998,7 +998,8 @@ function Journal({
       ) : null}
 
       <RecuperationCard
-        sessions={sessions}
+        journal={sessions}
+        pourLaRecup={pourLaRecup}
         courbatures={courbatures}
         nuits={nuits}
         loads={loads}
