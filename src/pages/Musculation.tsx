@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import type { Section as SectionAutorisee } from '../lib/acces'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -39,9 +39,9 @@ import {
   saveObservations,
   type Observations,
 } from '../lib/observations'
-import { etatParZone, reposParMuscle } from '../lib/recuperation'
+import { reposParMuscle } from '../lib/recuperation'
 import { etatProtocole } from '../lib/protocole'
-import { tronquerZones, type MuscleRegion } from '../lib/muscles'
+import type { MuscleRegion } from '../lib/muscles'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { Sommeil } from './Sommeil'
 import {
@@ -1024,26 +1024,49 @@ function Journal({
               }}
               className="card overflow-hidden"
             >
-              <button onClick={() => setOpenId(openId === s.id ? null : s.id)} className="flex w-full items-center gap-3 p-3 text-left">
-                <div className="w-16 shrink-0 text-center">
-                  <div className="text-xl leading-none">{sessionEmoji(s, templates)}</div>
-                  <div className="mt-0.5 text-xs font-bold text-copper">{frDate(s.date)}</div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-bold text-ink">{nomSansEmoji(s.name)}</div>
-                  <div className="text-xs text-muted">
-                    {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
-                    {s.duration_min ? ` · ${s.duration_min} min` : ''}
-                    {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
+              <div className="flex items-center pr-3">
+                <button
+                  onClick={() => setOpenId(openId === s.id ? null : s.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+                >
+                  <div className="w-16 shrink-0 text-center">
+                    <div className="text-xl leading-none">{sessionEmoji(s, templates)}</div>
+                    <div className="mt-0.5 text-xs font-bold text-copper">{frDate(s.date)}</div>
                   </div>
-                </div>
-                {exclues[s.id] ? (
-                  <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-muted">
-                    hors mannequin
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-bold text-ink">{nomSansEmoji(s.name)}</div>
+                    <div className="text-xs text-muted">
+                      {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
+                      {s.duration_min ? ` · ${s.duration_min} min` : ''}
+                      {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
+                    </div>
+                  </div>
+                </button>
+                {/* La case n'apparaît qu'une fois la séance dépliée — SAUF si
+                    elle est décochée. Une séance retirée du calcul doit rester
+                    repérable dans la liste sans avoir à ouvrir chaque ligne,
+                    et une case vide le dit sans un mot. */}
+                {comptageReglable(s) && (openId === s.id || exclues[s.id]) ? (
+                  <CaseMannequin
+                    compte={!exclues[s.id]}
+                    onChange={async (compte) => {
+                      // Optimiste : la case répond au doigt, le mannequin bouge
+                      // dans la foulée, l'écriture suit.
+                      onExclues(compte
+                        ? Object.fromEntries(Object.entries(exclues).filter(([k]) => k !== s.id))
+                        : { ...exclues, [s.id]: true })
+                      onExclues(await saveExclue(userId, s.id, compte, exclues))
+                    }}
+                  />
                 ) : null}
-                <span className="shrink-0 text-muted">{openId === s.id ? '▾' : '▸'}</span>
-              </button>
+                <button
+                  onClick={() => setOpenId(openId === s.id ? null : s.id)}
+                  aria-label={openId === s.id ? 'Replier' : 'Déplier'}
+                  className="shrink-0 py-3 pl-2 text-muted"
+                >
+                  {openId === s.id ? '▾' : '▸'}
+                </button>
+              </div>
 
               {openId === s.id ? (
                 <div className="space-y-2 border-t border-line/60 bg-bg/40 p-3">
@@ -1070,22 +1093,6 @@ function Journal({
                     </p>
                   ) : null}
                   {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
-                  <ComptageMannequin
-                    seance={s}
-                    pourLaRecup={pourLaRecup}
-                    courbatures={courbatures}
-                    nuits={nuits}
-                    bodyWeight={bodyWeight}
-                    compte={!exclues[s.id]}
-                    onChange={async (compte) => {
-                      // Optimiste : la case doit répondre au doigt, et le
-                      // mannequin bouger dans la foulée. L'écriture suit.
-                      onExclues(compte
-                        ? Object.fromEntries(Object.entries(exclues).filter(([k]) => k !== s.id))
-                        : { ...exclues, [s.id]: true })
-                      onExclues(await saveExclue(userId, s.id, compte, exclues))
-                    }}
-                  />
                   <div className="flex justify-end gap-3 text-xs">
                     <button onClick={() => startEdit(s)} className="font-semibold text-copper">
                       Modifier
@@ -1985,93 +1992,32 @@ function GroupsManager({
 /**
  * « Cette séance compte-t-elle dans le mannequin ? »
  *
- * La case est le réglage ; la phrase en dessous est la RAISON d'être du
- * réglage. Décocher pour voir ce qui repasse au vert, c'est la seule façon de
- * répondre à « qu'est-ce que ma séance d'hier m'a réellement coûté » autrement
- * qu'en comparant deux images de mémoire.
+ * Une case, et rien d'autre : elle est posée à droite du nom de la séance, là
+ * où on la cherche, et une phrase explicative à cet endroit aurait poussé le
+ * nom à la ligne sur un écran de téléphone. Ce qu'elle fait se voit en la
+ * cliquant — le mannequin change au-dessus —, ce qui vaut mieux qu'un texte
+ * qui le décrirait.
  *
- * Le calcul de l'écart passe par `chargesCourantes`, la même chaîne que le
- * mannequin lui-même — sommeil et courbatures compris. Recalculer autrement
- * aurait donné un chiffre qui ne correspond à rien de ce qu'on voit à l'écran.
+ * Le `title` et l'`aria-label` portent le sens pour la souris et pour un
+ * lecteur d'écran : sans eux, une case nue n'est pas seulement discrète, elle
+ * est muette.
  */
-export function ComptageMannequin({
-  seance,
-  pourLaRecup,
-  courbatures,
-  nuits,
-  bodyWeight,
+export function CaseMannequin({
   compte,
   onChange,
 }: {
-  seance: MuscuSession
-  /** Toutes les séances du calcul, exclusions déjà appliquées. */
-  pourLaRecup: MuscuSession[]
-  courbatures: Courbatures
-  nuits: Nuits
-  bodyWeight: number | null
   compte: boolean
   onChange: (compte: boolean) => void
 }) {
-  const reglable = comptageReglable(seance)
-
-  // Ce que la séance change, mesuré des deux côtés. Mémoïsé : c'est deux
-  // passages complets du moteur de récupération, et la liste du journal en
-  // afficherait un par ligne dépliée.
-  const ecart = useMemo(() => {
-    if (!reglable) return null
-    const sans = pourLaRecup.map((x) => (x.id === seance.id ? { ...x, horsMannequin: true } : x))
-    const avec = pourLaRecup.map((x) => (x.id === seance.id ? { ...x, horsMannequin: false } : x))
-    const pretes = (l: MuscuSession[]) =>
-      new Set(
-        etatParZone(reposParMuscle(chargesCourantes(l, courbatures, nuits, Date.now(), bodyWeight)))
-          .filter((z) => z.pret)
-          .map((z) => z.zone),
-      )
-    const a = pretes(avec)
-    const zones = [...pretes(sans)].filter((z) => !a.has(z))
-    const muscles = Object.keys(
-      reposParMuscle(chargesCourantes([{ ...seance, horsMannequin: false }], courbatures, nuits, Date.now(), bodyWeight)),
-    ).length
-    return { zones, muscles }
-  }, [reglable, seance, pourLaRecup, courbatures, nuits, bodyWeight])
-
-  if (!reglable) {
-    return (
-      <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">
-        📅 Séance datée à venir : elle ne pèse pas encore sur le mannequin. La case apparaîtra le jour venu.
-      </p>
-    )
-  }
-
-  const { visibles, reste } = tronquerZones(ecart?.zones ?? [])
-  const liste = visibles.join(', ') + (reste ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : '')
-
   return (
-    <div className="rounded-xl2 bg-white/5 p-2">
-      <label className="flex cursor-pointer items-start gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={compte}
-          onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-copper"
-        />
-        <span className="min-w-0">
-          <span className="font-semibold text-ink">Compte dans le mannequin</span>
-          <span className="block text-muted">
-            {compte ? (
-              ecart?.zones.length ? (
-                <>
-                  Elle touche {ecart.muscles} muscles. Sans elle, {liste} {ecart.zones.length > 1 ? 'repasseraient' : 'repasserait'} au vert.
-                </>
-              ) : (
-                <>Elle touche {ecart?.muscles ?? 0} muscles, mais aucune zone n’attend qu’elle pour repasser au vert.</>
-              )
-            ) : (
-              <>Décochée : elle reste au journal, mais le mannequin l’ignore complètement.</>
-            )}
-          </span>
-        </span>
-      </label>
-    </div>
+    <input
+      type="checkbox"
+      checked={compte}
+      onChange={(e) => onChange(e.target.checked)}
+      title={compte ? 'Compte dans le mannequin' : 'Décochée : le mannequin ignore cette séance'}
+      aria-label="Compte dans le mannequin"
+      className="mx-1 h-5 w-5 shrink-0 cursor-pointer accent-copper"
+    />
   )
 }
+
