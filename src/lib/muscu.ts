@@ -11,6 +11,12 @@ import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 export { PAS_HEURES, PAS_JOURS }
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
+// Import croisé assumé : `effort` a besoin de la lecture des reps, qui vit ici
+// depuis le tonnage, et `groupLoads` a besoin du facteur, qui vit là-bas parce
+// qu'il n'a rien à faire dans un module de séances. Le cycle est inoffensif —
+// ni l'un ni l'autre n'appelle l'autre au chargement du module, seulement dans
+// le corps de fonctions déclarées, qui sont hissées.
+import { facteurEffort, referencesEffort } from './effort'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -234,6 +240,17 @@ export interface GroupLoad {
   date: string
   /** Intensité de cette sollicitation (1 = principal). */
   intensity: number
+  /**
+   * Facteur d'effort de la série à l'origine (cf. `lib/effort`), absent si 1.
+   *
+   * Séparé de `intensity` à dessein : `intensity` est la part ANATOMIQUE du
+   * muscle dans le mouvement — « 100 % de l'exercice pour ce muscle » sur la
+   * fiche —, et elle ne change pas parce qu'on a mis 40 kg plutôt que 100. Ce
+   * qui change, c'est ce que la série a coûté. Les mélanger en un seul nombre
+   * aurait fait dire à la fiche qu'un développé léger n'utilise plus le
+   * pectoral qu'à moitié, ce qui est faux.
+   */
+  effort?: number
   /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
   /**
@@ -326,6 +343,17 @@ export function plafondRecup(days: number): number {
  * pour que le plafond s'applique une seule fois, au même endroit, plutôt qu'une
  * fois par correction.
  */
+/**
+ * La part effectivement cuite : la part anatomique, pondérée par l'effort.
+ *
+ * Une seule définition, parce qu'elle est lue à deux endroits — au moment où la
+ * charge est posée, et quand la récupération active la reprend plus bas. Les
+ * deux avaient divergé une fois sur le bonus de récup, on ne recommence pas.
+ */
+export function partEffective(load: { intensity: number; effort?: number }): number {
+  return Math.max(0, Math.min(1, load.intensity * (load.effort ?? 1)))
+}
+
 export function joursRessentis(days: number, part: number, avanceSup = 0): number {
   const i = Math.max(0, Math.min(1, part))
   const avance = (1 - i * i) * AVANCE_MAX
@@ -382,9 +410,19 @@ export function seanceDuJour(sessions: MuscuSession[], jour: string): MuscuSessi
  * est le même — seule l'horloge avance —, donc il n'y a rien à dupliquer pour
  * projeter, et une projection ne peut pas dériver du calcul réel.
  */
-export function groupLoads(sessions: MuscuSession[], maintenant = Date.now()): Record<string, GroupLoad> {
+export function groupLoads(
+  sessions: MuscuSession[],
+  maintenant = Date.now(),
+  poidsCorps: number | null = null,
+): Record<string, GroupLoad> {
   const now = maintenant
   const aujourdhui = new Date(now).toLocaleDateString('en-CA')
+
+  // Les maximums de la personne, en une passe : la référence d'un exercice ne
+  // dépend pas de la ligne qu'on juge, et la recalculer par ligne rendrait le
+  // parcours quadratique. Vide sans poids de corps — les facteurs valent alors
+  // tous 1 et le barème ne bouge pas d'un pouce.
+  const references = referencesEffort(sessions, poidsCorps, 180, now)
 
   // Récupération active : elle ne compte pas comme du travail, elle en efface.
   // Indexée par MUSCLE et non par libellé de groupe — sans ça une marche
@@ -413,6 +451,12 @@ export function groupLoads(sessions: MuscuSession[], maintenant = Date.now()): R
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       if (estRecuperation(e)) continue
+      // Ce que la SÉRIE a coûté, en pourcentage du maximum de la personne. Un
+      // échauffement à 40 kg et une série à 100 kg cuisaient le même pectoral
+      // à l'identique ; ce facteur les sépare. Il vaut 1 — donc ne change
+      // rien — dès que la question n'a pas de sens : gainage au temps, course,
+      // exercice sans charge, poids de corps inconnu.
+      const effort = facteurEffort(e, poidsCorps, references)
       for (const g of parseGroupEntries(e.muscle_group)) {
         // L'intensité déclarée retarde le retour au vert : jusqu'à un jour de
         // plus pour un moteur principal d'une séance à fond. On RETIRE des jours
@@ -422,8 +466,9 @@ export function groupLoads(sessions: MuscuSession[], maintenant = Date.now()): R
         // Passée EN AVANCE et non soustraite au résultat : une séance déclarée
         // « tranquille » rend des jours au lieu d'en prendre, et retranchée après
         // coup elle passait par-dessus le plafond du jour J.
-        const sur = recupIntensite(s.intensite, g.intensity)
-        const effectiveDays = Math.max(0, joursRessentis(days, g.intensity, -sur))
+        const part = partEffective({ intensity: g.intensity, effort })
+        const sur = recupIntensite(s.intensite, part)
+        const effectiveDays = Math.max(0, joursRessentis(days, part, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
         if (!cur || effectiveDays < cur.effectiveDays) {
@@ -432,6 +477,7 @@ export function groupLoads(sessions: MuscuSession[], maintenant = Date.now()): R
             date: s.date,
             intensity: g.intensity,
             effectiveDays,
+            ...(effort !== 1 ? { effort } : {}),
             ...(sur !== 0 ? { intensiteRecup: sur, intensiteId: s.intensite } : {}),
           }
         }
@@ -456,7 +502,10 @@ export function groupLoads(sessions: MuscuSession[], maintenant = Date.now()): R
     // journée qui vient de se passer.
     out[group] = {
       ...load,
-      effectiveDays: Math.max(0, joursRessentis(load.days, load.intensity, bonus - (load.intensiteRecup ?? 0))),
+      effectiveDays: Math.max(
+        0,
+        joursRessentis(load.days, partEffective(load), bonus - (load.intensiteRecup ?? 0)),
+      ),
       recupBonus: bonus,
     }
   }
@@ -698,7 +747,15 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       tibial postérieur, scalènes, gracile, coraco-brachial.
 // v28 : de quoi TRAVAILLER le petit pectoral, les scalènes et le tibial
 //       postérieur — trois muscles que le générateur ne savait pas proposer.
-const LIBRARY_SEED_KEY = 'muscu_library_v30'
+// v31 : 17 exercices pour les ONZE muscles dont aucun exercice n'était moteur
+//       plein — supra-épineux, petit rond, sous-scapulaire, petit pectoral,
+//       scalènes, carré des lombes, coraco-brachial, rotateurs profonds de
+//       hanche, gracile, ischios internes, tibial postérieur — plus un second
+//       exercice pour les six qui n'en avaient qu'un. Le générateur ne pouvait
+//       proposer aucun d'eux : ils restaient éternellement frais au mannequin,
+//       et éternellement non travaillés. Aucun muscle du modèle n'est
+//       désormais sans cible. 54 sur 54.
+const LIBRARY_SEED_KEY = 'muscu_library_v31'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'

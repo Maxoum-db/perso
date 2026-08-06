@@ -112,7 +112,11 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Rotation externe d’épaule (poulie ou élastique)', groups: 'Coiffe des rotateurs:1, Petit rond:0.9, Supra-épineux:0.5, Deltoïde postérieur:0.4, Trapèze moyen:0.3, Trapèze inférieur:0.3', sets: 2, reps: '15/bras', adaptable: true },
   // Bras à 90° d'abduction : la position d'armé, celle où l'épaule est la plus
   // exposée sous le heaume. C'est là que la coiffe doit tenir.
-  { name: 'Rotation externe à 90° d’abduction (poulie)', groups: 'Coiffe des rotateurs:1, Petit rond:0.9, Supra-épineux:0.6, Deltoïde postérieur:0.5, Trapèze moyen:0.3, Trapèze inférieur:0.3, Deltoïde latéral:0.3', sets: 3, reps: '12/bras', notes: '⚠️ AC droite : charge légère, amplitude contrôlée, jamais à l’échec.', adaptable: true },
+  // Petit rond à 1 et non 0,9 : bras à 90° d'abduction, c'est LUI le rotateur
+  // externe dominant, devant l'infra-épineux qui mène à 0° (Reinold et coll.).
+  // C'était le seul exercice du catalogue où il pouvait l'être, et il ne l'était
+  // pas — donc aucun n'en faisait sa cible.
+  { name: 'Rotation externe à 90° d’abduction (poulie)', groups: 'Coiffe des rotateurs:1, Petit rond:1, Supra-épineux:0.6, Deltoïde postérieur:0.5, Trapèze moyen:0.3, Trapèze inférieur:0.3, Deltoïde latéral:0.3', sets: 3, reps: '12/bras', notes: '⚠️ AC droite : charge légère, amplitude contrôlée, jamais à l’échec.', adaptable: true },
   // Trapèze inférieur : le grand oublié. C'est lui qui fait glisser l'omoplate
   // vers le bas quand le bras monte ; faible, l'épaule remonte et pince.
   // ⚠️ Épaule AC : c'est le muscle le plus rentable à renforcer.
@@ -452,6 +456,88 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Vacuum abdominal', groups: 'Transverse:1, Obliques:0.4, Grand droit:0.3', sets: 3, reps: '20 s', notes: 'Transverse profond : expirer à fond puis rentrer le ventre sous les côtes. À jeun, sans charge — c’est ce qui resserre la sangle.', adaptable: true },
   { name: 'Deadbug lesté', groups: 'Grand droit:1, Transverse:0.8, Obliques:0.5, Psoas-iliaque:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '10/côté', notes: 'Un haltère léger tenu bras tendus : l’anti-extension devient beaucoup plus exigeante.' },
   { name: 'Portage frontal unilatéral (rack sur une épaule)', groups: 'Obliques:1, Carré des lombes:0.8, Grand droit:0.8, Érecteurs du rachis:0.6, Moyen fessier:0.6, Trapèze supérieur:0.5, Vaste latéral:0.4, Tenseur du fascia lata:0.4, Vaste médial:0.4, Fléchisseurs avant-bras:0.3, Cou:0.3, Adducteurs:0.3, Droit fémoral:0.3', sets: 3, reps: '30 m/côté', notes: 'Charge asymétrique en hauteur : la ceinture encaisse tout. Très proche du port du bouclier.' },
+
+  // ── 🔬 Muscles profonds : de quoi les travailler POUR EUX-MÊMES ───────────
+  //
+  // L'audit anatomique compte, pour chaque muscle, les exercices où il est
+  // MOTEUR PLEIN. Onze en avaient zéro : supra-épineux, petit rond,
+  // sous-scapulaire, petit pectoral, scalènes, carré des lombes,
+  // coraco-brachial, rotateurs profonds de hanche, gracile, ischios internes,
+  // tibial postérieur. Ils étaient nommés partout — en stabilisateurs à 0,3 ou
+  // 0,5 — et cibles nulle part.
+  //
+  // Ce n'est pas un détail de comptage. Le générateur propose l'exercice qui
+  // vise le muscle le plus reposé ; un muscle qu'aucun exercice ne vise
+  // pleinement ne pouvait donc JAMAIS être proposé. Il restait éternellement
+  // frais au mannequin — et éternellement non travaillé dans la vraie vie.
+  // C'est exactement le genre de trou qui se solde par une blessure : la coiffe
+  // et le tibial postérieur sont deux des pannes les plus banales, et ce sont
+  // deux de ces onze.
+  //
+  // Chaque entrée ci-dessous est un exercice réel dont ce muscle-là est le
+  // moteur, pas un exercice existant renommé. Les conditions qui font qu'il
+  // l'est — l'angle, la rotation, la longueur du levier — sont dans la note,
+  // parce que sans elles c'est un autre muscle qui prend le travail.
+  //
+  // ⚠️ Disjonction AC droite : tout ce qui touche l'épaule reste sous 60° et à
+  // charge légère. ⚠️ Dysplasie rotulienne : rien ici ne charge le genou.
+
+  // Coiffe des rotateurs. Le supra-épineux initie l'abduction — c'est lui qui
+  // décolle le bras des 30 premiers degrés — et le « full can », pouce vers le
+  // haut, le recrute autant que l'« empty can » sans le conflit sous-acromial
+  // qui rend ce dernier douloureux (Reinold et coll., JOSPT 2007).
+  { name: 'Élévation latérale « pleine canette » (full can)', groups: 'Supra-épineux:1, Deltoïde latéral:0.7, Coiffe des rotateurs:0.5, Trapèze inférieur:0.4, Trapèze supérieur:0.3, Dentelé antérieur:0.3', sets: 3, reps: '15/bras', notes: 'Pouce vers le HAUT, bras à 30° en avant du plan du corps, on monte à 60° pas plus. C’est le pouce qui fait tout : paume vers le bas, c’est le conflit sous-acromial. 2 à 5 kg suffisent. ⚠️ AC droite : jamais au-dessus de l’horizontale.', adaptable: true },
+  // Le sous-scapulaire est le seul rotateur INTERNE de la coiffe, et le seul
+  // qu'aucun tirage ni aucune poussée ne travaille pour lui-même. Le « lift-off »
+  // (main décollée du bas du dos) est le geste qui l'isole le mieux, parce que
+  // le grand pectoral et le grand dorsal ne peuvent pas y participer.
+  { name: 'Rotation interne d’épaule à l’élastique (coude au corps)', groups: 'Sous-scapulaire:1, Grand pectoral:0.5, Grand rond:0.4, Grand dorsal:0.4, Deltoïde antérieur:0.3', sets: 3, reps: '15/bras', notes: 'Coude collé au flanc à 90°, une serviette roulée dessous. On ramène l’avant-bras vers le ventre, lentement. Contrepartie indispensable des rotations externes : une coiffe ne s’équilibre pas d’un seul côté.', adaptable: true },
+  { name: 'Décollement main dans le dos (lift-off)', groups: 'Sous-scapulaire:1, Rhomboïdes:0.5, Deltoïde postérieur:0.4, Trapèze moyen:0.4, Triceps longue portion:0.3', sets: 3, reps: '10/bras', notes: 'Main au creux des reins, paume vers l’arrière, on décolle la main de quelques centimètres. Sans charge au début : la plupart des épaules n’y arrivent pas du premier coup, et c’est précisément le signe qu’il fallait le faire.', adaptable: true },
+  // Le petit pectoral bascule l'omoplate vers l'avant et vers le bas. Rien ne
+  // le travaille en concentrique dans une salle : on l'ÉTIRE en permanence
+  // (épaules enroulées) sans jamais lui demander de force. L'abaissement
+  // scapulaire assis est le geste où il est moteur avec le grand dorsal.
+  { name: 'Abaissement scapulaire assis (press-up)', groups: 'Petit pectoral:1, Grand dorsal:0.7, Trapèze inférieur:0.6, Triceps latéral:0.5, Triceps longue portion:0.4, Dentelé antérieur:0.4, Grand pectoral:0.3', sets: 3, reps: '12', notes: 'Assis, mains à plat sur le banc de part et d’autre des hanches, bras tendus : on pousse pour décoller le bassin de quelques centimètres SANS plier les coudes. Tout le mouvement vient des omoplates. ⚠️ AC droite : amplitude courte.' },
+  // Les scalènes inclinent le cou et lèvent les deux premières côtes à
+  // l'inspiration forcée. En béhourd, ce sont eux qui encaissent la frappe
+  // latérale sur le heaume — et ils ne figuraient en moteur nulle part.
+  { name: 'Inclinaison cervicale résistée (scalènes)', groups: 'Scalènes:1, Cou:0.8, Élévateur de la scapula:0.6, Trapèze supérieur:0.5, Extenseurs du cou:0.4', sets: 3, reps: '12/côté', notes: 'Main à plat sur la tempe, on pousse l’oreille vers l’épaule contre sa propre main, menton légèrement rentré. Résistance manuelle progressive, jamais brutale — le cou ne se travaille pas à l’échec.', adaptable: true },
+  // Le carré des lombes tient le bassin de côté. Les extensions du buste le
+  // sollicitent à 0,5, la flexion latérale à la poulie à 0,9 : aucune ne le
+  // vise. Sur le banc à 45° tourné sur le flanc, il n'y a plus que lui.
+  { name: 'Inclinaison latérale sur banc à 45°', groups: 'Carré des lombes:1, Obliques:0.9, Érecteurs du rachis:0.6, Multifides:0.5, Grand droit:0.4, Moyen fessier:0.3', sets: 3, reps: '12/côté', notes: 'Allongé SUR LE FLANC sur le banc lombaire, hanches calées, on descend puis on remonte le buste dans le plan latéral. Sans charge d’abord : le bras de levier est déjà long.' },
+  // Le coraco-brachial fléchit l'épaule et ramène le bras contre le corps. Il
+  // est masqué par le deltoïde antérieur dans tout ce qui pousse ; coude fléchi,
+  // le deltoïde perd son avantage mécanique et c'est lui qui monte le bras.
+  { name: 'Élévation frontale coude fléchi (coraco-brachial)', groups: 'Coraco-brachial:1, Deltoïde antérieur:0.7, Pectoral supérieur:0.5, Biceps:0.4, Brachial:0.3', sets: 3, reps: '12/bras', notes: 'Coude fléchi à 90° et gardé fléchi, on monte le coude devant soi jusqu’à l’horizontale, bras près de l’axe du corps. Léger. ⚠️ AC droite : s’arrêter à hauteur d’épaule.', adaptable: true },
+  // Les rotateurs profonds de hanche (piriforme et les cinq autres) tiennent le
+  // fémur dans sa cavité. Ils sortaient à 0,3-0,5 partout et n'étaient visés que
+  // par une mobilité. Assis, hanche à 90°, la rotation externe ne peut plus être
+  // volée par le grand fessier.
+  { name: 'Rotation externe de hanche assis (élastique)', groups: 'Rotateurs de hanche:1, Moyen fessier:0.6, Grand fessier:0.5, Tenseur du fascia lata:0.3', sets: 3, reps: '15/jambe', notes: 'Assis au bord d’un banc, élastique autour des chevilles, genoux à 90° : on écarte le pied vers l’extérieur en gardant le genou immobile. Le genou qui bouge, c’est le fessier qui triche.', adaptable: true },
+  // Le gracile est le seul adducteur qui croise AUSSI le genou : il ne travaille
+  // pour lui-même que jambe tendue. La machine à adducteurs et la planche
+  // danoise genou plié le laissent à 0,7 ; en levier long, il passe devant.
+  { name: 'Adduction de hanche jambe tendue (poulie basse)', groups: 'Gracile:1, Adducteurs:1, Ischios internes:0.4, Grand droit:0.3, Moyen fessier:0.3, Obliques:0.3', sets: 3, reps: '15/jambe', notes: 'Sangle à la cheville, GENOU TENDU : c’est ce qui met le gracile en jeu, puisqu’il descend jusqu’au tibia. Genou plié, ce sont les adducteurs courts qui prennent tout.' },
+  // Les ischios internes (demi-tendineux, demi-membraneux) freinent la jambe en
+  // fin de course. Les machines les mettent à 0,9 derrière le biceps fémoral ;
+  // en excentrique lent, ce sont eux qui prennent le plus — et c'est le seul
+  // exercice dont la littérature montre qu'il réduit les claquages.
+  { name: 'Curl nordique (nordic hamstring)', groups: 'Ischios internes:1, Biceps fémoral:0.9, Grand fessier:0.6, Érecteurs du rachis:0.5, Gastrocnémiens:0.4, Multifides:0.4, Grand droit:0.4', sets: 3, reps: '6', notes: 'À genoux, chevilles bloquées, on descend le buste vers l’avant le plus lentement possible, corps aligné du genou à la tête, puis on se rattrape aux mains. Excentrique pur : 6 répétitions suffisent, et les courbatures durent trois jours la première fois. ⚠️ Dysplasie rotulienne : sur un tapis épais, le genou ne supporte aucune charge ici mais appuie fort.' },
+  // Le tibial postérieur soutient la voûte plantaire ; sa défaillance est la
+  // cause n°1 du pied plat de l'adulte. Il n'apparaissait qu'en stabilisateur —
+  // et « Éversion de cheville » travaille son antagoniste, pas lui.
+  { name: 'Inversion de cheville à l’élastique', groups: 'Tibial postérieur:1, Soléaire:0.5, Tibial antérieur:0.4, Gastrocnémiens:0.3', sets: 3, reps: '20/côté', notes: 'Élastique accroché à l’extérieur, pied en légère extension : on tourne la plante vers l’INTÉRIEUR, sans bouger le genou. Le pendant exact de l’éversion, qu’on faisait déjà toute seule.', adaptable: true },
+
+  // Les six muscles suivants n'avaient qu'UN exercice moteur. Un seul, c'est un
+  // catalogue qui tombe en panne dès que ce muscle-là a besoin d'autre chose —
+  // le générateur reproposait indéfiniment le même geste, ou rien.
+  { name: 'Extension lombaire segmentaire (amplitude courte)', groups: 'Multifides:1, Érecteurs du rachis:0.8, Carré des lombes:0.6, Grand fessier:0.5, Biceps fémoral:0.4, Transverse:0.4, Ischios internes:0.3', sets: 3, reps: '15', notes: 'Sur le banc à 45°, on ne remonte QUE jusqu’à l’alignement, en déroulant vertèbre par vertèbre. Les multifides travaillent sur les derniers degrés ; aller plus haut, c’est passer la main aux érecteurs et creuser les lombaires.' },
+  { name: 'Gainage avec rentrée du nombril (hollowing)', groups: 'Transverse:1, Multifides:0.6, Obliques:0.5, Grand droit:0.5, Grand fessier:0.3', sets: 3, reps: '30 s', notes: 'Planche sur les avant-bras, et pendant toute la tenue on rentre le nombril vers la colonne en respirant normalement. C’est le geste du vacuum ajouté à un gainage : serrer la taille, pas fléchir le tronc.', adaptable: true },
+  { name: 'Haussement d’épaule nuque inclinée du côté opposé', groups: 'Élévateur de la scapula:1, Trapèze supérieur:0.7, Rhomboïdes:0.5, Scalènes:0.4, Cou:0.3', sets: 3, reps: '12/côté', notes: 'Tête inclinée et légèrement tournée du côté OPPOSÉ à l’épaule qui monte : le trapèze supérieur se raccourcit et laisse l’angulaire faire le travail. Charge modérée, une seule main.' },
+  { name: 'Curl Zottman', groups: 'Rond pronateur:1, Brachio-radial:0.9, Brachial:0.8, Biceps:0.7, Extenseurs avant-bras:0.6, Fléchisseurs avant-bras:0.5, Deltoïde antérieur:0.3', sets: 3, reps: '10/bras', notes: 'On monte en supination (paume en haut), on tourne en haut, on redescend en pronation (paume en bas). La rotation sous charge dans les deux sens : personne d’autre au catalogue ne la travaille en amplitude complète.' },
+  { name: 'Abduction de hanche en flexion (poulie)', groups: 'Tenseur du fascia lata:1, Moyen fessier:0.8, Rotateurs de hanche:0.4, Grand droit:0.3, Obliques:0.3', sets: 3, reps: '15/jambe', notes: 'Jambe portée en AVANT d’environ 30° avant d’écarter, pointe de pied vers l’intérieur : c’est cette position-là qui met le tenseur du fascia lata devant le moyen fessier. Hanche neutre, c’est l’inverse.' },
+  { name: 'Mollets assis à la barre sur les genoux', groups: 'Soléaire:1, Tibial postérieur:0.5, Gastrocnémiens:0.4, Fibulaires:0.3', sets: 4, reps: '20', notes: 'Barre posée sur le bas des cuisses, avant-pieds sur une cale. Genou fléchi : le gastrocnémien est mis hors-jeu — il croise le genou — et il ne reste que le soléaire. La version libre de la machine, quand elle est prise.' },
 
   // ── 🧘 Récupération active ────────────────────────────────────────────────
   // Ces séances ne fatiguent pas : elles relancent la circulation et raccourcissent

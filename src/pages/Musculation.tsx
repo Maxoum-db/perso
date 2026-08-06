@@ -396,7 +396,13 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         <div className="space-y-3">
           <ProgressTab progress={exerciseProgress(sessions)} />
           <NeglectedMuscles
-            loads={chargesCourantes([...(sessions ?? []), ...sortiesEnSeances(sorties)], courbatures, nuits)}
+            loads={chargesCourantes(
+              [...(sessions ?? []), ...sortiesEnSeances(sorties)],
+              courbatures,
+              nuits,
+              Date.now(),
+              bodyWeight,
+            )}
             focus={focus}
           />
           {/* La base des ressentis vit ici et non dans le journal : c'est de la
@@ -567,7 +573,7 @@ function Journal({
   // Les sorties de course y entrent CONVERTIES en séances, et seulement ici :
   // elles pèsent sur la récupération sans jamais rejoindre le journal, ni le
   // tonnage, ni les records — elles ont leur propre écran pour ça.
-  const loads = chargesCourantes(pourLaRecup, courbatures, nuits)
+  const loads = chargesCourantes(pourLaRecup, courbatures, nuits, Date.now(), bodyWeight)
   // État de forme : charge d'entraînement + balance énergétique déduite du poids.
   // C'est lui qui dicte le volume et les charges de la séance proposée.
   const forme = evaluerForme(sessions, weighins)
@@ -981,6 +987,7 @@ function Journal({
         courbatures={courbatures}
         nuits={nuits}
         loads={loads}
+        poidsCorps={bodyWeight}
         sexe={sexe}
         onSoreness={declarerCourbatures}
         onPret={declarerTotalementBon}
