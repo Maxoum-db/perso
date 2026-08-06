@@ -21,6 +21,7 @@ export function RecuperationCard({
   courbatures,
   nuits,
   loads,
+  exclues,
   poidsCorps,
   sexe,
   onSoreness,
@@ -33,6 +34,15 @@ export function RecuperationCard({
   nuits: Nuits
   /** La récup réelle, déjà calculée par la page — l'horizon « Auj. ». */
   loads: Record<string, GroupLoad>
+  /**
+   * Nombre de séances décochées à la main (cf. `lib/comptage`).
+   *
+   * Affiché ici et pas seulement au journal : une donnée retirée du calcul doit
+   * se voir DEPUIS le calcul. Sans ce bandeau, on décoche une séance pour
+   * regarder l'effet, on passe à autre chose, et le mannequin ment en silence
+   * pendant des jours sans qu'aucun écran ne le dise.
+   */
+  exclues: number
   /** Poids de corps, pour que la projection pèse les séries comme la page. */
   poidsCorps: number | null
   sexe: Sexe
@@ -101,6 +111,13 @@ export function RecuperationCard({
           ))}
         </div>
       </div>
+
+      {exclues > 0 ? (
+        <p className="rounded-xl2 bg-clay/10 px-2.5 py-1.5 text-[11px] leading-snug text-clay">
+          ⚠️ <strong>{exclues} séance{exclues > 1 ? 's' : ''}</strong> décochée{exclues > 1 ? 's' : ''} au journal : ce corps est
+          calculé sans elle{exclues > 1 ? 's' : ''}.
+        </p>
+      ) : null}
 
       {projette ? (
         <p className="rounded-xl2 bg-sage/10 px-2.5 py-1.5 text-[11px] leading-snug text-sage-dark">

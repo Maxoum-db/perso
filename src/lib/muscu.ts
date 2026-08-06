@@ -11,6 +11,7 @@ import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 export { PAS_HEURES, PAS_JOURS }
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
+import { loadExclues, type Exclues } from './comptage'
 // Import croisé assumé : `effort` a besoin de la lecture des reps, qui vit ici
 // depuis le tonnage, et `groupLoads` a besoin du facteur, qui vit là-bas parce
 // qu'il n'a rien à faire dans un module de séances. Le cycle est inoffensif —
@@ -73,6 +74,15 @@ export interface MuscuSession {
    * une propriété ordinaire de la séance.
    */
   intensite?: IntensiteId
+  /**
+   * Séance décochée : elle reste au journal mais sort du mannequin.
+   *
+   * Recollée au chargement comme `intensite`, depuis le KV (cf. `lib/comptage`).
+   * Portée par la SÉANCE et non passée en paramètre au calcul : c'est ce qui
+   * fait que l'accueil, la projection, le générateur et l'export la voient tous
+   * sans avoir à la transmettre — et donc qu'aucun d'eux ne peut l'oublier.
+   */
+  horsMannequin?: boolean
 }
 
 export interface CatalogExercise {
@@ -430,6 +440,7 @@ export function groupLoads(
   // « Quadriceps », alors que ce sont les mêmes muscles.
   const recups = new Map<string, number[]>()
   for (const s of sessions) {
+    if (s.horsMannequin) continue
     if (s.date > aujourdhui) continue
     const d = ancienneteEnJours(s, now)
     for (const e of s.exercises) {
@@ -446,6 +457,10 @@ export function groupLoads(
 
   const out: Record<string, GroupLoad> = {}
   for (const s of sessions) {
+    // Décochée à la main : elle ne compte plus, ni comme travail ni comme
+    // récupération. Le filtre est ici et nulle part ailleurs — c'est déjà
+    // l'endroit qui décide quelles séances entrent dans le calcul.
+    if (s.horsMannequin) continue
     if (s.date > aujourdhui) continue // séance datée dans le futur : ignorée
     const days = ancienneteEnJours(s, now)
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
@@ -1089,6 +1104,7 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   }
   const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
   const douceurs: Douceurs = await loadDouceurs(userId).catch(() => ({}))
+  const exclues: Exclues = await loadExclues(userId).catch(() => ({}))
   // Le catalogue est relu ICI, une fois, plutôt que dans chaque écran : c'est le
   // seul moyen que le mannequin, l'export, l'historique et les calories voient
   // tous le même étiquetage. Un catalogue illisible ne bloque pas le journal —
@@ -1101,6 +1117,7 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
       douceurs[clefDouceur(s.id as string, e.name)] ? { ...e, doux: true } : e,
     ),
     intensite: intensites[s.id],
+    ...(exclues[s.id as string] ? { horsMannequin: true } : {}),
   })) as MuscuSession[]
 }
 
