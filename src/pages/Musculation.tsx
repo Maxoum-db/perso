@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import type { Section as SectionAutorisee } from '../lib/acces'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -8,6 +8,7 @@ import { Poids } from './Carnet'
 import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
+import { appliquerComptage, comptageReglable, loadExclues, nettoyerExclues, saveExclue, type Exclues } from '../lib/comptage'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { RecuperationCard } from '../components/RecuperationCard'
@@ -38,9 +39,9 @@ import {
   saveObservations,
   type Observations,
 } from '../lib/observations'
-import { reposParMuscle } from '../lib/recuperation'
+import { etatParZone, reposParMuscle } from '../lib/recuperation'
 import { etatProtocole } from '../lib/protocole'
-import type { MuscleRegion } from '../lib/muscles'
+import { tronquerZones, type MuscleRegion } from '../lib/muscles'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { Sommeil } from './Sommeil'
 import {
@@ -301,6 +302,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [intensites, setIntensites] = useState<Intensites>({})
   // Exercices déclarés faits en version douce, indexés par séance + exercice.
   const [douceurs, setDouceurs] = useState<Douceurs>({})
+  // Séances décochées : au journal, mais hors du mannequin.
+  const [exclues, setExclues] = useState<Exclues>({})
   // Nuits renseignées : elles décalent la récupération du mannequin.
   const [nuits, setNuits] = useState<Nuits>({})
   // Base des ressentis déclarés : elle servira à affiner le barème.
@@ -321,7 +324,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -336,6 +339,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadBehourd(user.id).catch(() => false),
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
+        loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
         sections.includes('course') ? listSorties(user.id).catch(() => [] as Sortie[]) : [],
       ])
@@ -351,6 +355,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setDouceurs(nettoyerDouceurs(dx, new Set(s.map((x) => x.id))))
+      setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
       setObservations(ob)
       setBehourd(bh)
@@ -411,7 +416,12 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         </div>
       ) : tab === 'journal' ? (
         <Journal
-          pourLaRecup={[...(sessions ?? []), ...sortiesEnSeances(sorties)]}
+          pourLaRecup={[
+            ...appliquerComptage(sessions ?? [], exclues),
+            ...sortiesEnSeances(sorties),
+          ]}
+          exclues={exclues}
+          onExclues={setExclues}
           composerAuto={composerAuto}
           // Consommée une fois : sans ça, revenir en arrière ou rafraîchir
           // relancerait une composition qu'on n'a pas demandée.
@@ -508,6 +518,8 @@ function Journal({
   onIntensite,
   douceurs,
   onDouceurs,
+  exclues,
+  onExclues,
   sexe,
   onChange,
   composerAuto,
@@ -541,6 +553,9 @@ function Journal({
   /** Exercices déclarés faits en version douce, indexés par séance + exercice. */
   douceurs: Douceurs
   onDouceurs: (d: Douceurs) => void
+  /** Séances décochées : au journal, mais hors du mannequin. */
+  exclues: Exclues
+  onExclues: (e: Exclues) => void
   /** Silhouette du mannequin — déclarée dans Poids › profil. */
   sexe: Profil['sex']
   onChange: () => void
@@ -987,6 +1002,7 @@ function Journal({
         courbatures={courbatures}
         nuits={nuits}
         loads={loads}
+        exclues={sessions.filter((x) => exclues[x.id]).length}
         poidsCorps={bodyWeight}
         sexe={sexe}
         onSoreness={declarerCourbatures}
@@ -1021,6 +1037,11 @@ function Journal({
                     {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
                   </div>
                 </div>
+                {exclues[s.id] ? (
+                  <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-muted">
+                    hors mannequin
+                  </span>
+                ) : null}
                 <span className="shrink-0 text-muted">{openId === s.id ? '▾' : '▸'}</span>
               </button>
 
@@ -1049,6 +1070,22 @@ function Journal({
                     </p>
                   ) : null}
                   {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
+                  <ComptageMannequin
+                    seance={s}
+                    pourLaRecup={pourLaRecup}
+                    courbatures={courbatures}
+                    nuits={nuits}
+                    bodyWeight={bodyWeight}
+                    compte={!exclues[s.id]}
+                    onChange={async (compte) => {
+                      // Optimiste : la case doit répondre au doigt, et le
+                      // mannequin bouger dans la foulée. L'écriture suit.
+                      onExclues(compte
+                        ? Object.fromEntries(Object.entries(exclues).filter(([k]) => k !== s.id))
+                        : { ...exclues, [s.id]: true })
+                      onExclues(await saveExclue(userId, s.id, compte, exclues))
+                    }}
+                  />
                   <div className="flex justify-end gap-3 text-xs">
                     <button onClick={() => startEdit(s)} className="font-semibold text-copper">
                       Modifier
@@ -1942,5 +1979,99 @@ function GroupsManager({
       </div>
       <p className="mt-2 text-[10px] text-muted">Ces groupes alimentent le sélecteur « Groupe visé » des exercices.</p>
     </Section>
+  )
+}
+
+/**
+ * « Cette séance compte-t-elle dans le mannequin ? »
+ *
+ * La case est le réglage ; la phrase en dessous est la RAISON d'être du
+ * réglage. Décocher pour voir ce qui repasse au vert, c'est la seule façon de
+ * répondre à « qu'est-ce que ma séance d'hier m'a réellement coûté » autrement
+ * qu'en comparant deux images de mémoire.
+ *
+ * Le calcul de l'écart passe par `chargesCourantes`, la même chaîne que le
+ * mannequin lui-même — sommeil et courbatures compris. Recalculer autrement
+ * aurait donné un chiffre qui ne correspond à rien de ce qu'on voit à l'écran.
+ */
+export function ComptageMannequin({
+  seance,
+  pourLaRecup,
+  courbatures,
+  nuits,
+  bodyWeight,
+  compte,
+  onChange,
+}: {
+  seance: MuscuSession
+  /** Toutes les séances du calcul, exclusions déjà appliquées. */
+  pourLaRecup: MuscuSession[]
+  courbatures: Courbatures
+  nuits: Nuits
+  bodyWeight: number | null
+  compte: boolean
+  onChange: (compte: boolean) => void
+}) {
+  const reglable = comptageReglable(seance)
+
+  // Ce que la séance change, mesuré des deux côtés. Mémoïsé : c'est deux
+  // passages complets du moteur de récupération, et la liste du journal en
+  // afficherait un par ligne dépliée.
+  const ecart = useMemo(() => {
+    if (!reglable) return null
+    const sans = pourLaRecup.map((x) => (x.id === seance.id ? { ...x, horsMannequin: true } : x))
+    const avec = pourLaRecup.map((x) => (x.id === seance.id ? { ...x, horsMannequin: false } : x))
+    const pretes = (l: MuscuSession[]) =>
+      new Set(
+        etatParZone(reposParMuscle(chargesCourantes(l, courbatures, nuits, Date.now(), bodyWeight)))
+          .filter((z) => z.pret)
+          .map((z) => z.zone),
+      )
+    const a = pretes(avec)
+    const zones = [...pretes(sans)].filter((z) => !a.has(z))
+    const muscles = Object.keys(
+      reposParMuscle(chargesCourantes([{ ...seance, horsMannequin: false }], courbatures, nuits, Date.now(), bodyWeight)),
+    ).length
+    return { zones, muscles }
+  }, [reglable, seance, pourLaRecup, courbatures, nuits, bodyWeight])
+
+  if (!reglable) {
+    return (
+      <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">
+        📅 Séance datée à venir : elle ne pèse pas encore sur le mannequin. La case apparaîtra le jour venu.
+      </p>
+    )
+  }
+
+  const { visibles, reste } = tronquerZones(ecart?.zones ?? [])
+  const liste = visibles.join(', ') + (reste ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : '')
+
+  return (
+    <div className="rounded-xl2 bg-white/5 p-2">
+      <label className="flex cursor-pointer items-start gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={compte}
+          onChange={(e) => onChange(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-copper"
+        />
+        <span className="min-w-0">
+          <span className="font-semibold text-ink">Compte dans le mannequin</span>
+          <span className="block text-muted">
+            {compte ? (
+              ecart?.zones.length ? (
+                <>
+                  Elle touche {ecart.muscles} muscles. Sans elle, {liste} {ecart.zones.length > 1 ? 'repasseraient' : 'repasserait'} au vert.
+                </>
+              ) : (
+                <>Elle touche {ecart?.muscles ?? 0} muscles, mais aucune zone n’attend qu’elle pour repasser au vert.</>
+              )
+            ) : (
+              <>Décochée : elle reste au journal, mais le mannequin l’ignore complètement.</>
+            )}
+          </span>
+        </span>
+      </label>
+    </div>
   )
 }
