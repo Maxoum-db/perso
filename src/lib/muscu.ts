@@ -795,7 +795,11 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       nuque est au maximum » —, et une balade sortait au-dessus d'une heure
 //       de port du harnois sous 35 kg. Plus aucun moteur plein, et rien ne
 //       dépasse l'armure sur les muscles qu'elle mesure.
-const LIBRARY_SEED_KEY = 'muscu_library_v36'
+// v37 : la moto encore adoucie d'un cran, et PLAFONNÉE. Il a fallu redescendre
+//       deux fois : chaque entrée se calibrait sur son propre ressenti — « c'est
+//       ça qui lâche en premier » — au lieu de se situer parmi les autres
+//       efforts. Rouler ne demande pas plus qu'une randonnée avec sac lesté.
+const LIBRARY_SEED_KEY = 'muscu_library_v37'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
