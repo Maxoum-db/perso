@@ -38,6 +38,7 @@ const moreTabs = (onglet: Tab | null): Tab[] => [
   ...(onglet ? [onglet] : []),
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
+  { to: '/rustique', label: 'Rustique', icon: IconBrain },
 ]
 
 export function Layout({ children, sections }: { children: ReactNode; sections: Section[] }) {
@@ -275,6 +276,14 @@ function IconBeer({ active }: IconProps) {
       <path d="M6 8h9v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8Z" />
       <path d="M15 10h2.5a2.5 2.5 0 0 1 0 5H15" />
       <path d="M8 8c0-1.5-1-2-1-3.2C7 3.4 8 3 9 3M11.5 8c0-1.5-1-2-1-3.2 0-1.4 1-1.8 2-1.8" />
+    </svg>
+  )
+}
+function IconBrain({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 4.5a2.7 2.7 0 0 0-2.7 2.7 2.6 2.6 0 0 0-1.8 2.5c0 .5.13.95.36 1.35A2.7 2.7 0 0 0 6 15.8v.9a3.3 3.3 0 0 0 3.3 3.3H9a2 2 0 0 0 2-2V6.5A2 2 0 0 0 9 4.5Z" />
+      <path d="M15 4.5a2.7 2.7 0 0 1 2.7 2.7 2.6 2.6 0 0 1 1.8 2.5c0 .5-.13.95-.36 1.35A2.7 2.7 0 0 1 18 15.8v.9a3.3 3.3 0 0 1-3.3 3.3H15a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z" />
     </svg>
   )
 }

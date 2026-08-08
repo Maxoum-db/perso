@@ -40,6 +40,7 @@ export type Section =
   | 'musculation'
   | 'brassage'
   | 'mails'
+  | 'rustique'
 
 export const SECTIONS: Array<{ id: Section; label: string; icone: string; route: string; aide: string }> = [
   { id: 'agenda', label: 'Agenda', icone: '📅', route: '/agenda', aide: 'Rendez-vous et journée.' },
@@ -50,6 +51,7 @@ export const SECTIONS: Array<{ id: Section; label: string; icone: string; route:
   { id: 'musculation', label: 'Musculation', icone: '🏋️', route: '/musculation', aide: 'Séances, mannequin, récupération.' },
   { id: 'brassage', label: 'Brassage', icone: '🍺', route: '/brassage', aide: 'Brassins et fermentations.' },
   { id: 'mails', label: 'Mails', icone: '✉️', route: '/mails', aide: 'Boîte de réception (hors navigation).' },
+  { id: 'rustique', label: 'Rustique', icone: '🧠', route: '/rustique', aide: 'Recettes, apiculture, distillation et BPREA du Hub Prométhée.' },
 ]
 
 /**
