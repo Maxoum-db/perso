@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { SubTabs } from '../components/SubTabs'
+import { RustiqueApprentissage } from '../components/RustiqueApprentissage'
 import { RustiqueChat } from '../components/RustiqueChat'
 import { RustiqueQuiz } from '../components/RustiqueQuiz'
 import { fetchRustiqueOverview, type RustiqueOverview, type RustiqueOverviewResult } from '../lib/rustique'
@@ -27,7 +28,7 @@ function HubNotConfigured() {
 // Rustique : deuxième cerveau — aperçu du Hub Prométhée (apiculture,
 // distillation, BPREA, recettes) + un assistant qui pioche dans les deux bases.
 export function Rustique() {
-  const [tab, setTab] = useState<'apercu' | 'quiz' | 'assistant'>('apercu')
+  const [tab, setTab] = useState<'apprentissage' | 'quiz' | 'apercu' | 'assistant'>('apprentissage')
 
   return (
     <div className="space-y-4">
@@ -38,15 +39,24 @@ export function Rustique() {
 
       <SubTabs
         tabs={[
-          { id: 'apercu', label: '📊 Aperçu' },
+          { id: 'apprentissage', label: '🎓 Apprentissage' },
           { id: 'quiz', label: '📚 Quiz' },
+          { id: 'apercu', label: '📊 Aperçu' },
           { id: 'assistant', label: '💬 Assistant' },
         ]}
         active={tab}
         onChange={(id) => setTab(id as typeof tab)}
       />
 
-      {tab === 'apercu' ? <RustiqueApercu /> : tab === 'quiz' ? <RustiqueQuiz /> : <RustiqueChat />}
+      {tab === 'apprentissage' ? (
+        <RustiqueApprentissage />
+      ) : tab === 'quiz' ? (
+        <RustiqueQuiz />
+      ) : tab === 'apercu' ? (
+        <RustiqueApercu />
+      ) : (
+        <RustiqueChat />
+      )}
     </div>
   )
 }

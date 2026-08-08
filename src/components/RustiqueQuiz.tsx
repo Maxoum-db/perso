@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  groupDecksByTheme,
   listRustiqueCards,
   listRustiqueDecks,
   listRustiqueThemeCards,
   submitRustiqueReview,
   type RustiqueCard,
   type RustiqueDeck,
-  type RustiqueTheme,
+  type RustiqueThemeGroup,
 } from '../lib/rustique'
 
 type Rating = 1 | 2 | 3 | 4
@@ -18,7 +19,6 @@ const RATING_BUTTONS: { rating: Rating; label: string; className: string }[] = [
   { rating: 4, label: 'Facile', className: 'bg-copper text-white' },
 ]
 
-type ThemeGroup = { theme: RustiqueTheme; decks: RustiqueDeck[]; cardCount: number; dueCount: number }
 type SessionSource = { label: string; deckId?: string; themeId?: string }
 
 // Quiz Rustique : révise les vraies cartes du hub, regroupées par thème (les
@@ -50,18 +50,7 @@ export function RustiqueQuiz() {
     reloadDecks()
   }, [])
 
-  const themeGroups = useMemo<ThemeGroup[]>(() => {
-    if (!decks) return []
-    const byId = new Map<string, ThemeGroup>()
-    for (const d of decks) {
-      const g = byId.get(d.theme.id) ?? { theme: d.theme, decks: [], cardCount: 0, dueCount: 0 }
-      g.decks.push(d)
-      g.cardCount += d.cardCount
-      g.dueCount += d.dueCount
-      byId.set(d.theme.id, g)
-    }
-    return [...byId.values()].sort((a, b) => a.theme.order - b.theme.order)
-  }, [decks])
+  const themeGroups = useMemo(() => (decks ? groupDecksByTheme(decks) : []), [decks])
 
   async function openSession(source: SessionSource, dueOnly: boolean) {
     setError(null)
@@ -126,7 +115,7 @@ function ThemeCard({
   onReviewTheme,
   onOpenDeck,
 }: {
-  group: ThemeGroup
+  group: RustiqueThemeGroup
   open: boolean
   onToggle: () => void
   onReviewTheme: () => void

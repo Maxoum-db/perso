@@ -96,6 +96,26 @@ export interface RustiqueDecksResult {
   message?: string
 }
 
+export interface RustiqueThemeGroup {
+  theme: RustiqueTheme
+  decks: RustiqueDeck[]
+  cardCount: number
+  dueCount: number
+}
+
+/** Regroupe les paquets par thème (utilisé par Apprentissage et Quiz). */
+export function groupDecksByTheme(decks: RustiqueDeck[]): RustiqueThemeGroup[] {
+  const byId = new Map<string, RustiqueThemeGroup>()
+  for (const d of decks) {
+    const g = byId.get(d.theme.id) ?? { theme: d.theme, decks: [], cardCount: 0, dueCount: 0 }
+    g.decks.push(d)
+    g.cardCount += d.cardCount
+    g.dueCount += d.dueCount
+    byId.set(d.theme.id, g)
+  }
+  return [...byId.values()].sort((a, b) => a.theme.order - b.theme.order)
+}
+
 export interface RustiqueReviewState {
   card_id: string
   due: string
