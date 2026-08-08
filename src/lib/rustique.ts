@@ -70,11 +70,22 @@ export async function askRustique(question: string): Promise<RustiqueAskResult> 
 }
 
 // ── Quiz (learn_decks/learn_cards du hub, révision FSRS réelle) ────────────
+// Les paquets sont regroupés par thème (les 8 phases du programme
+// d'auto-formation du hub) pour réviser large sur un sujet plutôt que
+// paquet par paquet — cf. commentaire THEMES dans l'Edge Function.
+
+export interface RustiqueTheme {
+  id: string
+  title: string
+  color: string
+  order: number
+}
 
 export interface RustiqueDeck {
   id: string
   title: string
   scope: string | null
+  theme: RustiqueTheme
   cardCount: number
   dueCount: number
 }
@@ -93,6 +104,8 @@ export interface RustiqueReviewState {
 
 export interface RustiqueCard {
   id: string
+  deck_id: string
+  deckTitle: string | null
   front: string
   back: string
   type: string
@@ -128,6 +141,13 @@ export async function listRustiqueDecks(): Promise<RustiqueDecksResult> {
 
 export async function listRustiqueCards(deckId: string, dueOnly: boolean): Promise<RustiqueCardsResult> {
   const res = await invokeQuiz<{ cards: RustiqueCard[] }>({ action: 'list_cards', deck_id: deckId, due_only: dueOnly })
+  if (res.status !== 'ok') return { status: res.status, cards: [], message: res.message }
+  return { status: 'ok', cards: res.data?.cards ?? [] }
+}
+
+/** Toutes les cartes de tous les paquets d'un thème, en une session. */
+export async function listRustiqueThemeCards(themeId: string, dueOnly: boolean): Promise<RustiqueCardsResult> {
+  const res = await invokeQuiz<{ cards: RustiqueCard[] }>({ action: 'list_cards', theme_id: themeId, due_only: dueOnly })
   if (res.status !== 'ok') return { status: res.status, cards: [], message: res.message }
   return { status: 'ok', cards: res.data?.cards ?? [] }
 }

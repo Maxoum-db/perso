@@ -30,6 +30,68 @@ function json(obj: unknown, status = 200): Response {
 // échéances incohérentes sur la même carte selon l'app utilisée pour réviser.
 const engine = fsrs(generatorParameters({ enable_fuzz: true }));
 
+// ── Thèmes ───────────────────────────────────────────────────────────────
+// Reprend les 8 phases du programme d'auto-formation du hub
+// (FORMGEN_PHASES_SEED, src/constants/formation_generale.js) plutôt que
+// d'inventer une taxonomie séparée : les modules BPREA (scope="generale")
+// s'y rattachent déjà via leur phase_id. La bibliothèque (scope="biblio")
+// n'a pas de rattachement explicite en base (biblio_docs est vide côté hub)
+// — on la répartit sur les mêmes thèmes par préfixe de source, pour que
+// modules ET fiches d'un même sujet se retrouvent regroupés.
+type Theme = { id: string; title: string; color: string; order: number };
+
+const THEMES: Record<string, Theme> = {
+  P0: { id: "P0", title: "Posture & pilotage", color: "#6366F1", order: 0 },
+  P1: { id: "P1", title: "Socle gestion & juridique", color: "#0EA5E9", order: 1 },
+  P2: { id: "P2", title: "Cœur apicole", color: "#F59E0B", order: 2 },
+  P3: { id: "P3", title: "Productions végétales", color: "#22C55E", order: 3 },
+  P4: { id: "P4", title: "Transformation & énergie", color: "#EF4444", order: 4 },
+  P5: { id: "P5", title: "Valorisation", color: "#A855F7", order: 5 },
+  P6: { id: "P6", title: "Synthèse & jury", color: "#0F766E", order: 6 },
+  PT: { id: "PT", title: "Transversal — Métabolisme Prométhée", color: "#64748B", order: 7 },
+};
+const AUTRE: Theme = { id: "AUTRE", title: "Autres", color: "#6B7280", order: 8 };
+
+// Code de module (deck.id = "deck-mod-<code>") → phase — miroir exact de
+// FORMGEN_MODULES_SEED côté hub. Si le hub ajoute un module, il tombera dans
+// "Autres" ici jusqu'à mise à jour de cette table.
+const MODULE_PHASE: Record<string, string> = {
+  "M-UC1": "P0", "M-UC2": "P0", "M-CHARGE": "P0", "M-PROJ": "P0",
+  "M-UC4": "P1", "M-JURI": "P1", "M-FISC": "P1", "M-FINANCE": "P1", "M-SOCIAL": "P1",
+  "M-UC3": "P2", "M-UCARE1": "P2", "M-UCARE2": "P2", "M-API-IMPL": "P2", "M-API-SANTE": "P2", "M-API-ECO": "P2",
+  "M-FRUIT": "P3", "M-MARA": "P3", "M-AGROF": "P3", "M-EAU": "P3", "M-PPAM": "P3", "M-CEREALE": "P3",
+  "M-DIST": "P4", "M-BRASS": "P4", "M-ENER": "P4", "M-ACCISE": "P4", "M-SECU": "P4", "M-ATELIER": "P4", "M-LIQ": "P4",
+  "M-UC5": "P5", "M-MARQUE": "P5", "M-SENSO": "P5", "M-DIGITAL": "P5", "M-COUT": "P5",
+  "M-BP": "P6", "M-DJA": "P6", "M-JURY": "P6", "M-RETRO": "P6", "M-RISK": "P6",
+  "M-SYN": "PT", "M-SANI": "PT", "M-HYDRO": "PT", "M-FUT": "PT", "M-FERM": "PT",
+  "M-CIRC": "PT", "M-ENVI": "PT", "M-DATA": "PT", "M-LOGI": "PT", "M-RESO": "PT",
+};
+
+// Préfixe de source bibliographique (deck.id = "deck-fiche-f-<source>" ou
+// "deck-qcm-f-<source>") → phase. Répartition par sujet, à défaut de
+// rattachement explicite en base.
+const BIBLIO_PREFIX_PHASE: [string, string][] = [
+  ["pole1-sante", "P2"], ["pole3-pesticides", "P2"], ["pole5-socioeco", "P2"],
+  ["pole6-agriculture", "P2"], ["pole7-genetique", "P2"], ["pole8-produits", "P2"],
+  ["itsap", "P2"],
+  ["pole2-biodiv", "P3"], ["altieri", "P3"], ["atlas", "P3"], ["laberche", "P3"],
+  ["pole4-numerique", "PT"],
+  ["wr", "P4"], ["at", "P4"],
+];
+
+function themeForDeck(deckId: string, scope: string | null): Theme {
+  if (scope === "generale") {
+    const code = deckId.replace(/^deck-mod-/, "");
+    const phase = MODULE_PHASE[code];
+    return phase ? THEMES[phase] : AUTRE;
+  }
+  const source = deckId.replace(/^deck-(fiche|qcm)-f-/, "");
+  for (const [prefix, phase] of BIBLIO_PREFIX_PHASE) {
+    if (source.startsWith(prefix)) return THEMES[phase];
+  }
+  return AUTRE;
+}
+
 type PackedCard = {
   due: string;
   stability: number;
@@ -105,20 +167,40 @@ Deno.serve(async (req: Request) => {
         id: d.id,
         title: d.title,
         scope: d.scope,
+        theme: themeForDeck(d.id, d.scope),
         cardCount: cardsByDeck.get(d.id) ?? 0,
         dueCount: dueByDeck.get(d.id) ?? 0,
       }));
       return json({ decks });
     }
 
-    // Cartes d'un paquet, avec leur état de révision courant.
+    // Cartes d'un paquet OU de tout un thème (plusieurs paquets regroupés),
+    // avec leur état de révision courant — un thème permet de réviser en une
+    // seule session tout ce qui concerne un sujet (ex: 🐝 Cœur apicole),
+    // plutôt que d'ouvrir chaque petit paquet un par un.
     if (action === "list_cards") {
-      const deckId = body.deck_id as string;
-      if (!deckId) return json({ error: "bad_request" }, 400);
+      const deckId = body.deck_id as string | undefined;
+      const themeId = body.theme_id as string | undefined;
+      if (!deckId && !themeId) return json({ error: "bad_request" }, 400);
       const dueOnly = Boolean(body.due_only);
 
+      let deckIds: string[];
+      let deckTitleById = new Map<string, string>();
+      if (deckId) {
+        deckIds = [deckId];
+      } else {
+        const decksRes = await hub.from("learn_decks").select("id, title, scope");
+        if (decksRes.error) return json({ error: "hub_error", detail: decksRes.error.message }, 502);
+        const matching = ((decksRes.data ?? []) as { id: string; title: string; scope: string | null }[]).filter(
+          (d) => themeForDeck(d.id, d.scope).id === themeId,
+        );
+        deckIds = matching.map((d) => d.id);
+        deckTitleById = new Map(matching.map((d) => [d.id, d.title]));
+        if (deckIds.length === 0) return json({ cards: [] });
+      }
+
       const [cardsRes, reviewRes] = await Promise.all([
-        hub.from("learn_cards").select("id, front, back, type").eq("deck_id", deckId),
+        hub.from("learn_cards").select("id, deck_id, front, back, type").in("deck_id", deckIds),
         hub.from("learn_review_state").select("*"),
       ]);
       if (cardsRes.error) return json({ error: "hub_error", detail: cardsRes.error.message }, 502);
@@ -126,10 +208,13 @@ Deno.serve(async (req: Request) => {
 
       const stateByCard = new Map(((reviewRes.data ?? []) as { card_id: string }[]).map((r) => [r.card_id, r]));
       const now = Date.now();
-      let cards = ((cardsRes.data ?? []) as { id: string; front: string; back: string; type: string }[]).map((c) => ({
-        ...c,
-        review: stateByCard.get(c.id) ?? null,
-      }));
+      let cards = ((cardsRes.data ?? []) as { id: string; deck_id: string; front: string; back: string; type: string }[]).map(
+        (c) => ({
+          ...c,
+          deckTitle: deckTitleById.get(c.deck_id) ?? null,
+          review: stateByCard.get(c.id) ?? null,
+        }),
+      );
       if (dueOnly) {
         cards = cards.filter((c) => !c.review || new Date((c.review as { due: string }).due).getTime() <= now);
       }
