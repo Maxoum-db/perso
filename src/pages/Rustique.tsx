@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
-import { RustiqueArborescence } from '../components/RustiqueArborescence'
 import { RustiqueApprentissage } from '../components/RustiqueApprentissage'
 import { RustiqueChat } from '../components/RustiqueChat'
 import { RustiqueQuiz } from '../components/RustiqueQuiz'
@@ -30,16 +29,12 @@ function HubNotConfigured() {
 // Rustique : deuxième cerveau — aperçu du Hub Prométhée (apiculture,
 // distillation, BPREA, recettes) + un assistant qui pioche dans les deux bases.
 export function Rustique() {
-  // Arrivée depuis la Notion du jour (accueil) avec `state: { openTheme }` :
-  // capturé une fois au montage, pas à chaque changement de route — sinon un
-  // aller-retour d'onglet rouvrirait l'article à chaque fois.
+  // Arrivée depuis la Notion du jour (accueil) avec `state: { openTheme,
+  // openCard }` : capturé une fois au montage, pas à chaque changement de
+  // route — sinon un aller-retour d'onglet rouvrirait l'article à chaque fois.
   const location = useLocation()
-  const [navState] = useState(() => location.state as { openTheme?: string } | null)
-  // Arbre en premier par défaut (vue d'ensemble avant de plonger) — sauf
-  // arrivée ciblée depuis la Notion du jour, qui va droit à la lecture.
-  const [tab, setTab] = useState<'arbre' | 'apprentissage' | 'quiz' | 'apercu' | 'assistant'>(() =>
-    navState?.openTheme ? 'apprentissage' : 'arbre',
-  )
+  const [navState] = useState(() => location.state as { openTheme?: string; openCard?: string } | null)
+  const [tab, setTab] = useState<'apprentissage' | 'quiz' | 'apercu' | 'assistant'>('apprentissage')
 
   return (
     <div className="space-y-4">
@@ -50,7 +45,6 @@ export function Rustique() {
 
       <SubTabs
         tabs={[
-          { id: 'arbre', label: '🌳 Arborescence' },
           { id: 'apprentissage', label: '🎓 Apprentissage' },
           { id: 'quiz', label: '📚 Quiz' },
           { id: 'apercu', label: '📊 Aperçu' },
@@ -60,10 +54,8 @@ export function Rustique() {
         onChange={(id) => setTab(id as typeof tab)}
       />
 
-      {tab === 'arbre' ? (
-        <RustiqueArborescence />
-      ) : tab === 'apprentissage' ? (
-        <RustiqueApprentissage autoOpenThemeId={navState?.openTheme} />
+      {tab === 'apprentissage' ? (
+        <RustiqueApprentissage autoOpenThemeId={navState?.openTheme} autoOpenCardId={navState?.openCard} />
       ) : tab === 'quiz' ? (
         <RustiqueQuiz />
       ) : tab === 'apercu' ? (
