@@ -310,6 +310,9 @@ function DeckNode({
 }
 
 function CardRow({ card, lue, onOpen, onToggleLue }: { card: RustiqueCard; lue: boolean; onOpen: () => void; onToggleLue: () => void }) {
+  // Lue sans jamais avoir été notée = jamais entrée dans le planning FSRS :
+  // un point ambre pour le signaler, distinct du vert (déjà suivie).
+  const jamaisNotee = lue && !card.review
   return (
     <div className="flex items-start gap-2 py-1">
       <button
@@ -321,8 +324,14 @@ function CardRow({ card, lue, onOpen, onToggleLue }: { card: RustiqueCard; lue: 
       >
         ✓
       </button>
-      <button onClick={onOpen} className="min-w-0 flex-1 text-left">
+      <button onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-1.5 text-left">
         <span className={`whitespace-pre-wrap text-xs ${lue ? 'text-muted line-through' : 'text-ink'}`}>{card.front}</span>
+        {jamaisNotee ? (
+          <span
+            className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sand"
+            title="Lue mais jamais notée — pas encore suivie par les révisions, à passer au Quiz"
+          />
+        ) : null}
       </button>
     </div>
   )
@@ -394,8 +403,17 @@ function FullscreenNotion({
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${mastered ? 'bg-sage/20 text-sage' : 'bg-sand/30 text-sand'}`}>
               {mastered ? 'acquis' : 'en cours'}
             </span>
+          ) : lue ? (
+            <span className="shrink-0 rounded-full bg-clay/15 px-2 py-0.5 text-[10px] font-bold text-clay" title="Jamais notée : pas encore suivie par les révisions">
+              jamais notée
+            </span>
           ) : null}
         </div>
+        {!card.review && lue ? (
+          <p className="-mt-1.5 text-[11px] italic text-muted">
+            Lue mais jamais notée au Quiz — elle ne reviendra pas toute seule tant qu'elle n'a pas été notée une fois.
+          </p>
+        ) : null}
 
         {!revele ? (
           <button onClick={() => setRevele(true)} className="btn-primary w-full py-2.5">
