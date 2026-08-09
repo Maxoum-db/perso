@@ -33,6 +33,7 @@ import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
+import { fetchNotionDuJour, type RustiqueNotion } from '../lib/rustique'
 
 export function Home() {
   const { user } = useAuth()
@@ -56,6 +57,7 @@ export function Home() {
   const [behourd, setBehourd] = useState(false)
   const [creneau, setCreneau] = useState(DUREE_PAR_DEFAUT)
   const [sorties, setSorties] = useState<Sortie[]>([])
+  const [notion, setNotion] = useState<RustiqueNotion | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -78,6 +80,9 @@ export function Home() {
     loadFocus(user.id).then(setFocus).catch(() => {})
     loadBehourd(user.id).then(setBehourd).catch(() => {})
     loadDuree(user.id).then(setCreneau).catch(() => {})
+    fetchNotionDuJour()
+      .then((r) => setNotion(r.status === 'ok' ? r.notion : null))
+      .catch(() => {})
     // Prochains événements du couple (espace partagé).
     getMySpace()
       .then((s) => (s ? listSharedEvents(s.spaceId) : []))
@@ -184,6 +189,8 @@ export function Home() {
         agendaVisible={!needAuth}
         contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau }}
       />
+
+      {notion ? <NotionDuJourCard notion={notion} /> : null}
 
       {tasks.length > 0 ? (
         <div className="card p-4">
@@ -612,6 +619,51 @@ function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) 
       <span className="text-ink">{etat.zone}</span>
       {delai ? <span className="text-xs text-muted">{fmtDelai(etat.reste)}</span> : null}
     </span>
+  )
+}
+
+/**
+ * La notion du jour : une carte à réviser (priorité au thème le plus en
+ * retard) ou, à défaut, une carte jamais étudiée. Réponse repliée par défaut
+ * pour forcer le rappel actif avant de la révéler — comme au Quiz.
+ */
+function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
+  const [revele, setRevele] = useState(false)
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between gap-2 p-4 pb-0">
+        <div className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: notion.theme.color }} />
+          <span className="truncate">🧠 Notion du jour · {notion.theme.title}</span>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            notion.isNew ? 'bg-sage/20 text-sage' : 'bg-copper/20 text-copper'
+          }`}
+        >
+          {notion.isNew ? 'nouveau' : 'à réviser'}
+        </span>
+      </div>
+
+      <div className="p-4">
+        <div className="whitespace-pre-wrap text-sm font-semibold text-ink">{notion.card.front}</div>
+        {revele ? (
+          <div className="mt-2 whitespace-pre-wrap border-t border-line/60 pt-2 text-sm text-ink">{notion.card.back}</div>
+        ) : (
+          <button onClick={() => setRevele(true)} className="btn-ghost mt-2 px-3 py-1.5 text-xs">
+            Voir la réponse
+          </button>
+        )}
+      </div>
+
+      <Link
+        to="/rustique"
+        className="block border-t border-line/60 p-3 text-center text-xs font-semibold text-copper transition hover:bg-copper/5"
+      >
+        Continuer dans Rustique →
+      </Link>
+    </div>
   )
 }
 
