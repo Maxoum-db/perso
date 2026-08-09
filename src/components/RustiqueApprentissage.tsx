@@ -214,7 +214,7 @@ function CardEntry({ card, dys }: { card: RustiqueCard; dys: boolean }) {
         ) : null}
       </div>
       <div
-        className={`whitespace-pre-wrap border-t border-line/60 pt-1.5 text-muted ${dys ? 'text-base' : 'text-sm'}`}
+        className={`whitespace-pre-wrap border-t border-line/60 pt-1.5 text-ink ${dys ? 'text-base' : 'text-sm'}`}
         style={textStyle}
       >
         {card.back}
