@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { hasFreshGoogleToken } from '../lib/google'
 import { fetchSettings, saveSettings, type Discipline, type PersoSettings } from '../lib/settings'
+import { applyTextSize, readTextSize, TEXT_SIZES, type TextSize } from '../lib/textSize'
 import { disablePush, enablePush, isStandalone, pushStatus, sendTestPush } from '../lib/push'
 import { exporterSport, type ContexteExport, type PorteeExport } from '../lib/exportSport'
 import { FENETRE_STATS, listSessions } from '../lib/muscu'
@@ -35,6 +36,8 @@ export function Settings() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-extrabold text-ink">Réglages</h1>
+
+      <TextSizeSection />
 
       <section className="card p-4">
         <h2 className="text-sm font-bold text-ink">Compte</h2>
@@ -95,6 +98,51 @@ export function Settings() {
 
       <p className="px-1 text-center text-xs text-muted/70">Aide · v0.1</p>
     </div>
+  )
+}
+
+/**
+ * Taille du texte de toute l'app — préférence d'appareil, appliquée
+ * immédiatement (pas d'aller-retour réseau) et retenue au prochain lancement.
+ */
+function TextSizeSection() {
+  const [taille, setTaille] = useState<TextSize>('normal')
+
+  useEffect(() => {
+    setTaille(readTextSize())
+  }, [])
+
+  function choisir(t: TextSize) {
+    setTaille(t)
+    applyTextSize(t)
+  }
+
+  return (
+    <section className="card p-4">
+      <h2 className="text-sm font-bold text-ink">🔤 Taille du texte</h2>
+      <p className="mt-1 text-sm text-muted">
+        Pour lire longtemps sans forcer — utile en Apprentissage et au Quiz. S'applique à toute l'app.
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {TEXT_SIZES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => choisir(t.id)}
+            className={`rounded-xl2 border p-3 text-center transition ${
+              taille === t.id ? 'border-copper bg-copper/10' : 'border-line bg-white/5 hover:border-copper/50'
+            }`}
+          >
+            <div className="font-bold text-ink" style={{ fontSize: `${0.8 + (t.pct - 100) / 200}rem` }}>
+              Aa
+            </div>
+            <div className="mt-1 text-xs text-muted">
+              {t.label}
+              {taille === t.id ? <span className="ml-1 text-copper">✓</span> : null}
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
