@@ -699,9 +699,10 @@ function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
 
       <Link
         to="/rustique"
+        state={{ openTheme: notion.theme.id }}
         className="block border-t border-line/60 p-3 text-center text-xs font-semibold text-copper transition hover:bg-copper/5"
       >
-        Continuer dans Rustique →
+        Voir dans Apprentissage →
       </Link>
     </div>
   )

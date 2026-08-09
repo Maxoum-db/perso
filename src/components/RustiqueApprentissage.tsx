@@ -4,6 +4,7 @@ import {
   groupDecksByTheme,
   listRustiqueDecks,
   listRustiqueThemeCards,
+  submitRustiqueReview,
   type RustiqueCard,
   type RustiqueDeck,
   type RustiqueThemeGroup,
@@ -14,7 +15,7 @@ import {
 // la fois — pour étudier en profondeur un sujet avant de se tester au Quiz.
 // Mêmes données que le Quiz (learn_decks/learn_cards du hub), présentation
 // différente : un document à lire, pas une session de révision FSRS.
-export function RustiqueApprentissage() {
+export function RustiqueApprentissage({ autoOpenThemeId }: { autoOpenThemeId?: string }) {
   const [decks, setDecks] = useState<RustiqueDeck[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notConfigured, setNotConfigured] = useState(false)
@@ -28,7 +29,14 @@ export function RustiqueApprentissage() {
       if (res.status === 'not_configured') return setNotConfigured(true)
       if (res.status === 'error') return setError(res.message ?? 'Impossible de charger les modules.')
       setDecks(res.decks)
+      // Arrivée depuis la Notion du jour (accueil) : ouvre directement l'article
+      // au lieu de reposer la liste des thèmes et forcer un clic « Étudier ».
+      if (autoOpenThemeId) {
+        const target = groupDecksByTheme(res.decks).find((g) => g.theme.id === autoOpenThemeId)
+        if (target) openTheme(target)
+      }
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function toggleDys() {
@@ -150,6 +158,26 @@ function ThemeReader({
     return order.map((title) => ({ title, cards: map.get(title)! }))
   }, [cards])
 
+  // Cocher une notion vaut « je la connais » : ça note 3/4 (Correct) côté
+  // FSRS, comme au Quiz — cocher fait donc avancer le vrai planning de
+  // révision, pas juste une case cosmétique. Repose à chaque ouverture d'un
+  // thème : coché = fait PENDANT cette lecture, l'historique reste dans le
+  // badge acquis/en cours.
+  const [revisees, setRevisees] = useState<Set<string>>(new Set())
+  const [enCours, setEnCours] = useState<Set<string>>(new Set())
+
+  async function marquerRevisee(cardId: string) {
+    if (revisees.has(cardId) || enCours.has(cardId)) return
+    setEnCours((s) => new Set(s).add(cardId))
+    const ok = await submitRustiqueReview(cardId, 3)
+    setEnCours((s) => {
+      const n = new Set(s)
+      n.delete(cardId)
+      return n
+    })
+    if (ok) setRevisees((s) => new Set(s).add(cardId))
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -159,7 +187,8 @@ function ThemeReader({
             <h2 className="truncate text-base font-extrabold text-ink">{theme.theme.title}</h2>
           </div>
           <p className="text-xs text-muted">
-            {byDeck.length} paquet{byDeck.length > 1 ? 's' : ''} · {cards.length} notion{cards.length > 1 ? 's' : ''}
+            {byDeck.length} paquet{byDeck.length > 1 ? 's' : ''} · {revisees.size}/{cards.length} révisée
+            {cards.length > 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -187,7 +216,14 @@ function ThemeReader({
               </h3>
               <div className="space-y-2">
                 {deckCards.map((c) => (
-                  <CardEntry key={c.id} card={c} dys={dys} />
+                  <CardEntry
+                    key={c.id}
+                    card={c}
+                    dys={dys}
+                    revisee={revisees.has(c.id)}
+                    pending={enCours.has(c.id)}
+                    onRevise={() => marquerRevisee(c.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -198,26 +234,51 @@ function ThemeReader({
   )
 }
 
-function CardEntry({ card, dys }: { card: RustiqueCard; dys: boolean }) {
+function CardEntry({
+  card,
+  dys,
+  revisee,
+  pending,
+  onRevise,
+}: {
+  card: RustiqueCard
+  dys: boolean
+  revisee: boolean
+  pending: boolean
+  onRevise: () => void
+}) {
   const mastered = card.review && card.review.state >= 2
   const textStyle = dysTextStyle(dys)
   return (
-    <div className={`card space-y-1.5 ${dys ? 'p-4' : 'p-3'}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className={`whitespace-pre-wrap font-semibold text-ink ${dys ? 'text-base' : 'text-sm'}`} style={textStyle}>
-          {card.front}
-        </div>
-        {card.review ? (
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${mastered ? 'bg-sage/20 text-sage' : 'bg-sand/30 text-sand'}`}>
-            {mastered ? 'acquis' : 'en cours'}
-          </span>
-        ) : null}
-      </div>
-      <div
-        className={`whitespace-pre-wrap border-t border-line/60 pt-1.5 text-ink ${dys ? 'text-base' : 'text-sm'}`}
-        style={textStyle}
+    <div className={`card flex items-start gap-3 ${dys ? 'p-4' : 'p-3'} ${revisee ? 'opacity-70' : ''}`}>
+      <button
+        onClick={onRevise}
+        disabled={revisee || pending}
+        title="Marquer comme révisée"
+        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold transition ${
+          revisee ? 'border-sage bg-sage text-white' : 'border-line text-transparent hover:border-copper'
+        }`}
       >
-        {card.back}
+        {pending ? '…' : '✓'}
+      </button>
+
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className={`whitespace-pre-wrap font-semibold text-ink ${dys ? 'text-base' : 'text-sm'}`} style={textStyle}>
+            {card.front}
+          </div>
+          {card.review ? (
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${mastered ? 'bg-sage/20 text-sage' : 'bg-sand/30 text-sand'}`}>
+              {mastered ? 'acquis' : 'en cours'}
+            </span>
+          ) : null}
+        </div>
+        <div
+          className={`whitespace-pre-wrap border-t border-line/60 pt-1.5 text-ink ${dys ? 'text-base' : 'text-sm'}`}
+          style={textStyle}
+        >
+          {card.back}
+        </div>
       </div>
     </div>
   )

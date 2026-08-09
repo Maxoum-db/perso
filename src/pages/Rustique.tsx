@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
 import { RustiqueApprentissage } from '../components/RustiqueApprentissage'
 import { RustiqueChat } from '../components/RustiqueChat'
@@ -28,6 +29,11 @@ function HubNotConfigured() {
 // Rustique : deuxième cerveau — aperçu du Hub Prométhée (apiculture,
 // distillation, BPREA, recettes) + un assistant qui pioche dans les deux bases.
 export function Rustique() {
+  // Arrivée depuis la Notion du jour (accueil) avec `state: { openTheme }` :
+  // capturé une fois au montage, pas à chaque changement de route — sinon un
+  // aller-retour d'onglet rouvrirait l'article à chaque fois.
+  const location = useLocation()
+  const [navState] = useState(() => location.state as { openTheme?: string } | null)
   const [tab, setTab] = useState<'apprentissage' | 'quiz' | 'apercu' | 'assistant'>('apprentissage')
 
   return (
@@ -49,7 +55,7 @@ export function Rustique() {
       />
 
       {tab === 'apprentissage' ? (
-        <RustiqueApprentissage />
+        <RustiqueApprentissage autoOpenThemeId={navState?.openTheme} />
       ) : tab === 'quiz' ? (
         <RustiqueQuiz />
       ) : tab === 'apercu' ? (
