@@ -33,7 +33,13 @@ import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
-import { fetchNotionDuJour, type RustiqueNotion } from '../lib/rustique'
+import {
+  fetchNotionDuJour,
+  RUSTIQUE_RATING_BUTTONS,
+  submitRustiqueReview,
+  type RustiqueNotion,
+  type RustiqueRating,
+} from '../lib/rustique'
 
 export function Home() {
   const { user } = useAuth()
@@ -625,10 +631,24 @@ function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) 
 /**
  * La notion du jour : une carte à réviser (priorité au thème le plus en
  * retard) ou, à défaut, une carte jamais étudiée. Réponse repliée par défaut
- * pour forcer le rappel actif avant de la révéler — comme au Quiz.
+ * pour forcer le rappel actif avant de la révéler, puis les MÊMES 4 boutons
+ * qu'au Quiz — noter ici avance le même planning FSRS que dans Rustique,
+ * sans avoir à quitter l'accueil pour la seule notion du jour.
  */
 function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
   const [revele, setRevele] = useState(false)
+  const [rated, setRated] = useState<RustiqueRating | null>(null)
+  const [sending, setSending] = useState(false)
+
+  async function rate(r: RustiqueRating) {
+    setSending(true)
+    try {
+      await submitRustiqueReview(notion.card.id, r)
+      setRated(r)
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -648,12 +668,32 @@ function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
 
       <div className="p-4">
         <div className="whitespace-pre-wrap text-sm font-semibold text-ink">{notion.card.front}</div>
-        {revele ? (
-          <div className="mt-2 whitespace-pre-wrap border-t border-line/60 pt-2 text-sm text-ink">{notion.card.back}</div>
-        ) : (
+
+        {!revele ? (
           <button onClick={() => setRevele(true)} className="btn-ghost mt-2 px-3 py-1.5 text-xs">
             Voir la réponse
           </button>
+        ) : (
+          <>
+            <div className="mt-2 whitespace-pre-wrap border-t border-line/60 pt-2 text-sm text-ink">{notion.card.back}</div>
+
+            {rated ? (
+              <p className="mt-3 text-xs text-sage">✓ Notée — {RUSTIQUE_RATING_BUTTONS.find((b) => b.rating === rated)?.label}</p>
+            ) : (
+              <div className="mt-3 grid grid-cols-4 gap-1.5">
+                {RUSTIQUE_RATING_BUTTONS.map((b) => (
+                  <button
+                    key={b.rating}
+                    onClick={() => rate(b.rating)}
+                    disabled={sending}
+                    className={`rounded-xl2 py-2 text-[11px] font-semibold ${b.className}`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

@@ -4,20 +4,13 @@ import {
   listRustiqueCards,
   listRustiqueDecks,
   listRustiqueThemeCards,
+  RUSTIQUE_RATING_BUTTONS,
   submitRustiqueReview,
   type RustiqueCard,
   type RustiqueDeck,
+  type RustiqueRating,
   type RustiqueThemeGroup,
 } from '../lib/rustique'
-
-type Rating = 1 | 2 | 3 | 4
-
-const RATING_BUTTONS: { rating: Rating; label: string; className: string }[] = [
-  { rating: 1, label: 'À revoir', className: 'bg-clay text-white' },
-  { rating: 2, label: 'Difficile', className: 'bg-sand text-ink' },
-  { rating: 3, label: 'Correct', className: 'bg-sage text-white' },
-  { rating: 4, label: 'Facile', className: 'bg-copper text-white' },
-]
 
 type SessionSource = { label: string; deckId?: string; themeId?: string }
 
@@ -199,7 +192,7 @@ function QuizSession({ label, cards, onExit }: { label: string; cards: RustiqueC
 
   const card = cards[index]
 
-  async function rate(rating: Rating) {
+  async function rate(rating: RustiqueRating) {
     setSending(true)
     try {
       await submitRustiqueReview(card.id, rating)
@@ -228,7 +221,7 @@ function QuizSession({ label, cards, onExit }: { label: string; cards: RustiqueC
         ) : null}
         <div className="whitespace-pre-wrap text-sm text-ink">{card.front}</div>
         {flipped ? (
-          <div className="whitespace-pre-wrap border-t border-line/60 pt-3 text-sm text-muted">{card.back}</div>
+          <div className="whitespace-pre-wrap border-t border-line/60 pt-3 text-sm text-ink">{card.back}</div>
         ) : null}
       </div>
 
@@ -238,7 +231,7 @@ function QuizSession({ label, cards, onExit }: { label: string; cards: RustiqueC
         </button>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          {RATING_BUTTONS.map((b) => (
+          {RUSTIQUE_RATING_BUTTONS.map((b) => (
             <button
               key={b.rating}
               onClick={() => rate(b.rating)}

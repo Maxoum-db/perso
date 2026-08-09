@@ -172,7 +172,17 @@ export async function listRustiqueThemeCards(themeId: string, dueOnly: boolean):
   return { status: 'ok', cards: res.data?.cards ?? [] }
 }
 
-export async function submitRustiqueReview(cardId: string, rating: 1 | 2 | 3 | 4): Promise<boolean> {
+export type RustiqueRating = 1 | 2 | 3 | 4
+
+/** Mêmes 4 boutons partout où on note une carte (Quiz, Notion du jour). */
+export const RUSTIQUE_RATING_BUTTONS: { rating: RustiqueRating; label: string; className: string }[] = [
+  { rating: 1, label: 'À revoir', className: 'bg-clay text-white' },
+  { rating: 2, label: 'Difficile', className: 'bg-sand text-ink' },
+  { rating: 3, label: 'Correct', className: 'bg-sage text-white' },
+  { rating: 4, label: 'Facile', className: 'bg-copper text-white' },
+]
+
+export async function submitRustiqueReview(cardId: string, rating: RustiqueRating): Promise<boolean> {
   const res = await invokeQuiz<{ ok: boolean }>({ action: 'submit_review', card_id: cardId, rating })
   return res.status === 'ok'
 }
