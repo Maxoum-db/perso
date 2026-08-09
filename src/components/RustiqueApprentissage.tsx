@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { dysTextStyle, readDyslexiaMode, writeDyslexiaMode } from '../lib/dyslexiaMode'
 import {
   groupDecksByTheme,
   listRustiqueDecks,
@@ -19,14 +20,22 @@ export function RustiqueApprentissage() {
   const [notConfigured, setNotConfigured] = useState(false)
   const [reading, setReading] = useState<{ theme: RustiqueThemeGroup; cards: RustiqueCard[] } | null>(null)
   const [loadingTheme, setLoadingTheme] = useState<string | null>(null)
+  const [dys, setDys] = useState(false)
 
   useEffect(() => {
+    setDys(readDyslexiaMode())
     listRustiqueDecks().then((res) => {
       if (res.status === 'not_configured') return setNotConfigured(true)
       if (res.status === 'error') return setError(res.message ?? 'Impossible de charger les modules.')
       setDecks(res.decks)
     })
   }, [])
+
+  function toggleDys() {
+    const next = !dys
+    setDys(next)
+    writeDyslexiaMode(next)
+  }
 
   const themeGroups = useMemo(() => (decks ? groupDecksByTheme(decks) : []), [decks])
 
@@ -55,7 +64,7 @@ export function RustiqueApprentissage() {
   }
 
   if (reading) {
-    return <ThemeReader theme={reading.theme} cards={reading.cards} onExit={() => setReading(null)} />
+    return <ThemeReader theme={reading.theme} cards={reading.cards} dys={dys} onToggleDys={toggleDys} onExit={() => setReading(null)} />
   }
 
   if (error) return <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div>
@@ -63,10 +72,13 @@ export function RustiqueApprentissage() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-muted">
-        Un thème = tout ce que le Hub sait sur un sujet (modules BPREA + bibliothèque), à lire d'affilée avant de te
-        tester au Quiz.
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted">
+          Un thème = tout ce que le Hub sait sur un sujet (modules BPREA + bibliothèque), à lire d'affilée avant de te
+          tester au Quiz.
+        </p>
+        <DysToggle actif={dys} onToggle={toggleDys} />
+      </div>
       {themeGroups.map((g) => (
         <button
           key={g.theme.id}
@@ -91,7 +103,39 @@ export function RustiqueApprentissage() {
   )
 }
 
-function ThemeReader({ theme, cards, onExit }: { theme: RustiqueThemeGroup; cards: RustiqueCard[]; onExit: () => void }) {
+/**
+ * Bascule du mode dyslexie : police plus distinguée (Verdana/Tahoma),
+ * interlignage et espacements augmentés, lignes plus courtes — recommandations
+ * de la British Dyslexia Association. Local à l'appareil, comme la taille du
+ * texte dans Réglages.
+ */
+function DysToggle({ actif, onToggle }: { actif: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+        actif ? 'bg-copper text-white' : 'bg-white/5 text-muted hover:text-ink'
+      }`}
+      title="Police, interlignage et espacements adaptés à la lecture pour dyslexie"
+    >
+      🔤 Dyslexie {actif ? '✓' : ''}
+    </button>
+  )
+}
+
+function ThemeReader({
+  theme,
+  cards,
+  dys,
+  onToggleDys,
+  onExit,
+}: {
+  theme: RustiqueThemeGroup
+  cards: RustiqueCard[]
+  dys: boolean
+  onToggleDys: () => void
+  onExit: () => void
+}) {
   const byDeck = useMemo(() => {
     const order: string[] = []
     const map = new Map<string, RustiqueCard[]>()
@@ -108,7 +152,7 @@ function ThemeReader({ theme, cards, onExit }: { theme: RustiqueThemeGroup; card
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: theme.theme.color }} />
@@ -118,21 +162,32 @@ function ThemeReader({ theme, cards, onExit }: { theme: RustiqueThemeGroup; card
             {byDeck.length} paquet{byDeck.length > 1 ? 's' : ''} · {cards.length} notion{cards.length > 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={onExit} className="btn-ghost shrink-0 px-3 py-1.5 text-xs">
-          ← Thèmes
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <DysToggle actif={dys} onToggle={onToggleDys} />
+          <button onClick={onExit} className="btn-ghost px-3 py-1.5 text-xs">
+            ← Thèmes
+          </button>
+        </div>
       </div>
 
       {cards.length === 0 ? (
         <p className="text-center text-sm text-muted">Rien à étudier dans ce thème pour l'instant.</p>
       ) : (
-        <div className="space-y-4">
+        // Mesure limitée en mode dyslexie : des lignes plus courtes évitent de
+        // perdre le fil d'un retour à la ligne à l'autre, l'une des difficultés
+        // de lecture les plus citées pour la dyslexie.
+        <div className="space-y-4" style={dys ? { maxWidth: '38em' } : undefined}>
           {byDeck.map(({ title, cards: deckCards }) => (
             <div key={title} className="space-y-1.5">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-copper">{title}</h3>
-              <div className="space-y-1.5">
+              <h3
+                className={`text-xs font-extrabold text-copper ${dys ? '' : 'uppercase tracking-wide'}`}
+                style={dys ? { ...dysTextStyle(true), fontSize: '0.8rem' } : undefined}
+              >
+                {title}
+              </h3>
+              <div className="space-y-2">
                 {deckCards.map((c) => (
-                  <CardEntry key={c.id} card={c} />
+                  <CardEntry key={c.id} card={c} dys={dys} />
                 ))}
               </div>
             </div>
@@ -143,19 +198,27 @@ function ThemeReader({ theme, cards, onExit }: { theme: RustiqueThemeGroup; card
   )
 }
 
-function CardEntry({ card }: { card: RustiqueCard }) {
+function CardEntry({ card, dys }: { card: RustiqueCard; dys: boolean }) {
   const mastered = card.review && card.review.state >= 2
+  const textStyle = dysTextStyle(dys)
   return (
-    <div className="card space-y-1.5 p-3">
+    <div className={`card space-y-1.5 ${dys ? 'p-4' : 'p-3'}`}>
       <div className="flex items-start justify-between gap-2">
-        <div className="whitespace-pre-wrap text-sm font-semibold text-ink">{card.front}</div>
+        <div className={`whitespace-pre-wrap font-semibold text-ink ${dys ? 'text-base' : 'text-sm'}`} style={textStyle}>
+          {card.front}
+        </div>
         {card.review ? (
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${mastered ? 'bg-sage/20 text-sage' : 'bg-sand/30 text-sand'}`}>
             {mastered ? 'acquis' : 'en cours'}
           </span>
         ) : null}
       </div>
-      <div className="whitespace-pre-wrap border-t border-line/60 pt-1.5 text-sm text-muted">{card.back}</div>
+      <div
+        className={`whitespace-pre-wrap border-t border-line/60 pt-1.5 text-muted ${dys ? 'text-base' : 'text-sm'}`}
+        style={textStyle}
+      >
+        {card.back}
+      </div>
     </div>
   )
 }
