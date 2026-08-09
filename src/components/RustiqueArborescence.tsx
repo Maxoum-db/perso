@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNotionsLues } from '../lib/notionsLues'
 import {
   groupDecksByTheme,
   listRustiqueDecks,
   listRustiqueThemeCards,
-  submitRustiqueReview,
   type RustiqueCard,
   type RustiqueDeck,
   type RustiqueThemeGroup,
 } from '../lib/rustique'
 
-// Arborescence : l'arbre complet du savoir du Hub — thème → paquet → notion —
-// à déplier plutôt qu'une liste plate. L'idée n'est pas de lire linéairement
-// (c'est le rôle d'Apprentissage) mais de VOIR comment les notions se
-// rattachent les unes aux autres avant de les étudier : la structure porte
-// une partie du sens (une notion d'apiculture n'a pas le même poids conceptuel
-// selon qu'elle tombe sous Cœur apicole ou sous un paquet transversal).
-// Mêmes données et même action de révision (FSRS, note 3/4) que
-// RustiqueApprentissage — juste une autre porte d'entrée dans le même savoir.
+// Arborescence : l'arbre VISUEL du savoir du Hub — thème → paquet → notion,
+// avec de vraies lignes de branche (pas juste une liste indentée) — pour voir
+// comment les notions se rattachent les unes aux autres avant de les étudier.
+// La coche par notion est locale et librement réversible (lib/notionsLues) :
+// cocher/décocher ne touche pas au planning FSRS, qui reste noté ailleurs
+// (Quiz, Notion du jour) — un mis-clic ici ne coûte rien.
 export function RustiqueArborescence() {
   const [decks, setDecks] = useState<RustiqueDeck[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -25,11 +23,9 @@ export function RustiqueArborescence() {
   const [openThemes, setOpenThemes] = useState<Set<string>>(new Set())
   const [themeCards, setThemeCards] = useState<Map<string, RustiqueCard[]>>(new Map())
   const [loadingTheme, setLoadingTheme] = useState<string | null>(null)
-
   const [openDecks, setOpenDecks] = useState<Set<string>>(new Set())
   const [openCards, setOpenCards] = useState<Set<string>>(new Set())
-  const [revised, setRevised] = useState<Set<string>>(new Set())
-  const [pending, setPending] = useState<Set<string>>(new Set())
+  const { lues, toggle: toggleLue } = useNotionsLues()
 
   useEffect(() => {
     listRustiqueDecks().then((res) => {
@@ -75,18 +71,6 @@ export function RustiqueArborescence() {
     })
   }
 
-  async function marquerRevisee(cardId: string) {
-    if (revised.has(cardId) || pending.has(cardId)) return
-    setPending((s) => new Set(s).add(cardId))
-    const ok = await submitRustiqueReview(cardId, 3)
-    setPending((s) => {
-      const n = new Set(s)
-      n.delete(cardId)
-      return n
-    })
-    if (ok) setRevised((s) => new Set(s).add(cardId))
-  }
-
   if (notConfigured) {
     return (
       <div className="card space-y-2 border-sand/40 bg-sand/5 p-4 text-sm">
@@ -103,10 +87,10 @@ export function RustiqueArborescence() {
   if (!decks) return <p className="text-center text-sm text-muted">Chargement de l'arbre…</p>
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted">
-        Thème → paquet → notion : déplie pour voir comment tout se relie. Coche au fil de la lecture, comme dans
-        Apprentissage.
+    <div className="space-y-1">
+      <p className="mb-2 text-xs text-muted">
+        Thème → paquet → notion : déplie les branches pour voir comment tout se relie. Coche au fil de la lecture —
+        décoche librement si tu coches par erreur, ça ne touche à rien côté révision.
       </p>
       {themeGroups.map((g) => (
         <ThemeNode
@@ -117,16 +101,20 @@ export function RustiqueArborescence() {
           cards={themeCards.get(g.theme.id) ?? []}
           openDecks={openDecks}
           openCards={openCards}
-          revised={revised}
-          pending={pending}
+          lues={lues}
           onToggle={() => toggleTheme(g)}
           onToggleDeck={toggleDeck}
           onToggleCard={toggleCard}
-          onRevise={marquerRevisee}
+          onToggleLue={toggleLue}
         />
       ))}
     </div>
   )
+}
+
+/** Trait horizontal de branche, ancré à gauche de la ligne verticale du parent. */
+function Branch({ color }: { color: string }) {
+  return <span className="absolute -left-4 top-1/2 h-px w-4 -translate-y-1/2" style={{ background: color }} />
 }
 
 function ThemeNode({
@@ -136,12 +124,11 @@ function ThemeNode({
   cards,
   openDecks,
   openCards,
-  revised,
-  pending,
+  lues,
   onToggle,
   onToggleDeck,
   onToggleCard,
-  onRevise,
+  onToggleLue,
 }: {
   group: RustiqueThemeGroup
   open: boolean
@@ -149,46 +136,46 @@ function ThemeNode({
   cards: RustiqueCard[]
   openDecks: Set<string>
   openCards: Set<string>
-  revised: Set<string>
-  pending: Set<string>
+  lues: Set<string>
   onToggle: () => void
   onToggleDeck: (deckId: string) => void
   onToggleCard: (cardId: string) => void
-  onRevise: (cardId: string) => void
+  onToggleLue: (cardId: string) => void
 }) {
-  const revisedInTheme = cards.filter((c) => revised.has(c.id)).length
+  const luesDansTheme = cards.filter((c) => lues.has(c.id)).length
+  const lineColor = `${group.theme.color}88`
 
   return (
-    <div className="card overflow-hidden">
-      <button onClick={onToggle} disabled={group.cardCount === 0} className="flex w-full items-center gap-3 p-3 text-left disabled:opacity-50">
-        <span className="shrink-0 text-muted">{open ? '▾' : '▸'}</span>
-        <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: group.theme.color }} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold text-ink">{group.theme.title}</div>
-          <div className="text-xs text-muted">
-            {group.decks.length} paquet{group.decks.length > 1 ? 's' : ''} · {group.cardCount} notion
-            {group.cardCount > 1 ? 's' : ''}
-            {revisedInTheme > 0 ? ` · ${revisedInTheme} révisée${revisedInTheme > 1 ? 's' : ''} ici` : ''}
-          </div>
-        </div>
-        {loading ? <span className="shrink-0 text-xs text-muted">…</span> : null}
+    <div className="py-0.5">
+      <button
+        onClick={onToggle}
+        disabled={group.cardCount === 0}
+        className="flex w-full items-center gap-2 rounded-lg py-1.5 pr-2 text-left transition hover:bg-white/5 disabled:opacity-50"
+      >
+        <span className="w-3 shrink-0 text-center text-[10px] text-muted">{group.cardCount > 0 ? (open ? '▾' : '▸') : ''}</span>
+        <span className="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-offset-1 ring-offset-bg" style={{ backgroundColor: group.theme.color, boxShadow: `0 0 0 2px ${group.theme.color}33` }} />
+        <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{group.theme.title}</span>
+        <span className="shrink-0 text-[11px] text-muted">
+          {loading ? '…' : `${group.decks.length}p · ${group.cardCount}n${luesDansTheme > 0 ? ` · ${luesDansTheme} lues` : ''}`}
+        </span>
       </button>
 
-      {open ? (
-        <div className="space-y-0.5 border-t border-line/60 bg-bg/40 p-2 pl-4">
+      {open && group.decks.length > 0 ? (
+        <div className="ml-[13px] space-y-0.5 border-l-2 py-1 pl-4" style={{ borderColor: lineColor }}>
           {group.decks.map((deck) => (
-            <DeckNode
-              key={deck.id}
-              deck={deck}
-              cards={cards.filter((c) => c.deck_id === deck.id)}
-              open={openDecks.has(deck.id)}
-              openCards={openCards}
-              revised={revised}
-              pending={pending}
-              onToggle={() => onToggleDeck(deck.id)}
-              onToggleCard={onToggleCard}
-              onRevise={onRevise}
-            />
+            <div key={deck.id} className="relative">
+              <Branch color={lineColor} />
+              <DeckNode
+                deck={deck}
+                cards={cards.filter((c) => c.deck_id === deck.id)}
+                open={openDecks.has(deck.id)}
+                openCards={openCards}
+                lues={lues}
+                onToggle={() => onToggleDeck(deck.id)}
+                onToggleCard={onToggleCard}
+                onToggleLue={onToggleLue}
+              />
+            </div>
           ))}
         </div>
       ) : null}
@@ -201,48 +188,52 @@ function DeckNode({
   cards,
   open,
   openCards,
-  revised,
-  pending,
+  lues,
   onToggle,
   onToggleCard,
-  onRevise,
+  onToggleLue,
 }: {
   deck: RustiqueDeck
   cards: RustiqueCard[]
   open: boolean
   openCards: Set<string>
-  revised: Set<string>
-  pending: Set<string>
+  lues: Set<string>
   onToggle: () => void
   onToggleCard: (cardId: string) => void
-  onRevise: (cardId: string) => void
+  onToggleLue: (cardId: string) => void
 }) {
   return (
     <div>
-      <button onClick={onToggle} disabled={deck.cardCount === 0} className="flex w-full items-center gap-2 py-1.5 text-left disabled:opacity-50">
-        <span className="shrink-0 text-[10px] text-muted">{open ? '▾' : '▸'}</span>
+      <button
+        onClick={onToggle}
+        disabled={deck.cardCount === 0}
+        className="flex w-full items-center gap-2 rounded-lg py-1 pr-2 text-left transition hover:bg-white/5 disabled:opacity-50"
+      >
+        <span className="w-2.5 shrink-0 text-center text-[9px] text-muted">{deck.cardCount > 0 ? (open ? '▾' : '▸') : ''}</span>
+        <span className="h-2 w-2 shrink-0 rounded-sm bg-muted/70" />
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink">{deck.title}</span>
-        <span className="shrink-0 text-[11px] text-muted">{deck.cardCount}</span>
+        <span className="shrink-0 text-[10px] text-muted">{deck.cardCount}</span>
       </button>
 
       {open ? (
-        <ul className="space-y-1 border-l border-line/40 py-1 pl-4">
+        <div className="ml-[9px] space-y-0.5 border-l-2 border-line/40 py-1 pl-4">
           {cards.length === 0 ? (
-            <li className="text-[11px] text-muted">Chargement…</li>
+            <p className="text-[11px] text-muted">Chargement…</p>
           ) : (
             cards.map((c) => (
-              <CardNode
-                key={c.id}
-                card={c}
-                open={openCards.has(c.id)}
-                revised={revised.has(c.id)}
-                pending={pending.has(c.id)}
-                onToggle={() => onToggleCard(c.id)}
-                onRevise={() => onRevise(c.id)}
-              />
+              <div key={c.id} className="relative">
+                <Branch color="rgb(var(--line))" />
+                <CardNode
+                  card={c}
+                  open={openCards.has(c.id)}
+                  lue={lues.has(c.id)}
+                  onToggle={() => onToggleCard(c.id)}
+                  onToggleLue={() => onToggleLue(c.id)}
+                />
+              </div>
             ))
           )}
-        </ul>
+        </div>
       ) : null}
     </div>
   )
@@ -251,40 +242,38 @@ function DeckNode({
 function CardNode({
   card,
   open,
-  revised,
-  pending,
+  lue,
   onToggle,
-  onRevise,
+  onToggleLue,
 }: {
   card: RustiqueCard
   open: boolean
-  revised: boolean
-  pending: boolean
+  lue: boolean
   onToggle: () => void
-  onRevise: () => void
+  onToggleLue: () => void
 }) {
   return (
-    <li className="rounded-lg bg-card/60 p-2">
-      <button onClick={onToggle} className="flex w-full items-start gap-2 text-left">
-        <span className="mt-0.5 shrink-0 text-[10px] text-muted">{open ? '▾' : '▸'}</span>
-        <span className={`min-w-0 flex-1 whitespace-pre-wrap text-xs ${revised ? 'text-muted line-through' : 'text-ink'}`}>
-          {card.front}
-        </span>
-      </button>
+    <div className="rounded-lg py-1">
+      <div className="flex items-start gap-2">
+        <button
+          onClick={onToggleLue}
+          title={lue ? 'Décocher (marquer comme non lue)' : 'Marquer comme lue'}
+          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px] font-bold transition ${
+            lue ? 'border-sage bg-sage text-white' : 'border-line text-transparent hover:border-copper'
+          }`}
+        >
+          ✓
+        </button>
+        <button onClick={onToggle} className="flex min-w-0 flex-1 items-start gap-1.5 text-left">
+          <span className="mt-0.5 shrink-0 text-[9px] text-muted">{open ? '▾' : '▸'}</span>
+          <span className={`min-w-0 flex-1 whitespace-pre-wrap text-xs ${lue ? 'text-muted line-through' : 'text-ink'}`}>
+            {card.front}
+          </span>
+        </button>
+      </div>
       {open ? (
-        <div className="ml-4 mt-1.5 space-y-1.5 border-t border-line/40 pt-1.5">
-          <div className="whitespace-pre-wrap text-xs text-ink">{card.back}</div>
-          <button
-            onClick={onRevise}
-            disabled={revised || pending}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-              revised ? 'bg-sage/20 text-sage' : 'bg-white/5 text-muted hover:text-ink'
-            }`}
-          >
-            {revised ? '✓ révisée' : pending ? '…' : 'Marquer révisée'}
-          </button>
-        </div>
+        <div className="ml-[26px] mt-1 whitespace-pre-wrap border-t border-line/40 pt-1.5 text-xs text-ink">{card.back}</div>
       ) : null}
-    </li>
+    </div>
   )
 }

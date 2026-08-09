@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dysTextStyle, readDyslexiaMode, writeDyslexiaMode } from '../lib/dyslexiaMode'
+import { useNotionsLues } from '../lib/notionsLues'
 import {
   groupDecksByTheme,
   listRustiqueDecks,
   listRustiqueThemeCards,
-  submitRustiqueReview,
   type RustiqueCard,
   type RustiqueDeck,
   type RustiqueThemeGroup,
@@ -158,25 +158,11 @@ function ThemeReader({
     return order.map((title) => ({ title, cards: map.get(title)! }))
   }, [cards])
 
-  // Cocher une notion vaut « je la connais » : ça note 3/4 (Correct) côté
-  // FSRS, comme au Quiz — cocher fait donc avancer le vrai planning de
-  // révision, pas juste une case cosmétique. Repose à chaque ouverture d'un
-  // thème : coché = fait PENDANT cette lecture, l'historique reste dans le
-  // badge acquis/en cours.
-  const [revisees, setRevisees] = useState<Set<string>>(new Set())
-  const [enCours, setEnCours] = useState<Set<string>>(new Set())
-
-  async function marquerRevisee(cardId: string) {
-    if (revisees.has(cardId) || enCours.has(cardId)) return
-    setEnCours((s) => new Set(s).add(cardId))
-    const ok = await submitRustiqueReview(cardId, 3)
-    setEnCours((s) => {
-      const n = new Set(s)
-      n.delete(cardId)
-      return n
-    })
-    if (ok) setRevisees((s) => new Set(s).add(cardId))
-  }
+  // Coche locale, librement réversible — cf. lib/notionsLues. Persiste d'une
+  // ouverture à l'autre du thème (contrairement à l'ancienne version qui
+  // repartait de zéro à chaque fois).
+  const { lues, toggle: toggleLue } = useNotionsLues()
+  const luesIci = cards.filter((c) => lues.has(c.id)).length
 
   return (
     <div className="space-y-3">
@@ -187,8 +173,7 @@ function ThemeReader({
             <h2 className="truncate text-base font-extrabold text-ink">{theme.theme.title}</h2>
           </div>
           <p className="text-xs text-muted">
-            {byDeck.length} paquet{byDeck.length > 1 ? 's' : ''} · {revisees.size}/{cards.length} révisée
-            {cards.length > 1 ? 's' : ''}
+            {byDeck.length} paquet{byDeck.length > 1 ? 's' : ''} · {luesIci}/{cards.length} lue{cards.length > 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -216,14 +201,7 @@ function ThemeReader({
               </h3>
               <div className="space-y-2">
                 {deckCards.map((c) => (
-                  <CardEntry
-                    key={c.id}
-                    card={c}
-                    dys={dys}
-                    revisee={revisees.has(c.id)}
-                    pending={enCours.has(c.id)}
-                    onRevise={() => marquerRevisee(c.id)}
-                  />
+                  <CardEntry key={c.id} card={c} dys={dys} lue={lues.has(c.id)} onToggle={() => toggleLue(c.id)} />
                 ))}
               </div>
             </div>
@@ -237,29 +215,26 @@ function ThemeReader({
 function CardEntry({
   card,
   dys,
-  revisee,
-  pending,
-  onRevise,
+  lue,
+  onToggle,
 }: {
   card: RustiqueCard
   dys: boolean
-  revisee: boolean
-  pending: boolean
-  onRevise: () => void
+  lue: boolean
+  onToggle: () => void
 }) {
   const mastered = card.review && card.review.state >= 2
   const textStyle = dysTextStyle(dys)
   return (
-    <div className={`card flex items-start gap-3 ${dys ? 'p-4' : 'p-3'} ${revisee ? 'opacity-70' : ''}`}>
+    <div className={`card flex items-start gap-3 ${dys ? 'p-4' : 'p-3'} ${lue ? 'opacity-70' : ''}`}>
       <button
-        onClick={onRevise}
-        disabled={revisee || pending}
-        title="Marquer comme révisée"
+        onClick={onToggle}
+        title={lue ? 'Décocher (marquer comme non lue)' : 'Marquer comme lue'}
         className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold transition ${
-          revisee ? 'border-sage bg-sage text-white' : 'border-line text-transparent hover:border-copper'
+          lue ? 'border-sage bg-sage text-white' : 'border-line text-transparent hover:border-copper hover:text-copper/40'
         }`}
       >
-        {pending ? '…' : '✓'}
+        ✓
       </button>
 
       <div className="min-w-0 flex-1 space-y-1.5">
