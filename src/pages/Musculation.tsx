@@ -573,7 +573,10 @@ export function Journal({
   pourLaRecup: MuscuSession[]
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
-  const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
+  // Plus qu'un seul mode d'ouverture manuelle. « En direct » était le second,
+  // et il partait d'une page blanche : c'est le compositeur qui ouvre désormais
+  // les séances chronométrées, à partir de ce que le mannequin sait.
+  const [picking, setPicking] = useState<null | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   // Les séances précédentes sont repliées par défaut : le journal courant doit
   // tenir à l'écran. L'état n'est pas persisté — on le rouvre quand on en a
@@ -699,7 +702,6 @@ export function Journal({
   const recentTonnage = recentes.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
 
   function startBlank() {
-    if (picking === 'live') return startLive(null)
     setPicking(null)
     // Vierge veut dire vierge : aucune ligne. La ligne vide d'avant n'était pas
     // un point de départ mais un formulaire à moitié rempli — champs de séries,
@@ -711,7 +713,6 @@ export function Journal({
   }
 
   function startFromTemplate(tpl: MuscuTemplate) {
-    if (picking === 'live') return startLive(tpl)
     setPicking(null)
     setDraft({
       date: today(),
@@ -736,35 +737,6 @@ export function Journal({
     })
   }
 
-  function startLive(tpl: MuscuTemplate | null) {
-    setPicking(null)
-    const state: LiveState = {
-      startedAt: Date.now(),
-      name: tpl?.name ?? 'Séance',
-      template_id: tpl?.id ?? null,
-      restSec: 90,
-      notes: '',
-      // Une ligne sans nom traîne parfois dans un modèle : elle occupe une
-      // carte, se coche, et se perd à l'enregistrement puisque `finish` la
-      // filtre. Elle n'a rien à faire dans une séance qui démarre.
-      exos: (tpl?.exercises ?? []).filter((e) => e.name.trim()).map((e) => {
-        const last = lastExo(sessions, e.name)
-        const charge = suggererCharge(sessions, { name: e.name, default_reps: e.reps }, bodyWeight)
-        const weight = charge.weight ?? e.weight_kg
-        return {
-          name: e.name,
-          muscle_group: e.muscle_group,
-          reps: last?.reps || e.reps,
-          weight: weight === null ? '' : String(weight),
-          hint: charge.raison || undefined,
-          notes: '',
-          done: Array(Math.max(1, e.sets)).fill(false),
-        }
-      }),
-    }
-    storeLive(state)
-    setLive(state)
-  }
 
   // ── Séance composée depuis l'état de récupération ─────────────────────────
 
@@ -1053,7 +1025,7 @@ export function Journal({
         <div className="card space-y-2 p-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold text-ink">
-              {picking === 'live' ? '▶️ Démarrer : quelle séance ?' : '✍️ Saisir : quelle séance ?'}
+              ✍️ Saisir : quelle séance ?
             </span>
             <button onClick={() => setPicking(null)} className="text-xs text-copper">
               Fermer
@@ -1082,16 +1054,16 @@ export function Journal({
         </div>
       ) : (
         <div className="space-y-2">
-          <button onClick={() => setPicking('live')} className="btn-primary w-full py-3">
-            ▶️ Démarrer une séance (en direct)
+          {/* Un seul point d'entrée : composer. La séance « en direct » partait
+              d'une page blanche qu'il fallait remplir soi-même, alors que
+              l'application sait déjà quels muscles sont prêts — c'est même tout
+              ce qu'elle fait. Deux boutons pour ouvrir une séance, dont un qui
+              ignore le mannequin, c'était proposer de travailler à l'aveugle. */}
+          <button onClick={() => suggerer()} className="btn-primary w-full py-3">
+            {estModeRecup(focus) ? '🧊 Composer une séance de récupération' : '🧠 Composer une séance'}
           </button>
           <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
             ✍️ Saisir une séance après coup
-          </button>
-          <button onClick={() => suggerer()} className="btn-ghost w-full py-2 text-sm">
-            {estModeRecup(focus)
-              ? '🧊 Composer une séance de récupération'
-              : '🧠 Composer une séance selon ma récup'}
           </button>
         </div>
       )}
