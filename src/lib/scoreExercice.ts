@@ -18,7 +18,9 @@
 //     charge, plus de masse mobilisée, plus de transfert.
 //   • FAISABLE — le matériel. Le meilleur exercice du monde ne vaut rien s'il
 //     demande un traîneau, un harnais de nuque ou un anneau de préhension que la
-//     salle n'a pas. Un élastique, une kettlebell : une fois sur deux.
+//     salle n'a pas. Un élastique, une sangle de suspension : une fois sur deux.
+//     Le socle toujours présent : barres, haltères, KETTLEBELLS, poulies,
+//     machines, bancs et tapis.
 //
 // La note calculée n'est qu'un DÉFAUT. Elle vit dans le catalogue, où elle se
 // modifie à la main : c'est la note enregistrée qui l'emporte dès qu'il y en a
@@ -87,9 +89,16 @@ const MATERIEL_ABSENT =
  */
 const SOLUTION_DE_SALLE = /poulie|à la machine|\(machine\)|haltère|serviette/i
 
-/** Matériel qu'on trouve une fois sur deux : un demi-cran, pas plus. */
+/**
+ * Matériel qu'on trouve une fois sur deux : un demi-cran, pas plus.
+ *
+ * PAS la kettlebell : elle est dans tous les Basic-Fit, au même titre que les
+ * tapis et les haltères. Elle y a figuré une journée, par excès de prudence de
+ * ma part ; c'est le genre d'erreur qui fait disparaître un bon mouvement
+ * (le balancier) pour une raison qui n'existe pas.
+ */
 const MATERIEL_INCERTAIN =
-  /élastique|mini-band|kettlebell|sangles de suspension|\btrx\b|ballon|medicine|trap bar|barre hexagonale|barre souple/i
+  /élastique|mini-band|sangles de suspension|\btrx\b|ballon|medicine|trap bar|barre hexagonale|barre souple/i
 
 /** Ce que le matériel coûte à la note d'un exercice. */
 export function malusMateriel(nom: string): number {
