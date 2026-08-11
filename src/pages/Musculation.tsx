@@ -495,7 +495,7 @@ interface SessionDraft {
   intensite: IntensiteId | null
 }
 
-function Journal({
+export function Journal({
   userId,
   sessions,
   pourLaRecup,
@@ -575,6 +575,10 @@ function Journal({
   const [draft, setDraft] = useState<SessionDraft | null>(null)
   const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Les séances précédentes sont repliées par défaut : le journal courant doit
+  // tenir à l'écran. L'état n'est pas persisté — on le rouvre quand on en a
+  // besoin, ce qui est justement l'usage.
+  const [voirAnciennes, setVoirAnciennes] = useState(false)
   // Lignes du journal, pour amener l'écran sur une séance depuis le mannequin.
   const lignes = useRef(new Map<string, HTMLLIElement>())
   // Séance composée automatiquement : on garde les exercices déjà proposés pour
@@ -590,6 +594,15 @@ function Journal({
   // elles pèsent sur la récupération sans jamais rejoindre le journal, ni le
   // tonnage, ni les records — elles ont leur propre écran pour ça.
   const loads = chargesCourantes(pourLaRecup, courbatures, nuits, Date.now(), bodyWeight)
+
+  // Le journal se coupe à trente jours. Au-delà, une séance ne se relit plus,
+  // elle se retrouve — et trente jours est déjà la fenêtre sur laquelle la page
+  // raisonne (tonnage du mois, progression). `sessions` arrive de la plus
+  // récente à la plus ancienne, l'ordre est donc conservé des deux côtés.
+  const JOURS_JOURNAL = 30
+  const limiteJournal = new Date(Date.now() - JOURS_JOURNAL * 86400000).toLocaleDateString('en-CA')
+  const duMois = sessions.filter((s) => s.date >= limiteJournal)
+  const precedentes = sessions.filter((s) => s.date < limiteJournal)
   // État de forme : charge d'entraînement + balance énergétique déduite du poids.
   // C'est lui qui dicte le volume et les charges de la séance proposée.
   const forme = evaluerForme(sessions, weighins)
@@ -915,6 +928,111 @@ function Journal({
     )
   }
 
+
+  /**
+   * Une ligne du journal.
+   *
+   * Extraite parce qu'elle est rendue par DEUX listes — les séances du mois et
+   * les précédentes. Recopiée, la seconde aurait fini par perdre une case à
+   * cocher ou un bouton au premier changement, sans que rien ne le signale.
+   */
+  function ligneSeance(s: MuscuSession) {
+    return (
+            <li
+              key={s.id}
+              ref={(el) => {
+                if (el) lignes.current.set(s.id, el)
+                else lignes.current.delete(s.id)
+              }}
+              className="card overflow-hidden"
+            >
+              <div className="flex items-center pr-3">
+                <button
+                  onClick={() => setOpenId(openId === s.id ? null : s.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+                >
+                  <div className="w-16 shrink-0 text-center">
+                    <div className="text-xl leading-none">{sessionEmoji(s, templates)}</div>
+                    <div className="mt-0.5 text-xs font-bold text-copper">{frDate(s.date)}</div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-bold text-ink">{nomSansEmoji(s.name)}</div>
+                    <div className="text-xs text-muted">
+                      {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
+                      {s.duration_min ? ` · ${s.duration_min} min` : ''}
+                      {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
+                    </div>
+                  </div>
+                </button>
+                {/* Sur toutes les séances déjà faites, dépliées ou non : c'est
+                    la liste entière qui devient réglable d'un coup d'œil, et une
+                    séance retirée du calcul se repère sans ouvrir une seule
+                    ligne. Rien sur une séance datée à venir — le moteur l'ignore
+                    déjà, la case n'y changerait rien. */}
+                {comptageReglable(s) ? (
+                  <CaseMannequin
+                    compte={!exclues[s.id]}
+                    onChange={async (compte) => {
+                      // Optimiste : la case répond au doigt, le mannequin bouge
+                      // dans la foulée, l'écriture suit.
+                      onExclues(compte
+                        ? Object.fromEntries(Object.entries(exclues).filter(([k]) => k !== s.id))
+                        : { ...exclues, [s.id]: true })
+                      onExclues(await saveExclue(userId, s.id, compte, exclues))
+                    }}
+                  />
+                ) : null}
+                <button
+                  onClick={() => setOpenId(openId === s.id ? null : s.id)}
+                  aria-label={openId === s.id ? 'Replier' : 'Déplier'}
+                  className="shrink-0 py-3 pl-2 text-muted"
+                >
+                  {openId === s.id ? '▾' : '▸'}
+                </button>
+              </div>
+
+              {openId === s.id ? (
+                <div className="space-y-2 border-t border-line/60 bg-bg/40 p-3">
+                  <ul className="space-y-1.5">
+                    {s.exercises.map((e) => (
+                      <li key={e.id} className="text-sm">
+                        <span className="font-semibold text-ink">{e.name}</span>
+                        <span className="text-muted">
+                          {' '}
+                          — {e.sets}×{e.reps}
+                          {e.weight_kg !== null ? ` @ ${e.weight_kg} kg` : ''}
+                          {e.muscle_group ? ` · ${e.muscle_group}` : ''}
+                        </span>
+                        {e.notes ? <div className="text-xs italic text-muted">{e.notes}</div> : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {sessionTonnage(s.exercises) > 0 ? (
+                    <p className="text-xs font-semibold text-copper">
+                      🏋️ Tonnage total : {fmtTonnage(sessionTonnage(s.exercises))} (séries × reps × charge)
+                      {s.exercises.some((e) => distanceEnMetres(e.reps) !== null)
+                        ? ` · ${METRES_PAR_REP} m = 1 rép.`
+                        : ''}
+                    </p>
+                  ) : null}
+                  {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
+                  <div className="flex justify-end gap-3 text-xs">
+                    <button onClick={() => startEdit(s)} className="font-semibold text-copper">
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => confirm('Supprimer cette séance ?') && deleteSession(s.id).then(onChange)}
+                      className="text-muted hover:text-clay"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </li>
+    )
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
@@ -1016,102 +1134,34 @@ function Journal({
       {sessions.length === 0 ? (
         <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>
       ) : (
-        <ul className="space-y-2">
-          {sessions.map((s) => (
-            <li
-              key={s.id}
-              ref={(el) => {
-                if (el) lignes.current.set(s.id, el)
-                else lignes.current.delete(s.id)
-              }}
-              className="card overflow-hidden"
-            >
-              <div className="flex items-center pr-3">
-                <button
-                  onClick={() => setOpenId(openId === s.id ? null : s.id)}
-                  className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
-                >
-                  <div className="w-16 shrink-0 text-center">
-                    <div className="text-xl leading-none">{sessionEmoji(s, templates)}</div>
-                    <div className="mt-0.5 text-xs font-bold text-copper">{frDate(s.date)}</div>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-bold text-ink">{nomSansEmoji(s.name)}</div>
-                    <div className="text-xs text-muted">
-                      {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
-                      {s.duration_min ? ` · ${s.duration_min} min` : ''}
-                      {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
-                    </div>
-                  </div>
-                </button>
-                {/* Sur toutes les séances déjà faites, dépliées ou non : c'est
-                    la liste entière qui devient réglable d'un coup d'œil, et une
-                    séance retirée du calcul se repère sans ouvrir une seule
-                    ligne. Rien sur une séance datée à venir — le moteur l'ignore
-                    déjà, la case n'y changerait rien. */}
-                {comptageReglable(s) ? (
-                  <CaseMannequin
-                    compte={!exclues[s.id]}
-                    onChange={async (compte) => {
-                      // Optimiste : la case répond au doigt, le mannequin bouge
-                      // dans la foulée, l'écriture suit.
-                      onExclues(compte
-                        ? Object.fromEntries(Object.entries(exclues).filter(([k]) => k !== s.id))
-                        : { ...exclues, [s.id]: true })
-                      onExclues(await saveExclue(userId, s.id, compte, exclues))
-                    }}
-                  />
-                ) : null}
-                <button
-                  onClick={() => setOpenId(openId === s.id ? null : s.id)}
-                  aria-label={openId === s.id ? 'Replier' : 'Déplier'}
-                  className="shrink-0 py-3 pl-2 text-muted"
-                >
-                  {openId === s.id ? '▾' : '▸'}
-                </button>
-              </div>
+        <>
+          <ul className="space-y-2">{duMois.map((s) => ligneSeance(s))}</ul>
 
-              {openId === s.id ? (
-                <div className="space-y-2 border-t border-line/60 bg-bg/40 p-3">
-                  <ul className="space-y-1.5">
-                    {s.exercises.map((e) => (
-                      <li key={e.id} className="text-sm">
-                        <span className="font-semibold text-ink">{e.name}</span>
-                        <span className="text-muted">
-                          {' '}
-                          — {e.sets}×{e.reps}
-                          {e.weight_kg !== null ? ` @ ${e.weight_kg} kg` : ''}
-                          {e.muscle_group ? ` · ${e.muscle_group}` : ''}
-                        </span>
-                        {e.notes ? <div className="text-xs italic text-muted">{e.notes}</div> : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {sessionTonnage(s.exercises) > 0 ? (
-                    <p className="text-xs font-semibold text-copper">
-                      🏋️ Tonnage total : {fmtTonnage(sessionTonnage(s.exercises))} (séries × reps × charge)
-                      {s.exercises.some((e) => distanceEnMetres(e.reps) !== null)
-                        ? ` · ${METRES_PAR_REP} m = 1 rép.`
-                        : ''}
-                    </p>
-                  ) : null}
-                  {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
-                  <div className="flex justify-end gap-3 text-xs">
-                    <button onClick={() => startEdit(s)} className="font-semibold text-copper">
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => confirm('Supprimer cette séance ?') && deleteSession(s.id).then(onChange)}
-                      className="text-muted hover:text-clay"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
+          {/* Les séances de plus d'un mois ne se relisent plus, elles se
+              retrouvent. Elles descendent donc tout en bas, repliées derrière
+              leur compte — le journal courant tient à l'écran, et l'historique
+              reste à un clic. Trente jours, parce que c'est la fenêtre sur
+              laquelle la page raisonne déjà (tonnage du mois, progression). */}
+          {precedentes.length > 0 ? (
+            <div className="pt-2">
+              <button
+                onClick={() => setVoirAnciennes((v) => !v)}
+                className="flex w-full items-center justify-between rounded-xl2 border border-line/60 px-3 py-2 text-left text-xs font-semibold text-muted"
+              >
+                <span>
+                  {voirAnciennes ? '▾' : '▸'} Séances précédentes
+                  <span className="ml-1.5 font-normal">
+                    ({precedentes.length} · avant le {frDate(precedentes[0].date)})
+                  </span>
+                </span>
+                <span className="font-normal">plus de 30 j</span>
+              </button>
+              {voirAnciennes ? (
+                <ul className="mt-2 space-y-2 opacity-70">{precedentes.map((s) => ligneSeance(s))}</ul>
               ) : null}
-            </li>
-          ))}
-        </ul>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   )
