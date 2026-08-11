@@ -18,6 +18,12 @@ import { loadExclues, type Exclues } from './comptage'
 // ni l'un ni l'autre n'appelle l'autre au chargement du module, seulement dans
 // le corps de fonctions déclarées, qui sont hissées.
 import { facteurEffort, referencesEffort } from './effort'
+// Même arrangement, pour la même raison : la note par défaut a besoin de la
+// famille de mouvement et du comptage des muscles, qui vivent dans `composition`
+// — lequel relit les étiquettes d'ici. Aucun des trois modules ne touche l'autre
+// à l'évaluation : `ETIRES` et `POLYARTICULAIRES` sont des listes littérales,
+// tout le reste est déclaré en fonctions, donc hissé.
+import { borner, scoreParDefaut } from './scoreExercice'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -94,6 +100,16 @@ export interface CatalogExercise {
   default_weight_kg: number | null
   notes: string
   position: number
+  /**
+   * Note sur 5 : la priorité de l'exercice dans le générateur.
+   *
+   * Toujours renseignée ici, jamais forcément en base. La colonne est vide tant
+   * qu'on n'a rien décidé, et c'est `scoreParDefaut` qui remplit — un exercice
+   * ajouté demain arrive donc noté, sans amorçage ni migration de données. Dès
+   * qu'une note est enregistrée, c'est elle qui fait foi : le calcul ne
+   * connaît ni le matériel disponible, ni l'épaule qui coince.
+   */
+  score: number
 }
 
 /**
@@ -921,7 +937,7 @@ function exoRows(userId: string, parentCol: 'template_id' | 'session_id', parent
 export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
   const { data, error } = await supabase
     .from('perso_muscu_exercises')
-    .select('id,name,muscle_group,default_sets,default_reps,default_weight_kg,notes,position')
+    .select('id,name,muscle_group,default_sets,default_reps,default_weight_kg,notes,position,score')
     .eq('user_id', userId)
   if (error) throw new Error(error.message)
   // Ordre alphabétique (localeCompare : « Élévations » se range bien avec les E).
@@ -929,6 +945,12 @@ export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
     .map((r) => ({
       ...r,
       default_weight_kg: r.default_weight_kg === null ? null : Number(r.default_weight_kg),
+      // Note vide en base = pas encore décidée : le barème la calcule. Une note
+      // enregistrée gagne toujours, y compris contre un barème qui changerait.
+      score:
+        r.score === null || r.score === undefined
+          ? scoreParDefaut(String(r.name ?? ''), String(r.muscle_group ?? ''))
+          : Number(r.score),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })) as CatalogExercise[]
 }
@@ -949,7 +971,9 @@ function messageLisible(brut: string): string {
 
 export async function saveCatalogExercise(
   userId: string,
-  exo: Omit<CatalogExercise, 'id' | 'position'> & { id?: string },
+  // La note est facultative à l'écriture : à défaut, c'est le barème qui la
+  // pose. Un appelant qui n'a pas d'avis sur la priorité n'a pas à en inventer.
+  exo: Omit<CatalogExercise, 'id' | 'position' | 'score'> & { id?: string; score?: number },
 ): Promise<void> {
   const base = {
     name: exo.name.trim() || 'Exercice',
@@ -958,6 +982,7 @@ export async function saveCatalogExercise(
     default_reps: exo.default_reps.trim() || '10',
     default_weight_kg: exo.default_weight_kg,
     notes: exo.notes.trim(),
+    score: borner(exo.score ?? scoreParDefaut(exo.name, exo.muscle_group)),
   }
   if (exo.id) {
     // Le NOM est le seul lien entre le catalogue et les séances déjà faites :

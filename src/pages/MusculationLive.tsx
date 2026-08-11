@@ -7,6 +7,7 @@ import {
   type CatalogExercise,
   type MuscuSession,
 } from '../lib/muscu'
+import { renommerSiAuto } from '../lib/nommage'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
@@ -253,11 +254,19 @@ export function LiveSession({
     setBusy(true)
     setError(null)
     try {
+      // Le nom de la séance se décide ICI, pas à l'ouverture : entre les deux,
+      // des exercices ont été ajoutés, d'autres abandonnés sans une seule série
+      // cochée. Seul ce qui a été fait compte. Un nom écrit à la main est
+      // conservé — voir `estNomAutomatique`.
+      const nom = renommerSiAuto(
+        s.name,
+        kept.map((e) => ({ name: e.name, muscle_group: e.muscle_group, sets: e.doneCount })),
+      )
       await saveSession(
         userId,
         {
           date: new Date().toISOString().slice(0, 10),
-          name: s.name,
+          name: nom,
           duration_min: Math.max(1, Math.round((Date.now() - s.startedAt) / 60000)),
           notes: s.notes,
           template_id: s.template_id,

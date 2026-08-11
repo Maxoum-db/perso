@@ -33,6 +33,8 @@ import { chargesCourantes } from '../lib/charges'
 import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
 import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '../lib/duree'
 import { composerSeance } from '../lib/prochaine'
+import { avecEmoji, emojiDuNom, nomSansEmoji, renommerSiAuto } from '../lib/nommage'
+import { SCORE_MAX, SCORE_MIN, scoreParDefaut } from '../lib/scoreExercice'
 import {
   loadObservations,
   noterObservation,
@@ -149,24 +151,9 @@ function brasDAcier(s: MuscuSession): boolean {
   return maxIntensite >= 0.8 && series >= 9
 }
 
-// Une séance n'a pas de colonne « icône » : l'emoji choisi à la main vit en
-// préfixe de son nom. Visible, modifiable, et sans migration de schéma.
-const PREFIXE_EMOJI = /^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s*/u
-
-export function emojiDuNom(nom: string): string | null {
-  return nom.match(PREFIXE_EMOJI)?.[1] ?? null
-}
-
-/** Le nom sans son emoji, pour ne pas l'afficher deux fois. */
-function nomSansEmoji(nom: string): string {
-  return nom.replace(PREFIXE_EMOJI, '').trim() || nom
-}
-
-/** Remplace (ou retire) l'emoji en tête d'un nom de séance. */
-function avecEmoji(nom: string, emoji: string | null): string {
-  const base = nom.replace(PREFIXE_EMOJI, '').trim()
-  return emoji ? `${emoji} ${base}`.trim() : base
-}
+// L'emoji choisi à la main vit en préfixe du nom de la séance : les trois
+// fonctions qui le posent et le retirent sont dans lib/nommage, avec le
+// renommage automatique qui doit s'appuyer sur la MÊME définition du préfixe.
 
 /** Emoji d'une séance du journal : choisi à la main, sinon sa séance type, sinon déduit. */
 function sessionEmoji(s: MuscuSession, templates: MuscuTemplate[]): string {
@@ -871,12 +858,26 @@ export function Journal({
         bodyWeight={bodyWeight}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
+          // Même règle qu'à « Terminé » : une séance dont le nom n'a pas été
+          // écrit à la main prend celui de ses muscles. La saisie après coup part
+          // presque toujours d'une « séance vierge » — ce titre-là ne survit pas
+          // à l'enregistrement.
+          const nom = renommerSiAuto(
+            d.name,
+            d.exos
+              .filter((e) => e.name.trim())
+              .map((e) => ({
+                name: e.name,
+                muscle_group: e.muscle_group,
+                sets: parseInt(e.sets, 10) || 1,
+              })),
+          )
           const id = await saveSession(
             userId,
             {
               id: d.id,
               date: d.date,
-              name: d.name,
+              name: nom,
               duration_min: parseInt(d.duration, 10) || null,
               notes: d.notes,
               template_id: d.template_id,
@@ -1811,9 +1812,70 @@ interface CatalogDraft {
   reps: string
   weight: string
   notes: string
+  /**
+   * Note sur 5 : la priorité de l'exercice dans le générateur.
+   *
+   * `null` tant qu'on ne s'est pas prononcé — la note affichée suit alors le
+   * barème, et donc les muscles qu'on coche. Un exercice qu'on vient d'étiqueter
+   * « tout le dos » ne reste pas à 3 par inadvertance.
+   */
+  score: number | null
 }
 
-function CatalogManager({
+/**
+ * La note sur 5, en cinq boutons.
+ *
+ * Cinq boutons et pas un champ numérique : la note n'a que cinq valeurs, elle se
+ * lit d'un coup d'œil et se change au pouce. Le sens des extrêmes est écrit
+ * dessous — une note sans échelle ne veut rien dire, et « 3 » ne se devine pas.
+ */
+function ScorePicker({
+  value,
+  auto,
+  onChange,
+}: {
+  value: number
+  /** La note vient du barème et n'a pas encore été choisie à la main. */
+  auto?: boolean
+  onChange: (n: number) => void
+}) {
+  const NIVEAUX: Record<number, string> = {
+    1: 'à éviter',
+    2: 'accessoire',
+    3: 'correct',
+    4: 'très bon',
+    5: 'incontournable',
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] text-muted">Priorité</span>
+        {Array.from({ length: SCORE_MAX - SCORE_MIN + 1 }, (_, i) => i + SCORE_MIN).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            aria-label={`${n} sur ${SCORE_MAX} — ${NIVEAUX[n]}`}
+            aria-pressed={n <= value}
+            className={`text-lg leading-none transition ${n <= value ? 'text-copper' : 'text-muted/40'}`}
+          >
+            ★
+          </button>
+        ))}
+        <span className="text-[11px] font-semibold text-ink">
+          {value}/{SCORE_MAX}
+        </span>
+      </div>
+      <p className="text-[11px] text-muted">
+        {NIVEAUX[value]} — pèse sur le classement des séances composées.
+        {auto ? ' Déduit des muscles et du mouvement tant que tu n’y touches pas.' : ''}
+      </p>
+    </div>
+  )
+}
+
+/** Exporté pour le banc d'essai : la note sur 5 se vérifie sur le vrai écran. */
+export function CatalogManager({
   userId,
   catalog,
   groups,
@@ -1844,6 +1906,7 @@ function CatalogManager({
         default_reps: draft.reps,
         default_weight_kg: null, // la charge se saisit à la séance, pas au catalogue
         notes: draft.notes,
+        score: draft.score ?? scoreParDefaut(draft.name, draft.muscle_group),
       })
       setDraft(null)
       onChange()
@@ -1859,7 +1922,9 @@ function CatalogManager({
           Sélectionnables dans l'éditeur de séance. La charge se saisit pendant la séance.
         </p>
         <button
-          onClick={() => setDraft({ name: '', muscle_group: '', sets: '3', reps: '10', weight: '', notes: '' })}
+          onClick={() =>
+            setDraft({ name: '', muscle_group: '', sets: '3', reps: '10', weight: '', notes: '', score: null })
+          }
           className="shrink-0 text-xs font-semibold text-copper"
         >
           + Ajouter
@@ -1900,6 +1965,13 @@ function CatalogManager({
             <input className="field w-24" placeholder="reps ou 45s" value={draft.reps} onChange={(e) => setDraft({ ...draft, reps: e.target.value })} />
           </div>
           <input className="field text-xs" placeholder="Notes (machine, consignes…)" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+          {/* La note suit les muscles cochés tant qu'on ne l'a pas touchée ; un
+              clic sur une étoile fige le choix. */}
+          <ScorePicker
+            value={draft.score ?? scoreParDefaut(draft.name, draft.muscle_group)}
+            auto={draft.score === null}
+            onChange={(score) => setDraft({ ...draft, score })}
+          />
           <div className="flex gap-2">
             <button onClick={save} disabled={busy || !draft.name.trim()} className="btn-primary flex-1 py-1.5 text-sm">
               Enregistrer
@@ -1916,6 +1988,12 @@ function CatalogManager({
           <li key={c.id} className="flex items-center gap-2 border-b border-line/40 pb-1 text-sm last:border-0">
             <div className="min-w-0 flex-1">
               <span className="font-semibold text-ink">{c.name}</span>
+              {/* La note d'abord, juste après le nom : c'est elle qui décide de
+                  ce que le générateur propose, elle doit se voir en parcourant
+                  la liste sans ouvrir une seule fiche. */}
+              <span className="ml-1 whitespace-nowrap text-xs font-bold text-copper" title={`Priorité ${c.score}/${SCORE_MAX}`}>
+                {c.score}/{SCORE_MAX}
+              </span>
               <span className="text-xs text-muted">
                 {' '}
                 — {c.default_sets}×{c.default_reps}
@@ -1932,6 +2010,7 @@ function CatalogManager({
                   reps: c.default_reps,
                   weight: '',
                   notes: c.notes,
+                  score: c.score,
                 })
               }
               className="shrink-0 text-xs text-copper"

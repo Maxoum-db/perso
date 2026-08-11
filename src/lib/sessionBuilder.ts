@@ -1,6 +1,15 @@
 import { EXERCISE_LIBRARY } from '../data/exercises'
 import { poidsBehourd, rangsBehourd } from '../data/behourdPriority'
-import { ZONE_LARGE, type MuscleRegion } from './muscles'
+import { type MuscleRegion } from './muscles'
+import { nommerSeance } from './nommage'
+import { SCORE_NEUTRE, poidsScore } from './scoreExercice'
+import {
+  MAX_PAR_SEGMENT,
+  correctifDe,
+  correctifEquilibre,
+  segmentsMoteurs,
+  type Segment,
+} from './equilibre'
 import { reposParMuscle } from './recuperation'
 import { estRessenti, groupLoads, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import { ajusterCharge, suggererCharge, type ChargeSuggestion } from './charge'
@@ -226,6 +235,15 @@ export function buildSession(
   const familiariteDe = (nom: string) => vues.get(clefExo(nom)) ?? 0
   const reposDe = (r: MuscleRegion) => repos[r]?.jours ?? JAMAIS
 
+  // ÉQUILIBRE — actif seulement quand aucun point faible n'est déclaré.
+  //
+  // Un point faible EST une consigne de déséquilibre : le corriger reviendrait
+  // à refuser ce qu'on vient de demander. Sans consigne, en revanche, la seule
+  // boussole restante était la fraîcheur — un signal de quelques heures, qui ne
+  // sait rien de la semaine écoulée. Le correctif regarde quatre semaines.
+  const libre = !modeRecup && !special && groupesFocus.length === 0
+  const correctifs = libre ? correctifEquilibre(sessions) : new Map<Segment, number>()
+
   const candidats = catalog
     .filter((c) => {
       if (exclude.has(c.id) || estRessenti(c.name)) return false
@@ -258,6 +276,12 @@ export function buildSession(
         // Charger un muscle en position allongée rend plus par série. En mode
         // récupération on ne s'en sert pas : le but n'est plus de faire pousser.
         if (etire) score *= BONUS_ETIRE
+        // La note sur 5 du catalogue : ce que vaut l'exercice en lui-même. Elle
+        // départage ce que la récupération laisse à égalité — un développé
+        // militaire et une élévation latérale visent la même épaule fraîche.
+        score *= poidsScore(c.score ?? SCORE_NEUTRE)
+        // Et l'équilibre du mois, quand rien n'a été demandé.
+        if (libre) score *= correctifDe(moteurs, correctifs)
       }
       // En récupération, viser un muscle chaud est le but : aucun veto.
       const fatigue = !modeRecup && moteurs.some((r) => reposDe(r) <= 2)
@@ -349,9 +373,13 @@ export function buildSession(
   const tientDansLeCreneau = (c: (typeof classes)[number]) =>
     options.dureeCible === undefined || dureeAvec(c) <= options.dureeCible
 
+  // Exercices déjà posés par segment du corps : sert au plafond d'équilibre.
+  const parSegment = new Map<Segment, number>()
+
   const pris = new Set<string>()
   const prendre = (c: (typeof classes)[number], auTitreDuFocus = false) => {
     pris.add(c.exo.id)
+    for (const s of segmentsMoteurs(c.moteurs)) parSegment.set(s, (parSegment.get(s) ?? 0) + 1)
     coutTotal += c.cout
     if (estPoussee(c.exo.name)) poussees++
     if (estTirage(c.exo.name)) tirages++
@@ -491,6 +519,12 @@ export function buildSession(
       if (!apporteDuNeuf && !renforceLeFocus) continue
       if (!sousLePlafond(c)) continue
       if (equilibrer && estPoussee(c.exo.name) && poussees >= tirages) continue
+      // Deux exercices par segment, pas plus, tant qu'aucune consigne n'a été
+      // donnée. Au second passage la contrainte tombe : sur un corps où tout est
+      // courbaturé sauf les jambes, une séance de trois exercices de jambes vaut
+      // mieux qu'une séance de deux.
+      if (equilibrer && libre && segmentsMoteurs(c.moteurs).some((s) => (parSegment.get(s) ?? 0) >= MAX_PAR_SEGMENT))
+        continue
       prendre(c, c.moteurs.some((r) => focusRegions.has(r)))
     }
   }
@@ -528,19 +562,14 @@ export function buildSession(
     .filter((r) => reposDe(r) <= 2)
     .sort((a, b) => reposDe(a) - reposDe(b))
 
-  // Le nom reflète ce qui pèse dans la séance, pas l'ordre de sélection : on
-  // compte les muscles moteurs par zone.
-  const parZone = new Map<string, number>()
-  for (const c of choisis) {
-    for (const r of c.moteurs) {
-      const z = ZONE_LARGE[r]
-      if (z) parZone.set(z, (parZone.get(z) ?? 0) + 1)
-    }
-  }
-  const zones = [...parZone.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([z]) => z)
+  // Le nom sort de la MÊME règle que le renommage de fin de séance (lib/nommage)
+  // : le titre proposé avant et le titre enregistré après doivent parler la même
+  // langue, sinon « Séance Sangle profonde · Nuque » devenait « Abdos · Cou » à
+  // l'enregistrement sans que rien n'ait changé dans ce qui a été fait.
+  const nom = nommerSeance(
+    choisis.map((c) => ({ name: c.exo.name, muscle_group: c.exo.muscle_group, sets: c.exo.default_sets })),
+    modeRecup,
+  )
 
   return {
     bilan: {
@@ -553,13 +582,7 @@ export function buildSession(
       dureeCible: options.dureeCible,
       supersets: new Set(paires.filter((p) => p !== null)).size,
     },
-    name: modeRecup
-      ? zones.length
-        ? `Récup ${zones.join(' · ')}`
-        : 'Récupération'
-      : zones.length
-        ? `Séance ${zones.join(' · ')}`
-        : 'Séance du jour',
+    name: nom ?? (modeRecup ? 'Récupération' : 'Séance du jour'),
     recuperation: modeRecup,
     exercises: choisis,
     evites,
