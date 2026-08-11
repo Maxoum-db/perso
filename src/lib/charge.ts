@@ -1,4 +1,5 @@
 import { isBodyweightExercise, type MuscuSession } from './muscu'
+import { poidsDuCorpsPorte } from './effort'
 
 // Charge conseillée pour le prochain passage sur un exercice, déduite de ce qui
 // a réellement été fait avant. C'est la double progression que la page conseille
@@ -70,15 +71,26 @@ export function suggererCharge(
 
   // Au poids du corps, la progression se fait en répétitions, pas en charge :
   // on ne monte jamais tout seul. On garde juste le lest s'il y en avait un.
+  //
+  // Le champ porte le poids AJOUTÉ, et lui seul. Il a longtemps reçu le poids
+  // du corps entier — « traction : 102 » — pendant que le calcul d'effort
+  // rajoutait ce même poids par-dessus : une traction à vide comptait pour 204
+  // kg. Le poids du corps est désormais affiché à part, sur la pastille PDC,
+  // et n'entre jamais dans ce champ.
   if (isBodyweightExercise(exo.name)) {
     const dernier = histo[0]
-    if (dernier && bodyWeight && dernier.weight > bodyWeight + 1) {
-      const lest = arrondi(dernier.weight - bodyWeight)
-      return { weight: dernier.weight, ton: 'maintien', raison: `${lest} kg de lest la dernière fois` }
+    if (dernier) {
+      // Une valeur héritée de l'ancien format — le poids du corps recopié dans
+      // le champ — ne doit pas ressortir comme un lest de 102 kg.
+      const lest = bodyWeight && dernier.weight > bodyWeight - 5 ? null : arrondi(dernier.weight)
+      if (lest !== null) return { weight: lest, ton: 'maintien', raison: `${lest} kg de lest la dernière fois` }
     }
-    return bodyWeight
-      ? { weight: bodyWeight, ton: 'corps', raison: `poids du corps (${bodyWeight} kg)` }
-      : { weight: null, ton: 'corps', raison: 'au poids du corps' }
+    const pdc = poidsDuCorpsPorte(exo.name, bodyWeight)
+    return {
+      weight: null,
+      ton: 'corps',
+      raison: pdc > 0 ? `${pdc} kg de corps — ajoute un lest si tu en prends` : 'au poids du corps',
+    }
   }
 
   if (histo.length === 0) {

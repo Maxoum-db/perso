@@ -1,4 +1,4 @@
-import { distanceEnMetres, isBodyweightExercise, repsPourTonnage } from './muscu'
+import { distanceEnMetres, repsPourTonnage } from './muscu'
 
 // Ce qu'une SÉRIE a réellement coûté.
 //
@@ -25,29 +25,83 @@ import { distanceEnMetres, isBodyweightExercise, repsPourTonnage } from './muscu
 // mannequin qui invente le poids de la personne.
 
 /**
- * Part du poids du corps réellement soulevée, par famille de mouvement.
+ * Part du poids du corps réellement déplacée, par famille de mouvement.
  *
- * Une traction déplace tout le corps, une pompe environ les deux tiers, un squat
- * au poids du corps un peu moins que tout — les jambes ne se portent pas
- * elles-mêmes. Ces fractions sont les ordres de grandeur admis en biomécanique
- * pour les appuis correspondants ; elles n'ont pas besoin d'être exactes au
- * pour cent, seulement de mettre les exercices dans le bon ordre.
+ * ⚠️ Cette table est la SEULE définition de « ce mouvement porte le corps ».
+ *
+ * Elle était auparavant filtrée par `isBodyweightExercise`, qui répond à une
+ * tout autre question — « cet exercice se fait-il sans charge par défaut ? ».
+ * Les deux listes ne se recouvraient pas, et la plus étroite gagnait : 37
+ * exercices où le corps est bel et bien porté comptaient pour zéro, dont TOUS
+ * les squats et toutes les fentes. Une fente marchée avec deux kettlebells de
+ * 12 kg pesait 24 kg pour quelqu'un de 102 kg, au lieu de 111.
+ *
+ * Le fonctionnement est volontairement en LISTE BLANCHE : un mouvement absent
+ * de la table ne porte rien. Une règle large aurait fini par donner du poids de
+ * corps à un développé couché — où le corps repose sur le banc — ou à un curl.
+ *
+ * Les fractions sont les ordres de grandeur admis en biomécanique pour les
+ * appuis correspondants : une traction déplace tout le corps, une pompe environ
+ * les deux tiers (le reste porte sur les mains et les pieds), un squat un peu
+ * moins que tout — les jambes ne se portent pas elles-mêmes.
  *
  * L'ordre des entrées compte : le premier motif qui correspond gagne.
  */
 const PART_DU_CORPS: Array<[RegExp, number]> = [
-  [/traction|suspension|dead hang|muscle-?up/i, 1.0],
-  [/dips|pompe|planche dynamique|renegade/i, 0.68],
-  [/gainage|planche|deadbug|bird-?dog|hollow|superman/i, 0.55],
-  [/fente|montée sur banc|step-?up|bulgare/i, 0.85],
-  [/squat|pistol|chaise/i, 0.85],
-  [/burpee|saut|sprint|grimpeur|corde à sauter/i, 0.9],
-  [/relevé de jambes|crunch|rotation russe|roulette/i, 0.4],
+  // Le corps pend tout entier aux bras.
+  [/traction|suspension|dead hang|muscle-?up|escalade|bloc|chaise romaine — relevés|barre fixe/i, 1.0],
+  [/\bdips\b/i, 0.9],
+  // Sauts et déplacements : tout le corps est projeté.
+  [/burpee|saut|sprint|grimpeur|corde à sauter|montée de genoux/i, 0.9],
+  // Appuis pieds-mains : une part passe au sol.
+  [/pompe|planche dynamique|renegade|poussée dentelé|pompe scapulaire/i, 0.68],
+  // Unipodal : une jambe porte tout le reste, et c'est ce qui les rend durs.
+  [/fente|montée sur banc|step-?up|bulgare|pistol|unipodal|talons|marche sur les/i, 0.85],
+  // Squats : le tronc et les bras montent avec la barre. Vaut aussi barre vide.
+  [/squat|chaise|soulevé de terre|hip thrust|poussée de hanches|pont fessier/i, 0.85],
+  // Le hack squat couche le corps sur un chariot : il en porte encore une part,
+  // mais l'appui dorsal en reprend le reste. La presse à cuisses, elle, ne
+  // déplace que les jambes — elle n'est pas dans la table, donc elle ne porte
+  // rien, ce qui est exact.
+  [/hack squat/i, 0.6],
+  // Le relevé turc emmène le corps du sol à debout, en plus de la charge.
+  [/relevé turc/i, 0.5],
+  // Gainages : le corps est tenu, pas déplacé. Sans effet sur le facteur
+  // d'effort — ils se comptent au temps — mais la pastille « PDC » de l'écran
+  // doit quand même dire ce qu'on porte.
+  [/gainage|planche|deadbug|bird-?dog|hollow|superman|pont cervical|bateau/i, 0.55],
+  // Le tronc ou les jambes seuls.
+  [/relevé.* de jambes|relevés de jambes|crunch|rotation russe|rotations russes|roulette|genoux suspendu/i, 0.4],
 ]
 
-function partDuCorps(nom: string): number {
-  if (!isBodyweightExercise(nom)) return 0
-  return PART_DU_CORPS.find(([re]) => re.test(nom))?.[1] ?? 0.6
+/**
+ * Ce que la MACHINE reprend à ta place.
+ *
+ * Une poulie, un élastique ou une machine assistée fournit la résistance ou
+ * ALLÈGE le corps : dans les deux cas le poids du corps n'est plus ce qui est
+ * déplacé. Vérifié avant la table, sinon « crunch à la poulie haute » toucherait
+ * la règle des crunchs et « traction assistée » celle des tractions — c'est-à-
+ * dire exactement l'inverse de ce que fait la machine.
+ */
+const PORTE_PAR_LA_MACHINE = /assist|à la machine|\(machine\)|poulie|élastique|presse à cuisses/i
+
+export function partDuCorps(nom: string): number {
+  // Le hack squat porte « machine » dans son nom sans rien reprendre au corps :
+  // on est couché SUR le chariot, pas soulagé par lui.
+  if (PORTE_PAR_LA_MACHINE.test(nom) && !/hack squat/i.test(nom)) return 0
+  return PART_DU_CORPS.find(([re]) => re.test(nom))?.[1] ?? 0
+}
+
+/**
+ * Le poids du corps réellement déplacé par cet exercice, en kilos.
+ *
+ * C'est la valeur de la pastille « PDC » sur la ligne de séance : déjà remplie,
+ * jamais à saisir. Zéro — donc pas de pastille — quand le corps ne bouge pas :
+ * développé couché, curl, machine.
+ */
+export function poidsDuCorpsPorte(nom: string, poidsCorps: number | null): number {
+  if (!poidsCorps || poidsCorps <= 0) return 0
+  return Math.round(partDuCorps(nom) * poidsCorps * 10) / 10
 }
 
 /**
@@ -63,9 +117,8 @@ export function chargeTotale(
   e: { name: string; weight_kg: number | null },
   poidsCorps: number | null,
 ): number {
-  const externe = typeof e.weight_kg === 'number' && e.weight_kg > 0 ? e.weight_kg : 0
-  const part = poidsCorps ? partDuCorps(e.name) * poidsCorps : 0
-  return externe + part
+  const ajoute = typeof e.weight_kg === 'number' && e.weight_kg > 0 ? e.weight_kg : 0
+  return poidsDuCorpsPorte(e.name, poidsCorps) + ajoute
 }
 
 /**
