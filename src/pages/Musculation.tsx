@@ -35,6 +35,7 @@ import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '.
 import { composerSeance } from '../lib/prochaine'
 import { avecEmoji, emojiDuNom, nomSansEmoji, renommerSiAuto } from '../lib/nommage'
 import { SCORE_MAX, SCORE_MIN, scoreParDefaut } from '../lib/scoreExercice'
+import { noteAvecOutil } from '../lib/materiel'
 import {
   loadObservations,
   noterObservation,
@@ -1964,7 +1965,13 @@ export function CatalogManager({
             />
             <input className="field w-24" placeholder="reps ou 45s" value={draft.reps} onChange={(e) => setDraft({ ...draft, reps: e.target.value })} />
           </div>
-          <input className="field text-xs" placeholder="Notes (machine, consignes…)" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+          {/* L'outil est déduit du nom et ouvre la note : il n'a pas à être
+              écrit à la main, et il ne peut donc pas contredire le regroupement
+              par poste que la séance composée applique. */}
+          <div className="rounded-lg bg-bg px-2 py-1 text-[11px] text-muted">
+            📝 <b className="text-ink">{noteAvecOutil(draft.name, draft.notes)}</b>
+          </div>
+          <input className="field text-xs" placeholder="Notes (réglages, consignes…) — l’outil s’ajoute tout seul" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
           {/* La note suit les muscles cochés tant qu'on ne l'a pas touchée ; un
               clic sur une étoile fige le choix. */}
           <ScorePicker
@@ -1999,6 +2006,9 @@ export function CatalogManager({
                 — {c.default_sets}×{c.default_reps}
                 {c.muscle_group ? ` · ${c.muscle_group}` : ''}
               </span>
+              {/* La note, outil en tête : c'est la ligne qu'on lit avant de
+                  partir vers la machine. */}
+              <div className="text-[11px] italic text-muted">{noteAvecOutil(c.name, c.notes)}</div>
             </div>
             <button
               onClick={() =>

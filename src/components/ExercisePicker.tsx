@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { parseGroups, type CatalogExercise } from '../lib/muscu'
+import { OUTILS, outilDe } from '../lib/materiel'
 
 // Sélecteur d'exercice : recherche par nom (insensible aux accents et à la
 // casse) ET filtre par groupe musculaire visé, pour retrouver vite un exercice
@@ -194,7 +195,12 @@ export function ExercisePicker({
                           {highlight(c.name, needle)}
                         </span>
                         <span className="shrink-0 text-[10px] text-muted">
-                          {c.default_sets}×{c.default_reps}
+                          {/* Où ça se fait, avant même de choisir : c'est ce qui
+                              décide si on l'ajoute à la séance de ce soir. */}
+                          <span title={OUTILS[outilDe(c.name)].label}>
+                            {OUTILS[outilDe(c.name)].emoji} {OUTILS[outilDe(c.name)].label}
+                          </span>{' '}
+                          · {c.default_sets}×{c.default_reps}
                         </span>
                       </div>
                       {gs.length > 0 ? (

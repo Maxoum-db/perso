@@ -158,6 +158,24 @@ export function fmtOutil(id: OutilId): string {
 }
 
 /**
+ * La note d'un exercice, précédée de l'outil qu'il demande.
+ *
+ * L'outil est DÉDUIT, jamais recopié dans le texte : écrit à la main dans les
+ * trois cents notes du catalogue, il aurait vieilli au premier renommage et
+ * personne n'aurait vu la contradiction entre la note et le regroupement de la
+ * séance. Ici, les deux ne peuvent pas diverger — c'est le même appel.
+ *
+ * Une note qui commence déjà par l'outil (saisie à la main avant que ce soit
+ * automatique) ne le porte pas deux fois.
+ */
+export function noteAvecOutil(nom: string, note: string): string {
+  const outil = fmtOutil(outilDe(nom))
+  const texte = note.trim()
+  if (texte.startsWith(outil)) return texte
+  return texte ? `${outil} · ${texte}` : outil
+}
+
+/**
  * Regroupe une liste par outil, SANS défaire les priorités.
  *
  * Le premier bloc ne bouge jamais : c'est lui qui porte la règle « le point
