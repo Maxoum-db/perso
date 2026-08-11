@@ -6,8 +6,9 @@
 // et un développé militaire sortaient au même rang, alors que l'un travaille un
 // faisceau et l'autre toute l'épaule avec le triceps et la sangle.
 //
-// La note porte deux choses, celles de la demande — « les exercices les plus
-// complets et les plus efficaces » :
+// La note porte trois choses. Les deux premières viennent de la demande — « les
+// exercices les plus complets et les plus efficaces » ; la troisième vient de la
+// salle :
 //
 //   • COMPLET — combien de muscles le mouvement charge réellement. Un muscle ne
 //     compte que s'il prend au moins la moitié de l'effort (PART_COMPTABLE) :
@@ -15,6 +16,9 @@
 //   • EFFICACE — la famille de mouvement. Un polyarticulaire (pousser, tirer,
 //     charnière, genou, portage) rend plus par série qu'une isolation : plus de
 //     charge, plus de masse mobilisée, plus de transfert.
+//   • FAISABLE — le matériel. Le meilleur exercice du monde ne vaut rien s'il
+//     demande un traîneau, un harnais de nuque ou un anneau de préhension que la
+//     salle n'a pas. Un élastique, une kettlebell : une fois sur deux.
 //
 // La note calculée n'est qu'un DÉFAUT. Elle vit dans le catalogue, où elle se
 // modifie à la main : c'est la note enregistrée qui l'emporte dès qu'il y en a
@@ -55,6 +59,46 @@ const GUIDES = /assist|à la machine|\(machine\)|barre guidée|smith|\bhack\b|pr
  */
 const MONOARTICULAIRES = /écarté|ecarte|pull-over|oiseau|rétraction scapulaire|tirage bras tendus|suspension à la barre|pompe scapulaire|élévation|elevation/i
 
+/**
+ * Matériel qu'une salle basique n'a PAS.
+ *
+ * Un exercice qu'on ne peut pas faire est un exercice qui ne vaut rien, quelle
+ * que soit sa qualité. Le harnais de nuque, le rouleau à poignet, l'anneau de
+ * préhension, le traîneau : excellents, et introuvables sur place.
+ *
+ * Deux niveaux plutôt qu'un, parce que ce n'est pas la même chose de ne jamais
+ * trouver un traîneau et de trouver une kettlebell un jour sur deux : deux
+ * points pour ce qui manque toujours, trois quarts de point pour le reste.
+ *
+ * ⚠️ Ce que TU possèdes t'appartient : la note reste modifiable exercice par
+ * exercice, et c'est exactement le cas d'usage. Si tu as ta sangle cervicale
+ * dans le sac, remets-la à 5 et elle repassera devant.
+ */
+const MATERIEL_ABSENT =
+  /harnais|neck harness|sangle cervicale|rouleau à poignet|wrist roller|anneau de préhension|traîneau|traineau|roulette abdominale|coussin|nordique|nordic|pneu|plaquettes|sac lesté|gripper/i
+
+/**
+ * … sauf quand le nom propose lui-même une solution de salle.
+ *
+ * « Rotation externe d'épaule (poulie ou élastique) » se fait à la poulie, qui
+ * existe partout ; « torsion excentrique (barre souple ou serviette roulée) »
+ * se fait avec une serviette. Pénaliser ces deux-là serait pénaliser le mot
+ * « élastique », pas le matériel manquant.
+ */
+const SOLUTION_DE_SALLE = /poulie|à la machine|\(machine\)|haltère|serviette/i
+
+/** Matériel qu'on trouve une fois sur deux : un demi-cran, pas plus. */
+const MATERIEL_INCERTAIN =
+  /élastique|mini-band|kettlebell|sangles de suspension|\btrx\b|ballon|medicine|trap bar|barre hexagonale|barre souple/i
+
+/** Ce que le matériel coûte à la note d'un exercice. */
+export function malusMateriel(nom: string): number {
+  if (SOLUTION_DE_SALLE.test(nom)) return 0
+  if (MATERIEL_ABSENT.test(nom)) return 2
+  if (MATERIEL_INCERTAIN.test(nom)) return 0.75
+  return 0
+}
+
 export function borner(n: number): number {
   return Math.max(SCORE_MIN, Math.min(SCORE_MAX, Math.round(n)))
 }
@@ -80,9 +124,9 @@ export function musclesCharges(groupes: string): number {
  * du calcul, pas d'une liste de 300 notes écrites à la main qui aurait vieilli
  * au premier exercice ajouté.
  *
- * Le barème ne descend jamais à 1 : « à éviter » n'est pas une propriété du
- * mouvement, c'est une décision — l'épaule qui coince, la machine qu'on n'a pas.
- * Elle se prend à la main, dans le catalogue.
+ * Puis le matériel : ce qu'on ne trouve pas en salle descend d'un ou deux crans,
+ * et c'est la seule façon d'atteindre 1/5 par le calcul. « À éviter » ne se
+ * déduit pas d'un mouvement — sauf quand on ne peut pas le faire.
  *
  * Le nom compte autant que les muscles : c'est lui qui porte la famille de
  * mouvement (`patternDe`), l'étiquetage ne la dit pas.
@@ -97,7 +141,7 @@ export function scoreParDefaut(nom: string, groupes: string): number {
   else if (charges >= 6) note += 1.5
   else if (charges >= 4) note += 1
   else if (charges >= 2) note += 0.5
-  return borner(note)
+  return borner(note - malusMateriel(nom))
 }
 
 /**
