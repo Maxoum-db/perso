@@ -16,11 +16,12 @@
 //   • EFFICACE — la famille de mouvement. Un polyarticulaire (pousser, tirer,
 //     charnière, genou, portage) rend plus par série qu'une isolation : plus de
 //     charge, plus de masse mobilisée, plus de transfert.
-//   • FAISABLE — le matériel. Le meilleur exercice du monde ne vaut rien s'il
-//     demande un traîneau, un harnais de nuque ou un anneau de préhension que la
-//     salle n'a pas. Un élastique, une sangle de suspension : une fois sur deux.
-//     Le socle toujours présent : barres, haltères, KETTLEBELLS, poulies,
-//     machines, bancs et tapis.
+//   • FAISABLE — le matériel, identifié exercice par exercice dans lib/materiel.
+//     Le meilleur exercice du monde ne vaut rien s'il demande un traîneau, un
+//     harnais de nuque ou un anneau de préhension que la salle n'a pas. Un
+//     élastique, une sangle de suspension : une fois sur deux. Le socle toujours
+//     présent : barres, haltères, kettlebells, poulies, machines, bancs, barre
+//     de traction, barres à dips et tapis.
 //
 // La note calculée n'est qu'un DÉFAUT. Elle vit dans le catalogue, où elle se
 // modifie à la main : c'est la note enregistrée qui l'emporte dès qu'il y en a
@@ -28,6 +29,11 @@
 // la machine » — n'appartient qu'à celui qui s'entraîne.
 
 import { PART_COMPTABLE, musclesDeLExercice, patternDe } from './composition'
+// Le matériel est identifié UNE fois, dans lib/materiel : c'est le même besoin
+// qui décide de la note et de l'ordre de la séance. Deux listes d'accessoires
+// auraient fini par diverger, et on aurait noté un exercice sur un matériel que
+// la séance ne regroupait pas.
+import { malusMateriel } from './materiel'
 
 export const SCORE_MIN = 1
 export const SCORE_MAX = 5
@@ -60,53 +66,6 @@ const GUIDES = /assist|à la machine|\(machine\)|barre guidée|smith|\bhack\b|pr
  * écarté sortait au même rang qu'un développé couché.
  */
 const MONOARTICULAIRES = /écarté|ecarte|pull-over|oiseau|rétraction scapulaire|tirage bras tendus|suspension à la barre|pompe scapulaire|élévation|elevation/i
-
-/**
- * Matériel qu'une salle basique n'a PAS.
- *
- * Un exercice qu'on ne peut pas faire est un exercice qui ne vaut rien, quelle
- * que soit sa qualité. Le harnais de nuque, le rouleau à poignet, l'anneau de
- * préhension, le traîneau : excellents, et introuvables sur place.
- *
- * Deux niveaux plutôt qu'un, parce que ce n'est pas la même chose de ne jamais
- * trouver un traîneau et de trouver une kettlebell un jour sur deux : deux
- * points pour ce qui manque toujours, trois quarts de point pour le reste.
- *
- * ⚠️ Ce que TU possèdes t'appartient : la note reste modifiable exercice par
- * exercice, et c'est exactement le cas d'usage. Si tu as ta sangle cervicale
- * dans le sac, remets-la à 5 et elle repassera devant.
- */
-const MATERIEL_ABSENT =
-  /harnais|neck harness|sangle cervicale|rouleau à poignet|wrist roller|anneau de préhension|traîneau|traineau|roulette abdominale|coussin|nordique|nordic|pneu|plaquettes|sac lesté|gripper/i
-
-/**
- * … sauf quand le nom propose lui-même une solution de salle.
- *
- * « Rotation externe d'épaule (poulie ou élastique) » se fait à la poulie, qui
- * existe partout ; « torsion excentrique (barre souple ou serviette roulée) »
- * se fait avec une serviette. Pénaliser ces deux-là serait pénaliser le mot
- * « élastique », pas le matériel manquant.
- */
-const SOLUTION_DE_SALLE = /poulie|à la machine|\(machine\)|haltère|serviette/i
-
-/**
- * Matériel qu'on trouve une fois sur deux : un demi-cran, pas plus.
- *
- * PAS la kettlebell : elle est dans tous les Basic-Fit, au même titre que les
- * tapis et les haltères. Elle y a figuré une journée, par excès de prudence de
- * ma part ; c'est le genre d'erreur qui fait disparaître un bon mouvement
- * (le balancier) pour une raison qui n'existe pas.
- */
-const MATERIEL_INCERTAIN =
-  /élastique|mini-band|sangles de suspension|\btrx\b|ballon|medicine|trap bar|barre hexagonale|barre souple/i
-
-/** Ce que le matériel coûte à la note d'un exercice. */
-export function malusMateriel(nom: string): number {
-  if (SOLUTION_DE_SALLE.test(nom)) return 0
-  if (MATERIEL_ABSENT.test(nom)) return 2
-  if (MATERIEL_INCERTAIN.test(nom)) return 0.75
-  return 0
-}
 
 export function borner(n: number): number {
   return Math.max(SCORE_MIN, Math.min(SCORE_MAX, Math.round(n)))

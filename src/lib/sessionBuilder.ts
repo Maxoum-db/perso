@@ -2,6 +2,7 @@ import { EXERCISE_LIBRARY } from '../data/exercises'
 import { poidsBehourd, rangsBehourd } from '../data/behourdPriority'
 import { type MuscleRegion } from './muscles'
 import { nommerSeance } from './nommage'
+import { grouperParOutil, outilDe } from './materiel'
 import { SCORE_NEUTRE, poidsScore } from './scoreExercice'
 import {
   MAX_PAR_SEGMENT,
@@ -557,6 +558,25 @@ export function buildSession(
     e.superset = p
     choisis.push(e)
   }
+
+  // Enfin, l'OUTIL. Barre, poulie, barre, haltères, poulie : c'est traverser la
+  // salle cinq fois, reprendre une file d'attente à chaque fois, et remonter une
+  // charge qu'on venait de poser. On rapproche donc ce qui se fait au même
+  // poste — sans toucher à la tête de liste, qui porte les deux règles d'avant
+  // (le point faible d'abord, puis les paires collées).
+  //
+  // Le regroupement se fait sur des BLOCS et non sur des exercices : un superset
+  // est indissociable, et il relie justement des mouvements antagonistes qui
+  // n'ont pas toujours le même outil.
+  const blocs: SuggestedExercise[][] = []
+  for (const e of choisis) {
+    const dernier = blocs[blocs.length - 1]
+    if (dernier && e.superset !== null && dernier[0].superset === e.superset) dernier.push(e)
+    else blocs.push([e])
+  }
+  const parOutil = grouperParOutil(blocs, (b) => b.map((e) => outilDe(e.exo.name)))
+  choisis.length = 0
+  for (const b of parOutil) choisis.push(...b)
 
   const evites = [...new Set(candidats.filter((c) => c.fatigue).flatMap((c) => c.moteurs))]
     .filter((r) => reposDe(r) <= 2)

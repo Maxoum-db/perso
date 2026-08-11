@@ -2,6 +2,7 @@ import { MUSCLE_LABELS } from '../lib/muscles'
 import { TON_STYLE } from '../lib/charge'
 import { fmtFamiliarite } from '../lib/familiarite'
 import { fmtDuree } from '../lib/duree'
+import { OUTILS, outilDe } from '../lib/materiel'
 import { FormeCard } from './FormeCard'
 import type { Forme } from '../lib/forme'
 import type { SuggestedSession } from '../lib/sessionBuilder'
@@ -105,7 +106,24 @@ export function SuggestedSessionCard({
               </div>
               <div className="text-[11px] text-muted">
                 {s.exo.default_sets}×{s.exo.default_reps} ·{' '}
-                {s.moteurs.slice(0, 3).map((r) => MUSCLE_LABELS[r].split(' (')[0]).join(', ')}
+                {/* L'outil, sur chaque ligne : c'est lui qui explique l'ordre.
+                    Les exercices d'un même poste se suivent, et sans le mot
+                    écrit, l'enchaînement passerait pour un hasard. */}
+                <span
+                  className={
+                    outilDe(s.exo.name) === outilDe(suggestion.exercises[i - 1]?.exo.name ?? '\u0000')
+                      ? 'text-muted/60'
+                      : 'font-semibold text-ink'
+                  }
+                  title={
+                    outilDe(s.exo.name) === outilDe(suggestion.exercises[i - 1]?.exo.name ?? '\u0000')
+                      ? 'Même poste que l’exercice précédent : rien à aller chercher'
+                      : 'Changement de poste'
+                  }
+                >
+                  {OUTILS[outilDe(s.exo.name)].emoji} {OUTILS[outilDe(s.exo.name)].label}
+                </span>{' '}
+                · {s.moteurs.slice(0, 3).map((r) => MUSCLE_LABELS[r].split(' (')[0]).join(', ')}
               </div>
               {/* En récupération, la liste mélange des étirements et des
                   exercices ordinaires proposés À VIDE. Sans ce mot, « rotation
@@ -196,6 +214,25 @@ export function SuggestedSessionCard({
           ) : null}
         </div>
       ) : null}
+
+      {/* Le matériel de la séance, en une ligne : ce qu'il faut avoir sous la
+          main avant de commencer, et le nombre d'allers-retours que l'ordre
+          proposé permet d'éviter. */}
+      {(() => {
+        const outils = suggestion.exercises.map((s) => outilDe(s.exo.name))
+        const distincts = [...new Set(outils)]
+        const changements = outils.filter((o, i) => i > 0 && o !== outils[i - 1]).length
+        return distincts.length > 0 ? (
+          <p className="text-[11px] text-muted">
+            🧰 Matériel : {distincts.map((o) => `${OUTILS[o].emoji} ${OUTILS[o].label}`).join(' · ')}
+            {outils.length > 1 ? (
+              <span title="Les exercices d’un même poste se suivent : c’est le nombre de fois où il faut changer d’endroit">
+                {' '}— {changements} changement{changements > 1 ? 's' : ''} de poste
+              </span>
+            ) : null}
+          </p>
+        ) : null
+      })()}
 
       {suggestion.evites.length > 0 ? (
         <p className="text-[11px] text-muted">
