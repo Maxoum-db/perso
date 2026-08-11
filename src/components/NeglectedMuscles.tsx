@@ -21,7 +21,7 @@ function exerciceSuggere(region: MuscleRegion): string | null {
 
 export function NeglectedMuscles({
   loads,
-  focus = ['aucun'],
+  focus = [],
 }: {
   loads: Record<string, GroupLoad>
   focus?: FocusId[]
