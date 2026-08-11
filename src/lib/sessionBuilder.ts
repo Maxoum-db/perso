@@ -208,7 +208,7 @@ export function buildSession(
   const repos = reposParMuscle(loads)
   // On accepte aussi un identifiant seul : la signature a changé, et un appelant
   // resté à l'ancienne forme doit continuer de marcher plutôt que de tomber.
-  const focus = Array.isArray(options.focus) ? options.focus : [options.focus ?? 'aucun']
+  const focus = Array.isArray(options.focus) ? options.focus : options.focus ? [options.focus] : []
   const modeRecup = estModeRecup(focus)
   const special = options.behourd === true && !modeRecup
   const focusRegions = regionsDuFocus(focus)

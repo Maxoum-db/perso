@@ -5,7 +5,7 @@ import type { MuscleRegion } from './muscles'
 // générateur de séance (score et place réservée) et dans l'alerte des muscles
 // négligés, qui devient plus impatiente sur ces muscles-là.
 
-export type FocusId = 'core' | 'prehension' | 'cou' | 'jambes' | 'haut' | 'recup' | 'aucun'
+export type FocusId = 'core' | 'prehension' | 'cou' | 'dos' | 'jambes' | 'haut' | 'recup'
 
 export interface Focus {
   label: string
@@ -29,6 +29,17 @@ export const FOCUS: Record<FocusId, Focus> = {
     emoji: '🪖',
     regions: ['neck', 'neckExt', 'scalenes', 'levator', 'trapsUpper'],
   },
+  /**
+   * Plus étroit que « Haut du corps », qui noie le dos au milieu des pectoraux,
+   * des épaules et des bras : y mettre la priorité ne garantissait pas un seul
+   * tirage. Ici, seuls les muscles qui tirent et qui tiennent l'omoplate.
+   */
+  dos: {
+    label: 'Dos',
+    emoji: '🔙',
+    regions: ['lats', 'teres', 'rhomboids', 'trapsMid', 'trapsLow', 'trapsUpper', 'deltPost',
+      'erectors', 'multifidus', 'rotatorCuff', 'teresMinor', 'levator'],
+  },
   jambes: {
     label: 'Jambes',
     emoji: '🦵',
@@ -50,14 +61,9 @@ export const FOCUS: Record<FocusId, Focus> = {
     emoji: '🧊',
     regions: [],
   },
-  aucun: {
-    label: 'Aucune',
-    emoji: '⚖️',
-    regions: [],
-  },
 }
 
-export const FOCUS_IDS: FocusId[] = ['core', 'prehension', 'cou', 'jambes', 'haut', 'recup', 'aucun']
+export const FOCUS_IDS: FocusId[] = ['core', 'prehension', 'cou', 'dos', 'jambes', 'haut', 'recup']
 
 /**
  * Nombre de points faibles simultanés.
@@ -68,13 +74,17 @@ export const FOCUS_IDS: FocusId[] = ['core', 'prehension', 'cou', 'jambes', 'hau
 export const FOCUS_MAX = 2
 
 /**
- * Les deux entrées qui ne se cumulent avec rien.
+ * La seule entrée qui ne se cumule avec rien.
  *
- * « Aucune » est l'absence de choix, et « passer les courbatures » ne désigne pas
- * un groupe mais un ÉTAT : il fait basculer le générateur en mode récupération,
- * où la notion de point faible n'a plus cours.
+ * « Passer les courbatures » ne désigne pas un groupe mais un ÉTAT : il fait
+ * basculer le générateur en mode récupération, où la notion de point faible n'a
+ * plus cours.
+ *
+ * « Aucune » a disparu de la liste : décocher son dernier point faible SUFFIT à
+ * dire qu'on n'en a pas. Une case pour dire « rien » à côté de cases qu'on peut
+ * toutes décocher, c'était deux façons d'exprimer la même chose.
  */
-export const FOCUS_EXCLUSIFS: FocusId[] = ['recup', 'aucun']
+export const FOCUS_EXCLUSIFS: FocusId[] = ['recup']
 
 export function estExclusif(id: FocusId): boolean {
   return FOCUS_EXCLUSIFS.includes(id)
@@ -90,7 +100,9 @@ export function estExclusif(id: FocusId): boolean {
 export function basculerFocus(actuels: FocusId[], id: FocusId): FocusId[] {
   if (estExclusif(id)) return [id]
   const sans = actuels.filter((x) => x !== id && !estExclusif(x))
-  if (actuels.includes(id)) return sans.length > 0 ? sans : ['aucun']
+  // Décocher le dernier laisse la sélection VIDE : c'est ainsi qu'on dit
+  // « aucun point faible » depuis que la case « Aucune » n'existe plus.
+  if (actuels.includes(id)) return sans
   return [...sans, id].slice(-FOCUS_MAX)
 }
 
@@ -202,7 +214,10 @@ export async function loadFocus(userId: string): Promise<FocusId[]> {
   const v = await fetchKv<FocusId | FocusId[]>(userId, FOCUS_KEY, [FOCUS_PAR_DEFAUT])
   const liste = Array.isArray(v) ? v : [v]
   const valides = liste.filter((id) => typeof id === 'string' && id in FOCUS)
-  if (valides.length === 0) return [FOCUS_PAR_DEFAUT]
+  // Une liste vide reste vide : c'est « aucun point faible », et c'est aussi ce
+  // que devient l'ancien réglage « Aucune » une fois filtré. La remettre sur la
+  // valeur par défaut aurait changé son choix dans son dos. Le défaut ne
+  // s'applique qu'à une clé ABSENTE, ce dont `fetchKv` se charge déjà.
   // Un exclusif dans la liste l'emporte : c'est la seule combinaison qui n'a pas
   // de sens, et une valeur écrite à la main pourrait la produire.
   const exclusif = valides.find(estExclusif)
