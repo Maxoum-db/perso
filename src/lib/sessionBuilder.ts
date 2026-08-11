@@ -3,6 +3,7 @@ import { poidsBehourd, rangsBehourd } from '../data/behourdPriority'
 import { type MuscleRegion } from './muscles'
 import { nommerSeance } from './nommage'
 import { grouperParOutil, outilDe } from './materiel'
+import { faisable, type MonMateriel } from './monMateriel'
 import { SCORE_NEUTRE, poidsScore } from './scoreExercice'
 import {
   MAX_PAR_SEGMENT,
@@ -200,6 +201,16 @@ export interface BuildOptions {
    * demie sans que rien ne le signale.
    */
   dureeCible?: number
+  /**
+   * Le matériel dont on dispose. Liste vide (ou absente) : tout, c'est-à-dire
+   * la salle.
+   *
+   * C'est la contrainte la plus dure du lot, et elle passe donc avant toutes les
+   * autres : un exercice qu'on ne peut pas faire ne se compense pas par un bon
+   * score, un muscle frais ou une place réservée. Il est écarté du vivier, pas
+   * pénalisé au classement.
+   */
+  outils?: MonMateriel
 }
 
 /**
@@ -248,6 +259,8 @@ export function buildSession(
   const candidats = catalog
     .filter((c) => {
       if (exclude.has(c.id) || estRessenti(c.name)) return false
+      // Le matériel d'abord : ce qu'on ne peut pas faire n'entre pas au vivier.
+      if (!faisable(c.name, options.outils ?? [])) return false
       const clef = c.name.trim().toLowerCase()
       // En récupération on ne veut QUE des étirements ; sinon on les écarte.
       return modeRecup ? RECUPERATIONS.has(clef) || ADAPTABLES.has(clef) : !ACTIVITES.has(clef)

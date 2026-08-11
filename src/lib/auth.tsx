@@ -130,3 +130,16 @@ export function useAuth(): AuthState {
   if (!ctx) throw new Error('useAuth doit être utilisé dans <AuthProvider>')
   return ctx
 }
+
+/**
+ * Le compte connecté, ou null s'il n'y a pas de contexte du tout.
+ *
+ * Pour ce qui SURVIT sans compte : un filtre d'affichage, une préférence qu'on
+ * enregistrera si on peut. `useAuth` jette — c'est juste pour ce qui ne peut
+ * pas fonctionner sans identité, et jeter là où l'écran marcherait très bien
+ * fait tomber toute la page pour une case à cocher.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuthEventuel(): AuthState | null {
+  return useContext(AuthContext) ?? null
+}

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { parseGroups, type CatalogExercise } from '../lib/muscu'
-import { OUTILS, outilDe } from '../lib/materiel'
+import { OUTILS, outilDe, type OutilId } from '../lib/materiel'
+import { faisable } from '../lib/monMateriel'
+import { useMonMateriel } from '../lib/useMonMateriel'
 
 // Sélecteur d'exercice : recherche par nom (insensible aux accents et à la
 // casse) ET filtre par groupe musculaire visé, pour retrouver vite un exercice
@@ -47,6 +49,31 @@ export function ExercisePicker({
   // de l'écran. Il reste donc fermé tant qu'on ne le demande pas.
   const [groupsOpen, setGroupsOpen] = useState(false)
 
+  // MON matériel : ce dont je dispose là où je m'entraîne. Enregistré par
+  // compte, parce que c'est le garage qu'on décrit, pas la session en cours —
+  // on ne recoche pas ses six haltères à chaque ouverture de l'application.
+  //
+  // Liste vide = tout, c'est-à-dire la salle. Le filtre ne s'active donc jamais
+  // tout seul : sans ça, un premier chargement viderait le catalogue.
+  //
+  // Le magasin est PARTAGÉ (lib/useMonMateriel) : le bouton « proposer des
+  // exercices » de la séance type lit exactement la même liste. Deux états
+  // locaux avaient divergé aussitôt — la recherche montrait des haltères
+  // pendant que la proposition sortait une poulie.
+  const { outils, choisir } = useMonMateriel()
+  const [outilsOpen, setOutilsOpen] = useState(false)
+  const basculerOutil = (o: OutilId) =>
+    choisir(outils.includes(o) ? outils.filter((x) => x !== o) : [...outils, o])
+  const toutLeMateriel = () => choisir([])
+
+  // Outils réellement présents au catalogue, avec le nombre d'exercices. On ne
+  // propose pas de cocher un traîneau si aucun exercice n'en demande.
+  const outilCounts = useMemo(() => {
+    const counts = new Map<OutilId, number>()
+    for (const c of catalog) counts.set(outilDe(c.name), (counts.get(outilDe(c.name)) ?? 0) + 1)
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  }, [catalog])
+
   // Groupes réellement présents au catalogue, avec le nombre d'exercices.
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -59,11 +86,12 @@ export function ExercisePicker({
   const needle = normalizeName(query.trim())
   const results = useMemo(() => {
     return catalog.filter((c) => {
+      if (!faisable(c.name, outils)) return false
       if (group && !parseGroups(c.muscle_group).includes(group)) return false
       if (!needle) return true
       return normalizeName(c.name).includes(needle) || normalizeName(c.muscle_group).includes(needle)
     })
-  }, [catalog, needle, group])
+  }, [catalog, needle, group, outils])
 
   function pick(c: CatalogExercise) {
     onPick(c)
@@ -73,7 +101,7 @@ export function ExercisePicker({
     setOpen(false)
   }
 
-  const filtering = Boolean(needle) || group !== null
+  const filtering = Boolean(needle) || group !== null || outils.length > 0
 
   return (
     <div className="space-y-2">
@@ -92,6 +120,71 @@ export function ExercisePicker({
         <button onClick={onBlank} className="btn-ghost shrink-0 px-3 py-2 text-sm">
           + Vierge
         </button>
+      </div>
+
+      {/* MON MATÉRIEL, juste sous la recherche.
+          Le seul filtre qui décrit le LIEU et non l'exercice : chez soi, on n'a
+          pas de poulie, et la moitié du catalogue ne sert à rien. Il vit ici
+          plutôt que dans les réglages parce que c'est ici qu'on choisit, et
+          qu'un filtre qu'on ne voit pas est un filtre qu'on oublie d'avoir
+          activé. */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setOutilsOpen((o) => !o)}
+            className="flex items-center gap-1 rounded-lg bg-bg px-2 py-1 text-[11px] font-semibold text-muted transition hover:text-ink"
+          >
+            <span className="text-[9px]">{outilsOpen ? '▾' : '▸'}</span>
+            🧰 Mon matériel
+          </button>
+          {outils.length === 0 ? (
+            <span className="text-[11px] text-muted">tout (salle)</span>
+          ) : (
+            <>
+              {outils.map((o) => (
+                <button
+                  key={o}
+                  onClick={() => basculerOutil(o)}
+                  className="flex items-center gap-1 rounded-lg bg-copper px-2 py-1 text-[11px] font-semibold text-white"
+                  title="Retirer de mon matériel"
+                >
+                  {OUTILS[o].emoji} {OUTILS[o].label} ✕
+                </button>
+              ))}
+              <button onClick={toutLeMateriel} className="text-[11px] text-muted hover:text-copper">
+                tout afficher
+              </button>
+            </>
+          )}
+        </div>
+
+        {outilsOpen ? (
+          <div className="flex flex-wrap gap-1">
+            <button
+              onClick={toutLeMateriel}
+              className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                outils.length === 0 ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
+              }`}
+            >
+              Tout (salle)
+            </button>
+            {outilCounts.map(([o, n]) => (
+              <button
+                key={o}
+                onClick={() => basculerOutil(o)}
+                title={`${n} exercice${n > 1 ? 's' : ''}`}
+                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                  outils.includes(o) ? 'bg-copper text-white' : 'bg-bg text-muted hover:text-ink'
+                }`}
+              >
+                {OUTILS[o].emoji} {OUTILS[o].label} <span className="opacity-60">{n}</span>
+              </button>
+            ))}
+            <p className="w-full text-[10px] text-muted">
+              Le poids du corps est toujours proposé : il n'y a rien à posséder.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {open ? (
@@ -164,6 +257,7 @@ export function ExercisePicker({
                     setQuery('')
                     setGroup(null)
                     setGroupsOpen(false)
+                    toutLeMateriel()
                   }}
                   className="hover:text-ink"
                 >

@@ -35,7 +35,9 @@ import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '.
 import { composerSeance } from '../lib/prochaine'
 import { avecEmoji, emojiDuNom, nomSansEmoji, renommerSiAuto } from '../lib/nommage'
 import { SCORE_MAX, SCORE_MIN, scoreParDefaut } from '../lib/scoreExercice'
-import { noteAvecOutil } from '../lib/materiel'
+import { OUTILS, noteAvecOutil } from '../lib/materiel'
+import { useMonMateriel } from '../lib/useMonMateriel'
+import { buildSession } from '../lib/sessionBuilder'
 import {
   loadObservations,
   noterObservation,
@@ -1715,7 +1717,7 @@ function summary(exos: MuscuExo[]): string {
   return gs.slice(0, 3).join(', ') + (gs.length > 3 ? '…' : '')
 }
 
-function TemplateEditor({
+export function TemplateEditor({
   draft,
   groups,
   catalog,
@@ -1731,6 +1733,48 @@ function TemplateEditor({
   const [d, setD] = useState(draft)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Le matériel coché sous « chercher un exercice » : c'est LUI qui décide de
+  // ce que la proposition a le droit d'employer. Une séance type composée avec
+  // une poulie qu'on n'a pas chez soi n'est pas une séance type, c'est une
+  // liste de courses.
+  const { outils } = useMonMateriel()
+
+  /**
+   * Remplit le modèle avec une séance composée sous la contrainte du matériel.
+   *
+   * Sans historique : une séance TYPE n'est pas la séance d'aujourd'hui. Elle ne
+   * doit dépendre ni des courbatures du moment ni des charges de la semaine —
+   * sinon le modèle enregistré porterait l'état d'un jour précis, et on le
+   * relirait des mois plus tard sans savoir lequel.
+   */
+  function proposer() {
+    const s = buildSession(catalog, [], {
+      count: 6,
+      outils,
+      dureeCible: parseInt(d.duration, 10) || undefined,
+    })
+    if (!s) {
+      setError(
+        outils.length
+          ? 'Rien de composable avec ce matériel. Ajoute un outil sous « chercher un exercice ».'
+          : 'Pas encore assez d’exercices exploitables au catalogue.',
+      )
+      return
+    }
+    setError(null)
+    setD((prev) => ({
+      ...prev,
+      name: prev.name.trim() || s.name,
+      exos: s.exercises.map((x) => ({
+        name: x.exo.name,
+        muscle_group: x.exo.muscle_group,
+        sets: String(x.exo.default_sets),
+        reps: x.exo.default_reps,
+        weight: '',
+        notes: '',
+      })),
+    }))
+  }
 
   async function save() {
     setBusy(true)
@@ -1792,6 +1836,19 @@ function TemplateEditor({
           value={d.notes}
           onChange={(e) => setD({ ...d, notes: e.target.value })}
         />
+      </div>
+
+      {/* La proposition, au-dessus de la liste : c'est par là qu'on commence
+          quand on part de rien, et elle se relance autant de fois qu'on veut. */}
+      <div className="card space-y-1.5 p-3">
+        <button onClick={proposer} className="btn-ghost w-full py-2 text-sm">
+          🧠 Proposer des exercices{outils.length ? ' avec mon matériel' : ''}
+        </button>
+        <p className="text-[11px] text-muted">
+          {outils.length
+            ? `Limité à : ${outils.map((o) => `${OUTILS[o].emoji} ${OUTILS[o].label}`).join(' · ')} — plus le poids du corps. Le matériel se coche sous « chercher un exercice ».`
+            : 'Tout le catalogue. Coche ton matériel sous « chercher un exercice » pour t’y limiter — utile pour une séance à la maison.'}
+        </p>
       </div>
 
       <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
