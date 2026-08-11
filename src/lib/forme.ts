@@ -1,5 +1,5 @@
 import { KCAL_PAR_KG, tendancePoids } from './profil'
-import { bilanCharge, type BilanCharge } from './trainingLoad'
+import { bilanCharge, JOURS_FIABLES, type BilanCharge } from './trainingLoad'
 import type { MuscuSession } from './muscu'
 import type { Weighin } from './workouts'
 
@@ -51,8 +51,18 @@ export function evaluerForme(sessions: MuscuSession[], weighins: Weighin[]): For
   let intensite = 1
   const raisons: string[] = []
 
-  // 1. Charge d'entraînement — le signal le plus fiable pour la blessure.
-  const r = charge.ratio
+  // 1. Charge d'entraînement — le signal le plus fiable pour la blessure, mais
+  // seulement une fois qu'il y a une référence. Sous 45 jours d'historique, le
+  // ratio compare la semaine écoulée à une moyenne qui n'existe pas encore :
+  // deux semaines d'usage suffisaient à déclencher une décharge conseillée,
+  // alors que la seule chose qui avait augmenté était le nombre de séances
+  // NOTÉES. On ne conseille pas d'alléger sur un artefact de démarrage.
+  const r = charge.fiable ? charge.ratio : null
+  if (!charge.fiable && charge.aigue > 0) {
+    raisons.push(
+      `Moins de ${JOURS_FIABLES} jours d’historique (${charge.jours} j) : la charge est comptée, mais pas encore comparable. Aucun ajustement tiré d’elle.`,
+    )
+  }
   if (r !== null && r > 1.5) {
     exos = 4
     intensite = 0.85
@@ -83,6 +93,7 @@ export function evaluerForme(sessions: MuscuSession[], weighins: Weighin[]): For
 
   // 4. Rien ne freine et la charge est basse : c'est le moment de pousser.
   if (
+    r !== null &&
     raisons.length === 0 &&
     charge.aigue > 0 &&
     r !== null &&
