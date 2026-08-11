@@ -1,4 +1,5 @@
 import { fetchKv, saveKv } from './kv'
+import { outilDe } from './materiel'
 import { distanceEnMetres } from './muscu'
 import { coutSystemique, patternDe, type Pattern } from './composition'
 
@@ -156,19 +157,30 @@ export interface Appariable {
 export function apparier(exos: Appariable[]): Array<number | null> {
   const paires: Array<number | null> = exos.map(() => null)
   let prochaine = 0
-  for (let i = 0; i < exos.length - 1; i++) {
-    if (paires[i] !== null) continue
-    const a = exos[i]
-    for (let j = i + 1; j < exos.length; j++) {
-      if (paires[j] !== null) continue
-      const b = exos[j]
-      if (!sontAntagonistes(a.nom, b.nom)) continue
-      if (a.cout === 2 && b.cout === 2) continue
-      if (a.moteurs.some((m) => b.moteurs.includes(m))) continue
-      paires[i] = prochaine
-      paires[j] = prochaine
-      prochaine++
-      break
+  // DEUX passages, et l'ordre compte : on apparie d'abord ce qui se fait au même
+  // poste, ensuite le reste.
+  //
+  // Un superset tient deux postes à la fois. Barre puis poulie, ça veut dire
+  // traverser la salle entre chaque série, et abandonner l'un des deux dès qu'il
+  // y a du monde — c'est-à-dire ne pas le faire. Deux haltères posées côte à
+  // côte, ça se fait. Le second passage garde l'ancienne règle : mieux vaut un
+  // superset à deux postes que pas de superset du tout.
+  for (const memeOutil of [true, false]) {
+    for (let i = 0; i < exos.length - 1; i++) {
+      if (paires[i] !== null) continue
+      const a = exos[i]
+      for (let j = i + 1; j < exos.length; j++) {
+        if (paires[j] !== null) continue
+        const b = exos[j]
+        if (memeOutil && outilDe(a.nom) !== outilDe(b.nom)) continue
+        if (!sontAntagonistes(a.nom, b.nom)) continue
+        if (a.cout === 2 && b.cout === 2) continue
+        if (a.moteurs.some((m) => b.moteurs.includes(m))) continue
+        paires[i] = prochaine
+        paires[j] = prochaine
+        prochaine++
+        break
+      }
     }
   }
   return paires
