@@ -1,4 +1,5 @@
-import { FOCUS, FOCUS_IDS, FOCUS_MAX, basculerFocus, estExclusif, estModeRecup, type FocusId } from '../lib/focus'
+import { useState } from 'react'
+import { FOCUS, FOCUS_IDS, FOCUS_MAX, basculerFocus, estModeRecup, type FocusId } from '../lib/focus'
 import { DUREES, fmtDuree } from '../lib/duree'
 
 // Le point faible du moment, et le mode béhourd. Deux réglages distincts et
@@ -41,20 +42,35 @@ export function FocusPicker({
   // n'y a pas de sens, et le laisser allumé le ferait mentir.
   const recup = estModeRecup(value)
   const actif = behourd && !recup
-  // À deux groupes, en ajouter un troisième chasse le plus ancien. On le dit
-  // plutôt que de laisser la sélection changer sans explication.
-  const plein = value.filter((id) => !estExclusif(id)).length >= FOCUS_MAX
+  // Replié par défaut : c'est un réglage qu'on pose et qu'on oublie, pas un
+  // écran qu'on relit. Ce qu'il faut voir sans l'ouvrir tient dans son titre —
+  // ce qui est sélectionné — et c'est justement ce qu'on y a mis.
+  const [ouvert, setOuvert] = useState(false)
+  const choisis = value.map((id) => FOCUS[id]?.emoji).filter(Boolean).join(' ')
 
   return (
     <section className="card space-y-2 p-3">
       {/* La contrainte tient en deux mots dans le titre ; l'explication complète
           descend sur la ligne d'aide, qui change déjà avec l'état. Dans le titre,
           elle passait sur deux lignes et alourdissait tout le bloc. */}
-      <h2 className="text-sm font-bold text-ink">
+      <button
+        onClick={() => setOuvert((v) => !v)}
+        aria-expanded={ouvert}
+        className="flex w-full items-center gap-1.5 text-left text-sm font-bold text-ink"
+      >
+        <span className="w-3 shrink-0 text-muted">{ouvert ? '▾' : '▸'}</span>
         🎯 Point faible à rattraper
-        <span className="ml-1.5 text-[10px] font-normal text-muted">{FOCUS_MAX} max</span>
-      </h2>
+        {/* Replié, le titre porte l'état : les emojis choisis, le béhourd s'il
+            est allumé, et le créneau. Un bloc replié qui ne dit pas ce qu'il
+            contient oblige à l'ouvrir pour vérifier, donc à ne jamais le
+            replier. */}
+        <span className="ml-auto shrink-0 text-[11px] font-normal text-muted">
+          {ouvert ? `${FOCUS_MAX} max` : `${choisis || '—'}${actif ? ' ⚔️' : ''} · ${fmtDuree(duree)}`}
+        </span>
+      </button>
 
+      {ouvert ? (
+        <>
       <div className="flex flex-wrap gap-1.5">
         {FOCUS_IDS.map((id) => (
           <button
@@ -101,14 +117,19 @@ export function FocusPicker({
         ))}
       </div>
 
-      <p className="text-[10px] text-muted">
-        {plein ? 'Deux groupes visés : en toucher un troisième remplacera le plus ancien. ' : ''}
-        {recup
-          ? '⚔️ sans effet ici : la séance de récupération est faite d’étirements.'
-          : actif
-            ? 'Cou, préhension, trapèzes, érecteurs et ceinture abdominale passent devant, et un tiers de la séance leur est réservé — en plus du point faible.'
-            : '⚔️ se cumule avec le point faible : ces muscles comptent déjà un peu, touche pour qu’ils décident vraiment de la séance.'}
-      </p>
+      {/* On ne garde que ce qui décrit un état ACTIF. Les deux phrases retirées
+          expliquaient l'une une mécanique de remplacement qu'on voit se
+          produire, l'autre ce que ferait un bouton qu'on n'a pas encore
+          touché — de la notice, pas de l'information. */}
+      {recup || actif ? (
+        <p className="text-[10px] text-muted">
+          {recup
+            ? '⚔️ sans effet ici : la séance de récupération est faite d’étirements.'
+            : 'Cou, préhension, trapèzes, érecteurs et ceinture abdominale passent devant, et un tiers de la séance leur est réservé — en plus du point faible.'}
+        </p>
+      ) : null}
+        </>
+      ) : null}
     </section>
   )
 }
