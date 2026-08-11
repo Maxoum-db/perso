@@ -9,6 +9,7 @@ import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { appliquerComptage, comptageReglable, loadExclues, nettoyerExclues, saveExclue, type Exclues } from '../lib/comptage'
+import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { RecuperationCard } from '../components/RecuperationCard'
@@ -1458,19 +1459,39 @@ function ExoListEditor({
               value={e.reps}
               onChange={(ev) => update(i, { reps: ev.target.value })}
             />
+            {/* La pastille PDC : ce que le mouvement fait porter au corps, déjà
+                rempli et jamais à saisir. Le champ à côté ne reçoit QUE ce qu'on
+                ajoute — kettlebells, disque, barre. Les deux vivaient confondus
+                dans un seul champ, et la charge d'une fente marchée avec deux
+                kettlebells de 12 kg valait 24 kg pour un homme de 102. */}
+            {poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 ? (
+              <span
+                className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-muted"
+                title={`Poids du corps déplacé par ce mouvement (${Math.round(partDuCorps(e.name) * 100)} % de ${bodyWeight} kg)`}
+              >
+                PDC {poidsDuCorpsPorte(e.name, bodyWeight ?? null)} kg
+              </span>
+            ) : null}
             <label className="flex items-center gap-1 text-xs text-muted">
+              {poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 ? '+' : null}
               <input
                 className="field w-20"
                 type="number"
                 inputMode="decimal"
                 step="0.5"
-                placeholder="PdC"
-                title="Charge en kg (vide = poids du corps)"
+                placeholder={poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 ? 'lest' : 'kg'}
+                title="Ce que tu AJOUTES en kg : haltères, kettlebells, disque, barre. Le poids du corps est déjà compté à côté."
                 value={e.weight}
                 onChange={(ev) => update(i, { weight: ev.target.value })}
               />
               kg
             </label>
+            {/* Le total, dit une fois : c'est lui que le mannequin lit. */}
+            {poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 && parseFloat(e.weight.replace(',', '.')) > 0 ? (
+              <span className="text-[11px] font-semibold text-copper">
+                = {Math.round(chargeTotale({ name: e.name, weight_kg: parseFloat(e.weight.replace(',', '.')) }, bodyWeight ?? null) * 10) / 10} kg
+              </span>
+            ) : null}
             {e.hint ? (
               <span className={`text-[11px] font-semibold ${TON_STYLE[e.hintTon ?? 'maintien'].classe}`}>
                 {TON_STYLE[e.hintTon ?? 'maintien'].icone} {e.hint}
