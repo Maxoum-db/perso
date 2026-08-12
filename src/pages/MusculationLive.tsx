@@ -8,6 +8,8 @@ import {
   type MuscuSession,
 } from '../lib/muscu'
 import { renommerSiAuto } from '../lib/nommage'
+import { OUTILS, outilDe, type OutilId } from '../lib/materiel'
+import { remodeler, type Changement } from '../lib/remodeler'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
@@ -40,6 +42,18 @@ export interface LiveState {
   notes: string
   /** Zones sollicitées déclarées à la main (séance sans exercices chiffrés). */
   ressenti?: string
+  /**
+   * Outils déclarés INDISPONIBLES pour cette séance-ci.
+   *
+   * On enregistre ce qui manque, pas ce qui est là : une liste vide veut donc
+   * dire « tout est disponible », ce qui est le cas normal et ce que devient
+   * une séance en cours enregistrée avant que cette case existe. À l'écran, les
+   * cases arrivent donc toutes cochées.
+   *
+   * Propre à la séance, et jamais confondu avec « mon matériel » (lib/monMateriel,
+   * le garage) : ici c'est le rack qui est pris à 19 h 12, pas un achat.
+   */
+  outilsHS?: OutilId[]
   exos: LiveExo[]
 }
 
@@ -131,6 +145,11 @@ export function LiveSession({
   const [restEnd, setRestEnd] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Ce que le dernier remodelage a changé : sans ce compte rendu, trois lignes
+  // se remplacent en silence et on ne sait plus quelle séance on est en train
+  // de faire.
+  const [changements, setChangements] = useState<Changement[]>([])
+  const [materielOuvert, setMaterielOuvert] = useState(false)
   const restNotified = useRef(false)
 
   useEffect(() => {
@@ -215,6 +234,60 @@ export function LiveSession({
         },
       ],
     }))
+  }
+
+  // ── Matériel de la séance ────────────────────────────────────────────────
+  //
+  // Les outils que la séance emploie RÉELLEMENT, dans l'ordre où ils
+  // apparaissent : c'est la liste qu'on a sous les yeux, pas les vingt du
+  // catalogue. Elles arrivent toutes cochées — on décoche ce qui est pris.
+  const outilsHS = s.outilsHS ?? []
+  const outilsSeance = [...new Set(s.exos.filter((e) => e.name.trim()).map((e) => outilDe(e.name)))]
+  const dispo = outilsSeance.filter((o) => !outilsHS.includes(o))
+  // Exercices que le matériel manquant rend infaisables, et qui n'ont pas
+  // encore de série cochée : ce sont eux que « remodeler » remplacera.
+  const aRemodeler = s.exos.filter(
+    (e) => e.name.trim() && outilsHS.includes(outilDe(e.name)) && e.done.every((d) => !d),
+  ).length
+
+  function basculerOutil(o: OutilId) {
+    setS((prev) => {
+      const hs = prev.outilsHS ?? []
+      return { ...prev, outilsHS: hs.includes(o) ? hs.filter((x) => x !== o) : [...hs, o] }
+    })
+  }
+
+  /**
+   * Remplace les exercices dont l'outil manque par leur équivalent.
+   *
+   * La charge conseillée est recalculée pour le remplaçant : garder celle du
+   * mouvement d'avant serait pire que ne rien proposer — 100 kg de développé
+   * couché ne sont pas 100 kg de développé haltères.
+   */
+  function remodelerSeance() {
+    const { lignes, changements } = remodeler(
+      s.exos.map((e) => ({ ...e, faites: e.done.filter(Boolean).length })),
+      catalog,
+      dispo,
+      (ligne, par) => {
+        const charge = suggererCharge(sessions, { name: par.name, default_reps: par.default_reps }, bodyWeight)
+        return {
+          ...ligne,
+          name: par.name,
+          muscle_group: par.muscle_group,
+          reps: par.default_reps,
+          weight: charge.weight === null ? '' : String(charge.weight),
+          hint: charge.raison || undefined,
+          // Autant de cases que le remplaçant en demande, jamais moins d'une.
+          done: Array(Math.max(1, par.default_sets)).fill(false),
+        }
+      },
+    )
+    setS((prev) => ({
+      ...prev,
+      exos: lignes.map(({ faites: _faites, ...e }) => e as LiveExo),
+    }))
+    setChangements(changements)
   }
 
   function addBlank() {
@@ -344,6 +417,79 @@ export function LiveSession({
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
+
+      {/* ── Matériel de la séance ──
+          Les outils que CETTE séance emploie, tous cochés d'entrée. On décoche
+          le rack qui est pris, on remodèle, et les exercices concernés sont
+          remplacés par leur équivalent. Rien à voir avec « mon matériel » des
+          réglages : là c'est le garage, ici c'est 19 h 12 un mardi. */}
+      {outilsSeance.length > 0 ? (
+        <div className="card space-y-2 p-3">
+          <button
+            onClick={() => setMaterielOuvert((o) => !o)}
+            className="flex w-full items-center gap-2 text-left text-sm font-bold text-ink"
+          >
+            <span className="text-[10px] text-muted">{materielOuvert ? '▾' : '▸'}</span>
+            🧰 Matériel dispo
+            <span className="ml-auto text-[11px] font-semibold text-muted">
+              {outilsHS.length === 0
+                ? `${outilsSeance.length} poste${outilsSeance.length > 1 ? 's' : ''}`
+                : `${outilsHS.length} indispo`}
+            </span>
+          </button>
+
+          {materielOuvert ? (
+            <>
+              <div className="flex flex-wrap gap-1.5">
+                {outilsSeance.map((o) => {
+                  const ok = !outilsHS.includes(o)
+                  return (
+                    <button
+                      key={o}
+                      onClick={() => basculerOutil(o)}
+                      aria-pressed={ok}
+                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                        ok ? 'bg-copper text-white' : 'bg-bg text-muted line-through'
+                      }`}
+                      title={ok ? 'Disponible — toucher pour dire qu’il est pris' : 'Indisponible'}
+                    >
+                      {ok ? '☑' : '☐'} {OUTILS[o].emoji} {OUTILS[o].label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-muted">
+                Décoche ce qui est pris, puis remodèle : les exercices concernés sont remplacés par
+                l'équivalent le plus proche. Ce qui est déjà coché ne bouge pas.
+              </p>
+            </>
+          ) : null}
+
+          {outilsHS.length > 0 ? (
+            <button
+              onClick={remodelerSeance}
+              disabled={aRemodeler === 0}
+              className="btn-primary w-full py-2 text-sm disabled:opacity-50"
+            >
+              🔄 Remodeler la séance
+              {aRemodeler > 0 ? ` (${aRemodeler} exercice${aRemodeler > 1 ? 's' : ''})` : ''}
+            </button>
+          ) : null}
+
+          {changements.length > 0 ? (
+            <ul className="space-y-0.5 text-[11px]">
+              {changements.map((c, i) => (
+                <li key={i} className={c.sort === 'remplace' ? 'text-sage-dark' : 'text-clay'}>
+                  {c.sort === 'remplace' ? '↪' : c.sort === 'retire' ? '✕' : '⚠️'} {c.avant}
+                  {c.sort === 'remplace' ? ` → ${c.apres}` : null}
+                  {c.sort === 'retire' ? ' — aucun équivalent avec ce matériel' : null}
+                  {c.sort === 'garde' ? ' — déjà entamé, gardé tel quel' : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Exercices ── */}
       <ul className="space-y-2">
