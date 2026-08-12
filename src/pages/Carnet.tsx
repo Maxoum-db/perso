@@ -5,6 +5,8 @@ import { addWeighin, deleteWeighin, listWeighins, type Weighin } from '../lib/wo
 import { listSessions, type MuscuSession } from '../lib/muscu'
 import { CaloriesCard } from '../components/CaloriesCard'
 import { EnergieCard } from '../components/EnergieCard'
+import { EntretienCard } from '../components/EntretienCard'
+import { RecompositionCard } from '../components/RecompositionCard'
 import { PoidsCourbe } from '../components/PoidsCourbe'
 import { TourDeTaille } from '../components/TourDeTaille'
 import { ChargeHebdo, ObjectifKcal } from '../components/ChargeEtObjectif'
@@ -88,17 +90,15 @@ export function Poids() {
       {page === 'energie' ? (
         <>
           <EnergieCard sessions={sessions} weighins={weighins} profil={profil} onProfil={majProfil} />
+          <EntretienCard sessions={sessions} weighins={weighins} profil={profil} />
           <CaloriesCard sessions={sessions} bodyWeight={poids} weighins={weighins} />
         </>
       ) : page === 'corps' ? (
         <>
+          <RecompositionCard weighins={weighins} mensurations={mensurations} />
           <PoidsCourbe weighins={weighins} />
           <SaisiePoids weighins={weighins} onChange={reload} />
           <TourDeTaille mensurations={mensurations} heightCm={profil.heightCm} onChange={majMensurations} />
-          <p className="text-center text-[11px] text-muted">
-            💡 À poids stable, un tour de taille qui baisse = du gras échangé contre du muscle. C'est exactement
-            l'objectif.
-          </p>
         </>
       ) : (
         <>

@@ -113,24 +113,46 @@ export function poidsHistorique(weighins: Weighin[]): PoidsDuJour {
   }
 }
 
+/** Un relevé daté, quelle que soit son unité : des kilos, des centimètres. */
+export interface Releve {
+  date: string
+  value: number
+}
+
 /**
- * Pente de la courbe de poids en kg/semaine, par régression linéaire sur la
- * fenêtre demandée. Null si trop peu de pesées ou fenêtre trop courte pour
- * dire quoi que ce soit.
+ * Pente d'une série de relevés, par unité et par SEMAINE, sur la fenêtre
+ * demandée. Régression linéaire des moindres carrés.
+ *
+ * Générique parce qu'il n'y a aucune raison que le tour de taille se mesure
+ * autrement que le poids : mêmes garde-fous, même arithmétique, mêmes cas de
+ * refus. Deux régressions écrites séparément auraient fini par ne plus vouloir
+ * dire la même chose — et c'est justement leur COMPARAISON qui nous intéresse.
+ *
+ * `minPoints` et `etendueMin` sont réglables parce que là, les deux séries
+ * diffèrent vraiment : un poids se prend tous les matins, un tour de taille
+ * deux fois par mois. Exiger la même densité de l'un et de l'autre reviendrait
+ * à ne jamais rien dire du second.
+ *
+ * Null quand il n'y a pas de quoi conclure — jamais zéro, qui se lirait comme
+ * « c'est stable » alors que ça veut dire « je ne sais pas ».
  */
-export function tendancePoids(weighins: Weighin[], jours = 28): number | null {
+export function penteHebdo(
+  releves: Releve[],
+  jours: number,
+  { minPoints = 3, etendueMin = 7 }: { minPoints?: number; etendueMin?: number } = {},
+): number | null {
   const limite = new Date()
   limite.setHours(0, 0, 0, 0)
   limite.setDate(limite.getDate() - jours)
   const limiteStr = limite.toLocaleDateString('en-CA')
 
-  const points = weighins
-    .filter((w) => w.date >= limiteStr)
-    .map((w) => ({ x: Date.parse(w.date + 'T00:00:00') / 86400000, y: w.weight_kg }))
-  if (points.length < 3) return null
+  const points = releves
+    .filter((r) => r.date >= limiteStr)
+    .map((r) => ({ x: Date.parse(r.date + 'T00:00:00') / 86400000, y: r.value }))
+  if (points.length < minPoints) return null
 
   const etendue = Math.max(...points.map((p) => p.x)) - Math.min(...points.map((p) => p.x))
-  if (etendue < 7) return null // moins d'une semaine : le bruit domine
+  if (etendue < etendueMin) return null // trop resserré : le bruit domine
 
   const n = points.length
   const mx = points.reduce((s, p) => s + p.x, 0) / n
@@ -138,7 +160,18 @@ export function tendancePoids(weighins: Weighin[], jours = 28): number | null {
   const num = points.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0)
   const den = points.reduce((s, p) => s + (p.x - mx) ** 2, 0)
   if (den === 0) return null
-  return (num / den) * 7 // kg par jour → kg par semaine
+  return (num / den) * 7 // par jour → par semaine
+}
+
+/**
+ * Pente de la courbe de poids en kg/semaine. Null si trop peu de pesées ou
+ * fenêtre trop courte pour dire quoi que ce soit.
+ */
+export function tendancePoids(weighins: Weighin[], jours = 28): number | null {
+  return penteHebdo(
+    weighins.map((w) => ({ date: w.date, value: w.weight_kg })),
+    jours,
+  )
 }
 
 /** Moyenne glissante : lisse les ±1,5 kg quotidiens (eau, sel, digestion). */
