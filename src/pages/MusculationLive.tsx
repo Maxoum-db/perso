@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   exoTonnage,
   fmtTonnage,
@@ -54,6 +54,13 @@ export interface LiveState {
    * le garage) : ici c'est le rack qui est pris à 19 h 12, pas un achat.
    */
   outilsHS?: OutilId[]
+  /**
+   * Fin du repos en cours, en millisecondes epoch. Persisté, et c'est le point :
+   * on peut replier la séance pour retourner au journal, le décompte continue
+   * dans le bandeau du haut et le bip tombe quand même. Un minuteur qui vit
+   * dans l'état d'un écran s'arrête quand on quitte l'écran.
+   */
+  restEnd?: number | null
   exos: LiveExo[]
 }
 
@@ -84,6 +91,60 @@ export function clearLive(): void {
   }
 }
 
+/**
+ * La séance repliée, en bandeau collé en haut du journal.
+ *
+ * Il lit l'état à CHAQUE seconde depuis la mémoire locale plutôt que de le
+ * recevoir en propriété : c'est la seule façon d'afficher un repos lancé sur
+ * l'autre écran sans dupliquer l'état, et le journal n'a pas à savoir ce qui se
+ * passe dans une séance qu'il n'affiche pas.
+ */
+export function BandeauSeance({ onOuvrir }: { onOuvrir: () => void }) {
+  const [now, setNow] = useState(() => Date.now())
+  const [live, setLive] = useState<LiveState | null>(() => loadLive())
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNow(Date.now())
+      setLive(loadLive())
+    }, 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const finirRepos = useCallback(() => {
+    const s = loadLive()
+    if (s) storeLive({ ...s, restEnd: null })
+    setLive(loadLive())
+  }, [])
+  const restLeft = useMinuteurRepos(live?.restEnd, finirRepos)
+
+  if (!live) return null
+  const faites = live.exos.reduce((n, e) => n + e.done.filter(Boolean).length, 0)
+  const total = live.exos.reduce((n, e) => n + e.done.length, 0)
+
+  return (
+    <button
+      onClick={onOuvrir}
+      className="sticky top-0 z-30 -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-2 border-b border-copper/40 bg-card/95 px-3 py-2 text-left backdrop-blur"
+      title="Reprendre la séance"
+    >
+      <span className="inline-block h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-clay" />
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{live.name || 'Séance'}</span>
+      {restLeft !== null && restLeft > 0 ? (
+        <span className="shrink-0 rounded-lg bg-copper/15 px-2 py-0.5 font-mono text-sm font-bold text-copper">
+          😮‍💨 {restLeft}s
+        </span>
+      ) : (
+        <span className="shrink-0 text-[11px] text-muted">
+          {faites}/{total} séries
+        </span>
+      )}
+      <span className="shrink-0 font-mono text-sm font-bold text-copper">⏱ {fmtClock(now - live.startedAt)}</span>
+      <span className="shrink-0 text-xs text-copper">▸</span>
+    </button>
+  )
+}
+
 function parseW(w: string): number | null {
   const n = parseFloat(w.replace(',', '.'))
   return Number.isFinite(n) ? n : null
@@ -112,6 +173,43 @@ function beep() {
   }
 }
 
+/**
+ * Le décompte de repos, où qu'on soit.
+ *
+ * Employé par l'écran de séance ET par le bandeau replié — les deux ne sont
+ * jamais montés en même temps, donc il n'y a jamais deux bips. Une seconde
+ * implémentation dans le bandeau aurait fini par sonner à un autre moment.
+ */
+export function useMinuteurRepos(fin: number | null | undefined, surFin: () => void): number | null {
+  const [now, setNow] = useState(() => Date.now())
+  const sonne = useRef(false)
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Une nouvelle échéance réarme le bip : sans ça, la deuxième série d'un
+  // exercice se terminait en silence.
+  useEffect(() => {
+    sonne.current = false
+  }, [fin])
+
+  useEffect(() => {
+    if (!fin || now < fin || sonne.current) return
+    sonne.current = true
+    try {
+      navigator.vibrate?.([200, 100, 200])
+    } catch {
+      /* ignore */
+    }
+    beep()
+    surFin()
+  }, [now, fin, surFin])
+
+  return fin ? Math.max(0, Math.ceil((fin - now) / 1000)) : null
+}
+
 function fmtClock(ms: number): string {
   const totalS = Math.max(0, Math.floor(ms / 1000))
   const h = Math.floor(totalS / 3600)
@@ -129,6 +227,7 @@ export function LiveSession({
   bodyWeight,
   onFinish,
   onQuit,
+  onReduire,
 }: {
   userId: string
   initial: LiveState
@@ -139,10 +238,15 @@ export function LiveSession({
   bodyWeight: number | null
   onFinish: () => void
   onQuit: () => void
+  /**
+   * Replier la séance pour retourner au journal, sans l'abandonner.
+   *
+   * Absent, le chrono n'est pas cliquable — l'écran se comporte comme avant.
+   */
+  onReduire?: () => void
 }) {
   const [s, setS] = useState<LiveState>(initial)
   const [now, setNow] = useState(() => Date.now())
-  const [restEnd, setRestEnd] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Ce que le dernier remodelage a changé : sans ce compte rendu, trois lignes
@@ -150,7 +254,6 @@ export function LiveSession({
   // de faire.
   const [changements, setChangements] = useState<Changement[]>([])
   const [materielOuvert, setMaterielOuvert] = useState(false)
-  const restNotified = useRef(false)
 
   useEffect(() => {
     storeLive(s)
@@ -161,19 +264,12 @@ export function LiveSession({
     return () => clearInterval(t)
   }, [])
 
-  const restLeft = restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : null
-  useEffect(() => {
-    if (restEnd !== null && now >= restEnd && !restNotified.current) {
-      restNotified.current = true
-      try {
-        navigator.vibrate?.([200, 100, 200])
-      } catch {
-        /* ignore */
-      }
-      beep()
-      setRestEnd(null)
-    }
-  }, [now, restEnd])
+  // Le repos vit dans l'état PERSISTÉ, et son décompte dans un hook partagé
+  // avec le bandeau replié : c'est ce qui permet de retourner au journal sans
+  // que le minuteur s'arrête.
+  const finirRepos = useCallback(() => setS((prev) => ({ ...prev, restEnd: null })), [])
+  const restLeft = useMinuteurRepos(s.restEnd, finirRepos)
+  const setRestEnd = (fin: number | null) => setS((prev) => ({ ...prev, restEnd: fin }))
 
   const doneSets = s.exos.reduce((n, e) => n + e.done.filter(Boolean).length, 0)
   const totalSets = s.exos.reduce((n, e) => n + e.done.length, 0)
@@ -194,10 +290,7 @@ export function LiveSession({
         idx === j ? { ...e, done: e.done.map((d, k) => (k === i ? !d : d)) } : e,
       ),
     }))
-    if (!wasDone) {
-      restNotified.current = false
-      setRestEnd(Date.now() + s.restSec * 1000)
-    }
+    if (!wasDone) setRestEnd(Date.now() + s.restSec * 1000)
   }
 
   function addSet(j: number) {
@@ -383,7 +476,20 @@ export function LiveSession({
             value={s.name}
             onChange={(e) => setS({ ...s, name: e.target.value })}
           />
-          <span className="shrink-0 font-mono text-lg font-bold text-copper">⏱ {fmtClock(now - s.startedAt)}</span>
+          {/* Le chrono replie la séance : on retourne au journal, la séance
+              continue, et le bandeau du haut la ramène. Ce n'est PAS un
+              abandon — rien n'est effacé, l'état est déjà en mémoire locale. */}
+          {onReduire ? (
+            <button
+              onClick={onReduire}
+              title="Retourner au journal — la séance continue"
+              className="shrink-0 font-mono text-lg font-bold text-copper transition hover:opacity-70"
+            >
+              ⏱ {fmtClock(now - s.startedAt)} ▾
+            </button>
+          ) : (
+            <span className="shrink-0 font-mono text-lg font-bold text-copper">⏱ {fmtClock(now - s.startedAt)}</span>
+          )}
         </div>
 
         <div className="flex items-center justify-between text-xs text-muted">
