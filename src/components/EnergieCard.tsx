@@ -1,5 +1,14 @@
 import { bilanCalories } from '../lib/calories'
-import { FACTEUR_NEAT, KCAL_PAR_KG, age, metabolismeDeBase, tendancePoids, type Profil } from '../lib/profil'
+import {
+  FACTEUR_NEAT,
+  FENETRE_BILAN,
+  KCAL_PAR_KG,
+  age,
+  depenseParHeure,
+  metabolismeDeBase,
+  tendancePoids,
+  type Profil,
+} from '../lib/profil'
 import type { MuscuSession } from '../lib/muscu'
 import type { Weighin } from '../lib/workouts'
 
@@ -38,12 +47,15 @@ export function EnergieCard({
 }) {
   const poids = weighins[0]?.weight_kg ?? null
   const bmr = poids ? metabolismeDeBase(profil, poids) : null
-  const bilan = bilanCalories(sessions, poids, 7)
-  const sportParJour = bilan.moyenne
   const base = bmr ? Math.round(bmr * FACTEUR_NEAT) : null
+  // Dépense NETTE, et sur la MÊME fenêtre que la pente de poids : les heures
+  // d'entraînement sont déjà comptées dans la vie courante, on ne facture donc
+  // que ce que la séance ajoute par-dessus.
+  const bilan = bilanCalories(sessions, poids, FENETRE_BILAN, bmr ? depenseParHeure(bmr) : 0)
+  const sportParJour = bilan.moyenne
   const depense = base !== null ? base + sportParJour : null
 
-  const pente = tendancePoids(weighins, 28)
+  const pente = tendancePoids(weighins, FENETRE_BILAN)
   const balance = pente !== null ? Math.round((pente * KCAL_PAR_KG) / 7) : null
   const apport = depense !== null && balance !== null ? depense + balance : null
 
@@ -62,14 +74,22 @@ export function EnergieCard({
             <div className="text-3xl font-extrabold text-ink">
               {depense?.toLocaleString('fr-FR')} <span className="text-lg font-bold text-muted">kcal/jour</span>
             </div>
-            <div className="text-xs text-muted">dépense totale estimée, moyenne sur 7 jours</div>
+            <div className="text-xs text-muted">
+              dépense totale estimée, moyenne sur {FENETRE_BILAN} jours
+            </div>
           </div>
 
           <div>
             {ligne('Métabolisme de base', `${bmr.toLocaleString('fr-FR')} kcal`, 'au repos complet')}
-            {ligne('Vie courante', `+ ${(base! - bmr).toLocaleString('fr-FR')} kcal`, `×${FACTEUR_NEAT} hors sport`)}
-            {ligne('Entraînement', `+ ${sportParJour.toLocaleString('fr-FR')} kcal`, 'moyenne des séances')}
+            {ligne('Vie courante', `+ ${(base! - bmr).toLocaleString('fr-FR')} kcal`, `×${FACTEUR_NEAT} sur 24 h`)}
+            {ligne('Entraînement', `+ ${sportParJour.toLocaleString('fr-FR')} kcal`, 'en plus de la vie courante')}
           </div>
+          <p className="text-[10px] leading-relaxed text-muted">
+            La vie courante couvre les vingt-quatre heures, entraînement compris. La ligne « Entraînement » ne
+            compte donc que ce que la séance ajoute PAR-DESSUS ces heures-là — sinon le temps passé à la salle
+            serait facturé deux fois. C'est pour ça qu'elle est plus basse que l'onglet « Calories brûlées », qui
+            affiche, lui, la dépense brute d'une séance.
+          </p>
         </>
       )}
 

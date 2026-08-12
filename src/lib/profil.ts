@@ -49,6 +49,35 @@ export function metabolismeDeBase(p: Profil, poidsKg: number): number | null {
  */
 export const FACTEUR_NEAT = 1.35
 
+/**
+ * Ce que la vie courante attribue à UNE HEURE, entraînement compris.
+ *
+ * C'est la pièce qui manquait, et elle réparait un double comptage. La méthode
+ * MET donne une dépense BRUTE : MET 1, c'est le repos, donc les 500 kcal d'une
+ * séance contiennent le métabolisme qu'on aurait dépensé assis. Or la dépense
+ * du jour valait « métabolisme × facteur d'activité » sur vingt-quatre heures
+ * PLUS la séance entière — les heures d'entraînement étaient donc comptées
+ * deux fois, une fois en vie courante et une fois en sport.
+ *
+ * On ne peut pas non plus retirer le seul métabolisme de base : pendant que tu
+ * es à la salle, tu ne fais pas AUSSI ta vie courante. C'est bien la dépense de
+ * base × NEAT qu'il faut déduire de ces heures-là.
+ */
+export function depenseParHeure(bmr: number): number {
+  return (bmr * FACTEUR_NEAT) / 24
+}
+
+/**
+ * Fenêtre de référence du bilan énergétique, en jours.
+ *
+ * La MÊME que celle de la pente de poids, et ce n'est pas un détail : le bilan
+ * déduit l'apport en confrontant la dépense à la pente. Une dépense mesurée sur
+ * sept jours confrontée à une pente mesurée sur vingt-huit comparait deux
+ * périodes différentes — une semaine de repos après trois semaines chargées
+ * faisait apparaître un apport en trop qui n'existait pas.
+ */
+export const FENETRE_BILAN = 28
+
 /** Énergie stockée dans un kilo de masse corporelle (valeur conventionnelle). */
 export const KCAL_PAR_KG = 7700
 
