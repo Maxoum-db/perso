@@ -4,6 +4,11 @@ import { ratioTailleHauteur, upsert, type Mensuration } from '../lib/mensuration
 // Tour de taille : le seul relevé simple qui distingue « je stagne » de « ça
 // marche » quand le poids ne bouge pas — ce qui est précisément le but d'une
 // recomposition.
+//
+// Deux formes : une carte à part entière, ou un bloc NU déplié sous le chiffre
+// de la carte « Poids et tour de taille ». Nu, il perd son titre et son grand
+// nombre — la carte hôte les affiche déjà, et les répéter à dix pixels d'écart
+// donnerait à lire deux fois la même chose.
 
 const today = () => new Date().toLocaleDateString('en-CA')
 
@@ -15,10 +20,13 @@ export function TourDeTaille({
   mensurations,
   heightCm,
   onChange,
+  nu = false,
 }: {
   mensurations: Mensuration[]
   heightCm: number
   onChange: (m: Mensuration[]) => void
+  /** Déplié dans une autre carte : ni cadre, ni titre, ni grand nombre. */
+  nu?: boolean
 }) {
   const [date, setDate] = useState(today())
   const [cm, setCm] = useState('')
@@ -35,15 +43,16 @@ export function TourDeTaille({
     setCm('')
   }
 
+  const Cadre = nu ? 'div' : 'section'
   return (
-    <section className="card p-4">
-      <h2 className="mb-2 text-sm font-extrabold text-ink">📏 Tour de taille</h2>
+    <Cadre className={nu ? 'space-y-2 border-t border-line/60 pt-2.5' : 'card p-4'}>
+      {nu ? null : <h2 className="mb-2 text-sm font-extrabold text-ink">📏 Tour de taille</h2>}
 
-      <div className="mb-3 flex items-end gap-4">
+      <div className={nu ? '' : 'mb-3 flex items-end gap-4'}>
         <div>
-          <div className="text-3xl font-extrabold text-ink">
-            {dernier ? `${dernier.waist_cm} cm` : '—'}
-          </div>
+          {nu ? null : (
+            <div className="text-3xl font-extrabold text-ink">{dernier ? `${dernier.waist_cm} cm` : '—'}</div>
+          )}
           {delta !== null ? (
             <div className={`text-xs font-semibold ${delta <= 0 ? 'text-sage-dark' : 'text-clay'}`}>
               {delta > 0 ? '+' : ''}
@@ -92,10 +101,9 @@ export function TourDeTaille({
         </ul>
       ) : null}
 
-      <p className="mt-2 text-[10px] leading-relaxed text-muted">
-        Au niveau du nombril, debout, sans rentrer le ventre, le matin à jeun. Deux mesures par mois suffisent — en
-        dessous, le bruit dépasse le signal.
+      <p className="mt-2 text-[10px] leading-snug text-muted">
+        Au niveau du nombril, debout, sans rentrer le ventre, le matin à jeun. Deux par mois suffisent.
       </p>
-    </section>
+    </Cadre>
   )
 }
