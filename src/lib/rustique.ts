@@ -209,12 +209,38 @@ function dayIndex(len: number): number {
 }
 
 /**
+ * La prochaine carte à poser, en écartant celles qu'on vient de faire.
+ *
+ * L'index par jour de l'année donne la stabilité — la même notion toute la
+ * journée, pas un tirage différent à chaque ouverture de l'accueil. Mais dès
+ * qu'on en note une, il faut la SUIVANTE : une carte notée « à revoir » reste
+ * due quelques minutes, et sans cette exclusion l'accueil reposait la question
+ * à laquelle on venait de répondre.
+ *
+ * Extrait de `fetchNotionDuJour` pour être vérifiable : le choix est du calcul,
+ * le reste est du réseau.
+ */
+export function prochaineCarte<T extends { id: string }>(
+  cartes: T[],
+  exclure: ReadonlySet<string> = new Set(),
+): T | null {
+  const restantes = exclure.size ? cartes.filter((c) => !exclure.has(c.id)) : cartes
+  return restantes.length > 0 ? restantes[dayIndex(restantes.length)] : null
+}
+
+/**
  * La notion du jour, pour l'accueil : priorité au thème qui a le plus de
  * cartes dues aujourd'hui (rattraper le retard plutôt que picorer), sinon une
  * carte jamais étudiée pour avancer. Réutilise list_decks/list_cards, aucune
  * nouvelle donnée côté hub.
+ *
+ * @param exclure Cartes déjà répondues depuis l'ouverture de l'accueil. En
+ *   noter une doit en faire venir une AUTRE, pas la même reformulée par le
+ *   planning.
  */
-export async function fetchNotionDuJour(): Promise<RustiqueNotionResult> {
+export async function fetchNotionDuJour(
+  exclure: ReadonlySet<string> = new Set(),
+): Promise<RustiqueNotionResult> {
   const decksRes = await listRustiqueDecks()
   if (decksRes.status !== 'ok') return { status: decksRes.status, notion: null, message: decksRes.message }
   const groups = groupDecksByTheme(decksRes.decks)
@@ -222,19 +248,16 @@ export async function fetchNotionDuJour(): Promise<RustiqueNotionResult> {
   const withDue = groups.filter((g) => g.dueCount > 0).sort((a, b) => b.dueCount - a.dueCount)
   for (const g of withDue) {
     const res = await listRustiqueThemeCards(g.theme.id, true)
-    if (res.status === 'ok' && res.cards.length > 0) {
-      return { status: 'ok', notion: { card: res.cards[dayIndex(res.cards.length)], theme: g.theme, isNew: false } }
-    }
+    const carte = res.status === 'ok' ? prochaineCarte(res.cards, exclure) : null
+    if (carte) return { status: 'ok', notion: { card: carte, theme: g.theme, isNew: false } }
   }
 
   const withCards = [...groups].sort((a, b) => a.theme.order - b.theme.order).filter((g) => g.cardCount > 0)
   for (const g of withCards) {
     const res = await listRustiqueThemeCards(g.theme.id, false)
     if (res.status !== 'ok') continue
-    const fresh = res.cards.filter((c) => !c.review)
-    if (fresh.length > 0) {
-      return { status: 'ok', notion: { card: fresh[dayIndex(fresh.length)], theme: g.theme, isNew: true } }
-    }
+    const fraiches = prochaineCarte(res.cards.filter((c) => !c.review), exclure)
+    if (fraiches) return { status: 'ok', notion: { card: fraiches, theme: g.theme, isNew: true } }
   }
 
   return { status: 'ok', notion: null }
