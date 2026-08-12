@@ -35,8 +35,10 @@ import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '.
 import { composerSeance } from '../lib/prochaine'
 import { avecEmoji, emojiDuNom, nomSansEmoji, renommerSiAuto } from '../lib/nommage'
 import { SCORE_MAX, SCORE_MIN, scoreParDefaut } from '../lib/scoreExercice'
-import { OUTILS, noteAvecOutil } from '../lib/materiel'
+import { OUTILS, noteAvecOutil, outilDe } from '../lib/materiel'
 import { useMonMateriel } from '../lib/useMonMateriel'
+import { faisable } from '../lib/monMateriel'
+import { remodeler, type Changement } from '../lib/remodeler'
 import { buildSession } from '../lib/sessionBuilder'
 import {
   loadObservations,
@@ -1424,6 +1426,46 @@ function ExoListEditor({
   bodyWeight?: number | null
   onChange: (exos: ExoDraft[]) => void
 }) {
+  // Le matériel coché sous « chercher un exercice ». C'est le MÊME magasin
+  // partagé : décocher la poulie là-haut doit se voir ici, sinon on remodèle
+  // contre une liste que l'écran ne montre pas.
+  const { outils } = useMonMateriel()
+  const [changements, setChangements] = useState<Changement[]>([])
+  // Ce que le matériel coché rend infaisable. La ligne de ressenti n'est pas un
+  // exercice : elle n'a pas d'outil et ne se remplace pas.
+  const infaisables = exos.filter((e) => e.name.trim() && !estRessenti(e.name) && !faisable(e.name, outils))
+
+  /**
+   * Remplace les exercices qu'on ne peut pas faire par leur équivalent.
+   *
+   * Même règle qu'en séance en direct (lib/remodeler), et volontairement le
+   * même bouton au même endroit : sous le sélecteur de matériel, là où on vient
+   * de décocher. Ici rien n'est « déjà fait » — une séance en préparation n'a
+   * pas de série cochée —, donc tout est remplaçable.
+   */
+  function remodelerListe() {
+    const { lignes, changements: faits } = remodeler(
+      exos.map((e) => ({ ...e, faites: 0 })),
+      catalog,
+      outils,
+      (ligne, par) => {
+        const charge = suggererCharge(sessions, { name: par.name, default_reps: par.default_reps }, bodyWeight ?? null)
+        return {
+          ...ligne,
+          name: par.name,
+          muscle_group: par.muscle_group,
+          sets: String(par.default_sets),
+          reps: par.default_reps,
+          weight: charge.weight === null ? '' : String(charge.weight),
+          hint: charge.raison || undefined,
+          hintTon: charge.ton,
+        }
+      },
+    )
+    setChangements(faits)
+    onChange(lignes.map(({ faites: _faites, ...e }) => e as ExoDraft))
+  }
+
   const update = (i: number, patch: Partial<ExoDraft>) =>
     onChange(exos.map((e, j) => (j === i ? { ...e, ...patch } : e)))
   const remove = (i: number) => onChange(exos.filter((_, j) => j !== i))
@@ -1556,6 +1598,38 @@ function ExoListEditor({
         onPick={(c) => onChange([...exos, catalogToDraft(c, sessions, bodyWeight)])}
         onBlank={() => onChange([...exos, emptyExo()])}
       />
+
+      {/* REMODELER, juste sous le sélecteur de matériel : c'est là qu'on vient
+          de décocher la poulie, c'est donc là qu'on doit pouvoir dire « alors
+          remplace-les ». Le bouton n'apparaît que s'il y a quelque chose à
+          remplacer — un bouton toujours visible qui ne fait rien la moitié du
+          temps n'apprend rien de ce qu'il fait. */}
+      {infaisables.length > 0 ? (
+        <div className="card space-y-1.5 border-copper/40 p-3">
+          <p className="text-[11px] text-muted">
+            {infaisables.length} exercice{infaisables.length > 1 ? 's' : ''} de cette séance demande
+            {infaisables.length > 1 ? 'nt' : ''} du matériel que tu n'as pas coché :{' '}
+            <b className="text-ink">
+              {[...new Set(infaisables.map((e) => OUTILS[outilDe(e.name)].label))].join(', ')}
+            </b>
+            .
+          </p>
+          <button onClick={remodelerListe} className="btn-primary w-full py-2 text-sm">
+            🔄 Remodeler la séance ({infaisables.length})
+          </button>
+        </div>
+      ) : null}
+
+      {changements.length > 0 ? (
+        <ul className="space-y-0.5 px-1 text-[11px]">
+          {changements.map((c, i) => (
+            <li key={i} className={c.sort === 'remplace' ? 'text-sage-dark' : 'text-clay'}>
+              {c.sort === 'remplace' ? '↪' : '✕'} {c.avant}
+              {c.sort === 'remplace' ? ` → ${c.apres}` : ' — aucun équivalent avec ce matériel'}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }
