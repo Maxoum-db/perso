@@ -1,6 +1,9 @@
+import { useMemo } from 'react'
 import { bilanCalories, sessionCalories } from '../lib/calories'
 import { INTENSITES } from '../lib/intensite'
+import { poidsHistorique } from '../lib/profil'
 import type { MuscuSession } from '../lib/muscu'
+import type { Weighin } from '../lib/workouts'
 
 // Dépense des séances sur 7 jours. L'intérêt n'est pas le chiffre absolu —
 // c'est une estimation — mais la comparaison d'une semaine à l'autre.
@@ -18,11 +21,21 @@ function frJour(date: string): string {
 export function CaloriesCard({
   sessions,
   bodyWeight,
+  weighins = [],
 }: {
   sessions: MuscuSession[]
+  /** Dernière pesée — pour le pied de carte, qui parle d'aujourd'hui. */
   bodyWeight: number | null
+  /** Toutes les pesées : chaque séance est calculée au poids de SON jour. */
+  weighins?: Weighin[]
 }) {
-  const bilan = bilanCalories(sessions, bodyWeight, 7)
+  // Mémoïsé : la fonction retournée referme un tableau trié, et la recréer à
+  // chaque rendu retrierait quatre-vingts pesées pour rien.
+  const poids = useMemo(
+    () => (weighins.length ? poidsHistorique(weighins) : bodyWeight),
+    [weighins, bodyWeight],
+  )
+  const bilan = bilanCalories(sessions, poids, 7)
   const delta = bilan.totalPrecedent > 0 ? bilan.total - bilan.totalPrecedent : null
   const aujourdhui = new Date().toLocaleDateString('en-CA')
 
@@ -78,7 +91,7 @@ export function CaloriesCard({
       {recentes.length > 0 ? (
         <ul className="mt-3 space-y-1 border-t border-line/60 pt-2">
           {recentes.slice(0, 6).map((s) => {
-            const c = sessionCalories(s, bodyWeight)
+            const c = sessionCalories(s, poids)
             return (
               <li key={s.id} className="flex items-baseline gap-2 text-xs">
                 <span className="w-20 shrink-0 text-muted">{frJour(s.date)}</span>

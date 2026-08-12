@@ -82,6 +82,38 @@ export const FENETRE_BILAN = 28
 export const KCAL_PAR_KG = 7700
 
 /**
+ * Le poids de corps EN VIGUEUR à une date donnée.
+ *
+ * La dépense d'une séance se calcule sur le poids qu'on portait ce jour-là,
+ * pas sur celui d'aujourd'hui : c'est le corps qu'il a fallu déplacer. Toutes
+ * les séances d'une fenêtre étaient jusqu'ici recalculées avec la dernière
+ * pesée — sur quatre semaines l'écart reste petit, mais il est systématique et
+ * il tire toujours dans le même sens, celui de la tendance en cours.
+ *
+ * La règle est celle d'une pesée : la dernière connue À CETTE DATE ou avant.
+ * Une pesée du lendemain ne dit rien de la veille — sauf s'il n'y a rien avant
+ * du tout, et là c'est elle ou rien.
+ */
+export type PoidsDuJour = (date: string) => number | null
+
+export function poidsHistorique(weighins: Weighin[]): PoidsDuJour {
+  // Une seule fois, pas à chaque appel : le bilan appelle cette fonction une
+  // fois par séance, et un tri par séance sur quatre-vingts séances se voit.
+  const tries = [...weighins].sort((a, b) => a.date.localeCompare(b.date))
+  if (!tries.length) return () => null
+  return (date: string) => {
+    let trouve: number | null = null
+    for (const w of tries) {
+      if (w.date > date) break
+      trouve = w.weight_kg
+    }
+    // Séance antérieure à la toute première pesée : la plus ancienne connue
+    // est la moins fausse des réponses disponibles.
+    return trouve ?? tries[0].weight_kg
+  }
+}
+
+/**
  * Pente de la courbe de poids en kg/semaine, par régression linéaire sur la
  * fenêtre demandée. Null si trop peu de pesées ou fenêtre trop courte pour
  * dire quoi que ce soit.

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { bilanCalories } from '../lib/calories'
+import { poidsHistorique } from '../lib/profil'
 import { VERDICTS, bilanCharge, joursRestantsSemaine } from '../lib/trainingLoad'
 import type { MuscuSession } from '../lib/muscu'
+import type { Weighin } from '../lib/workouts'
 
 // Charge d'entraînement et objectif hebdomadaire : la page qui dit si le rythme
 // tient la route, et si la semaine est en train de passer à la trappe.
@@ -61,18 +63,21 @@ export function ChargeHebdo({ sessions }: { sessions: MuscuSession[] }) {
 export function ObjectifKcal({
   sessions,
   bodyWeight,
+  weighins = [],
   objectif,
   onObjectif,
 }: {
   sessions: MuscuSession[]
   bodyWeight: number | null
+  /** Toutes les pesées : chaque séance est calculée au poids de SON jour. */
+  weighins?: Weighin[]
   objectif: number
   onObjectif: (v: number) => void
 }) {
   const [edit, setEdit] = useState(false)
   const [valeur, setValeur] = useState(String(objectif))
 
-  const bilan = bilanCalories(sessions, bodyWeight, 7)
+  const bilan = bilanCalories(sessions, weighins.length ? poidsHistorique(weighins) : bodyWeight, 7)
   const pct = Math.min(100, Math.round((bilan.total / Math.max(1, objectif)) * 100))
   const reste = Math.max(0, objectif - bilan.total)
   const jours = joursRestantsSemaine()
