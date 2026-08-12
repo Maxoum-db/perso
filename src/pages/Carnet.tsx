@@ -17,12 +17,20 @@ import { OBJECTIF_DEFAUT, loadObjectif, saveObjectif } from '../lib/trainingLoad
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-type Page = 'energie' | 'corps' | 'charge'
+type Page = 'energie' | 'corps'
 
-// Onglet « ⚖️ Poids » du module Musculation, en trois pages :
-//   ⚡ Énergie  — ce que tu dépenses, et ce que ta courbe dit de ton apport
+// Onglet « ⚖️ Poids » du module Musculation, en DEUX pages :
+//   ⚡ Énergie  — ce que tu dépenses, ce que ça pèse, et à quel rythme
 //   ⚖️ Corps    — poids lissé et tour de taille, les deux lectures d'une recomp
-//   📊 Charge   — rythme d'entraînement et objectif de la semaine
+//
+// Il y en avait trois : « Charge » vivait à part. Or les kilocalories et les
+// MET-minutes sont deux lectures du MÊME effort — la charge est littéralement
+// calculée à partir du MET des calories depuis qu'on a supprimé sa formule en
+// double. Les séparer obligeait à changer d'onglet pour savoir si les 3 274 kcal
+// du jour étaient beaucoup ou peu.
+//
+// L'ordre va du verdict au détail : l'état de forme d'abord, parce que c'est
+// lui qui règle le générateur de séances ; le reste explique d'où il sort.
 export function Poids() {
   const { user } = useAuth()
   const [page, setPage] = useState<Page>('energie')
@@ -78,9 +86,8 @@ export function Poids() {
 
       <SubTabs
         tabs={[
-          { id: 'energie', label: '⚡ Énergie' },
+          { id: 'energie', label: '⚡ Énergie & charge' },
           { id: 'corps', label: '⚖️ Corps' },
-          { id: 'charge', label: '📊 Charge' },
         ]}
         active={page}
         onChange={(id) => setPage(id as Page)}
@@ -88,25 +95,33 @@ export function Poids() {
 
       {page === 'energie' ? (
         <>
-          <EnergieCard sessions={sessions} weighins={weighins} profil={profil} onProfil={majProfil} />
-          <EntretienCard sessions={sessions} weighins={weighins} profil={profil} />
-          <CaloriesCard sessions={sessions} bodyWeight={poids} weighins={weighins} />
-        </>
-      ) : page === 'corps' ? (
-        <>
-          <RecompositionCard weighins={weighins} mensurations={mensurations} />
-          <SaisiePoids weighins={weighins} onChange={reload} />
-          <TourDeTaille mensurations={mensurations} heightCm={profil.heightCm} onChange={majMensurations} />
-        </>
-      ) : (
-        <>
           <FormeCard forme={evaluerForme(sessions, weighins)} />
           <p className="text-center text-[11px] text-muted">
             👆 C'est cet état qui règle le volume et les charges de « 🧠 Composer une séance selon ma récup ».
           </p>
-          <ChargeHebdo sessions={sessions} />
+          <EnergieCard sessions={sessions} weighins={weighins} profil={profil} onProfil={majProfil} />
+          <CaloriesCard sessions={sessions} bodyWeight={poids} weighins={weighins} />
           <ObjectifKcal sessions={sessions} bodyWeight={poids} weighins={weighins} objectif={objectif} onObjectif={majObjectif} />
+          <ChargeHebdo sessions={sessions} />
+          <EntretienCard sessions={sessions} weighins={weighins} profil={profil} />
         </>
+      ) : (
+        <RecompositionCard
+          weighins={weighins}
+          mensurations={mensurations}
+          // Les deux saisies vivent SOUS la donnée qu'elles alimentent, dépliées
+          // au clic. Elles étaient deux cartes de plus sous celle-ci, ouvertes
+          // en permanence pour un geste qu'on fait tous les trois jours.
+          saisiePoids={<SaisiePoids weighins={weighins} onChange={reload} nu />}
+          saisieTaille={
+            <TourDeTaille
+              mensurations={mensurations}
+              heightCm={profil.heightCm}
+              onChange={majMensurations}
+              nu
+            />
+          }
+        />
       )}
     </div>
   )
@@ -114,7 +129,16 @@ export function Poids() {
 
 // ── Saisie et historique des pesées ─────────────────────────────────────────
 
-function SaisiePoids({ weighins, onChange }: { weighins: Weighin[]; onChange: () => void }) {
+function SaisiePoids({
+  weighins,
+  onChange,
+  nu = false,
+}: {
+  weighins: Weighin[]
+  onChange: () => void
+  /** Déplié dans une autre carte : ni cadre, ni titre, ni grand nombre. */
+  nu?: boolean
+}) {
   const { user } = useAuth()
   const [date, setDate] = useState(today())
   const [weight, setWeight] = useState('')
@@ -139,13 +163,16 @@ function SaisiePoids({ weighins, onChange }: { weighins: Weighin[]; onChange: ()
     }
   }
 
+  const Cadre = nu ? 'div' : 'section'
   return (
-    <section className="card p-4">
-      <h2 className="mb-2 text-sm font-extrabold text-ink">⚖️ Poids de corps</h2>
+    <Cadre className={nu ? 'space-y-2 border-t border-line/60 pt-2.5' : 'card p-4'}>
+      {nu ? null : <h2 className="mb-2 text-sm font-extrabold text-ink">⚖️ Poids de corps</h2>}
 
-      <div className="mb-3 flex items-end gap-4">
+      <div className={nu ? '' : 'mb-3 flex items-end gap-4'}>
         <div>
-          <div className="text-3xl font-extrabold text-ink">{latest ? `${latest.weight_kg} kg` : '—'}</div>
+          {nu ? null : (
+            <div className="text-3xl font-extrabold text-ink">{latest ? `${latest.weight_kg} kg` : '—'}</div>
+          )}
           {delta !== null ? (
             <div className={`text-xs font-semibold ${delta <= 0 ? 'text-sage-dark' : 'text-clay'}`}>
               {delta > 0 ? '+' : ''}
@@ -185,11 +212,10 @@ function SaisiePoids({ weighins, onChange }: { weighins: Weighin[]; onChange: ()
         </ul>
       ) : null}
 
-      <p className="mt-2 text-[10px] text-muted">
-        Le matin à jeun, mêmes conditions à chaque fois. Plusieurs pesées par semaine rendent la moyenne lissée
-        beaucoup plus fiable.
+      <p className="mt-2 text-[10px] leading-snug text-muted">
+        Le matin à jeun, mêmes conditions. Plusieurs par semaine rendent la moyenne lissée bien plus fiable.
       </p>
-    </section>
+    </Cadre>
   )
 }
 

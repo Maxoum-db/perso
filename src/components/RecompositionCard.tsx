@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react'
 import {
   FENETRE_RECOMPO,
   evaluerRecomposition,
@@ -22,6 +23,12 @@ import type { Weighin } from '../lib/workouts'
 //
 // La fenêtre est celle du verdict, pas une autre : le graphique montre
 // exactement ce que le verdict a lu.
+//
+// Les deux chiffres sont des BOUTONS : cliquer sur les kilos déplie la saisie
+// des pesées, cliquer sur les centimètres celle du tour de taille. Les deux
+// formulaires vivaient en cartes séparées sous celle-ci — trois cartes pour un
+// seul sujet, dont deux qu'on n'ouvre qu'une fois tous les trois jours. On les
+// range là où on les cherche : sous la donnée qu'ils alimentent.
 
 const TONS = {
   bon: 'text-sage-dark',
@@ -36,11 +43,18 @@ export function RecompositionCard({
   weighins,
   mensurations,
   jours = FENETRE_RECOMPO,
+  saisiePoids,
+  saisieTaille,
 }: {
   weighins: Weighin[]
   mensurations: Mensuration[]
   jours?: number
+  /** Dépliée en cliquant sur les kilos. */
+  saisiePoids?: ReactNode
+  /** Dépliée en cliquant sur les centimètres. */
+  saisieTaille?: ReactNode
 }) {
+  const [ouvert, setOuvert] = useState<'poids' | 'taille' | null>(null)
   const recompo = evaluerRecomposition(weighins, mensurations, jours)
 
   const limite = new Date()
@@ -74,6 +88,8 @@ export function RecompositionCard({
           pente={pentePoids}
           unite="kg"
           couleur="text-copper"
+          actif={ouvert === 'poids'}
+          onClick={saisiePoids ? () => setOuvert(ouvert === 'poids' ? null : 'poids') : undefined}
         />
         <Chiffre
           valeur={tailles.length ? `${tailles[tailles.length - 1].waist_cm.toFixed(1)} cm` : '—'}
@@ -81,8 +97,12 @@ export function RecompositionCard({
           pente={pT}
           unite="cm"
           couleur="text-sage-dark"
+          actif={ouvert === 'taille'}
+          onClick={saisieTaille ? () => setOuvert(ouvert === 'taille' ? null : 'taille') : undefined}
         />
       </div>
+
+      {ouvert === 'poids' ? saisiePoids : ouvert === 'taille' ? saisieTaille : null}
 
       {recompo ? (
         <div>
@@ -106,15 +126,19 @@ function Chiffre({
   pente,
   unite,
   couleur,
+  actif = false,
+  onClick,
 }: {
   valeur: string
   aide: string
   pente: number | null
   unite: string
   couleur: string
+  actif?: boolean
+  onClick?: () => void
 }) {
-  return (
-    <div>
+  const dedans = (
+    <>
       <div className={`text-2xl font-extrabold ${couleur}`}>{valeur}</div>
       <div className="text-[11px] text-muted">
         {aide}
@@ -128,7 +152,20 @@ function Chiffre({
           </>
         ) : null}
       </div>
-    </div>
+    </>
+  )
+  // Sans saisie à déplier, ce n'est qu'un chiffre : pas de bouton, pas de
+  // curseur qui promet une action qui n'existe pas.
+  if (!onClick) return <div>{dedans}</div>
+  return (
+    <button
+      onClick={onClick}
+      aria-expanded={actif}
+      className={`-m-1 rounded-xl2 p-1 text-left transition ${actif ? 'bg-white/5' : 'hover:bg-white/5'}`}
+    >
+      {dedans}
+      <span className="text-[10px] text-copper">{actif ? '▾ fermer' : '▸ saisir'}</span>
+    </button>
   )
 }
 
