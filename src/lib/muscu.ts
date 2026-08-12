@@ -305,16 +305,20 @@ export interface GroupLoad {
   /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
   /**
-   * Séries EFFECTIVES posées sur ce groupe par la séance, et ce qu'elles
-   * retirent de jours (cf. `joursDeVolume`). Absents quand le volume ne change
-   * rien — c'est-à-dire à quatre séries ou moins.
+   * Séries EFFECTIVES posées sur chaque MUSCLE par la séance.
    *
-   * Portés jusqu'ici pour que la fiche puisse DIRE pourquoi un muscle est plus
-   * fatigué qu'un autre à intensité égale. Une correction qu'on ne peut pas
-   * expliquer à l'écran est une correction qu'on finit par ne plus croire.
+   * Par muscle et non par libellé, exactement comme les courbatures déclarées
+   * juste au-dessus, et pour la même raison : un libellé couvre jusqu'à
+   * trente-huit muscles, et deux libellés différents atteignent souvent le même
+   * muscle. « Dos » et « Grand dorsal » sont deux entrées distinctes ici, et
+   * pourtant c'est le même grand dorsal qui encaisse — 54 des 54 régions sont
+   * dans ce cas. Compté par libellé, le cumul d'un béhourd déclaré sur « Dos »
+   * et d'une traction déclarée sur « Grand dorsal » se perdait entièrement.
+   *
+   * PORTÉES et non appliquées : c'est `reposParMuscle` qui les applique, muscle
+   * par muscle.
    */
-  volume?: number
-  volumeRecup?: number
+  volumes?: Partial<Record<MuscleRegion, number>>
   /**
    * Déclarations de ressenti qui s'appliquent à cette charge, PAR MUSCLE.
    *
@@ -524,12 +528,12 @@ export function joursDeVolume(series: number): number {
  * séries de développé couché à 100 kg, et le triceps n'y prend pas ce que le
  * pectoral y prend.
  */
-function volumeParGroupe(
+function volumeParMuscle(
   s: MuscuSession,
   poidsCorps: number | null,
   references: Map<string, number>,
-): Map<string, number> {
-  const out = new Map<string, number>()
+): Map<MuscleRegion, number> {
+  const out = new Map<MuscleRegion, number>()
   for (const e of s.exercises) {
     if (estRecuperation(e)) continue
     const effort = facteurEffort(e, poidsCorps, references)
@@ -537,10 +541,33 @@ function volumeParGroupe(
     if (series === 0) continue
     for (const g of parseGroupEntries(e.muscle_group)) {
       const part = partEffective({ intensity: g.intensity, effort })
-      out.set(g.name, (out.get(g.name) ?? 0) + part * series)
+      for (const region of regionsForGroup(g.name)) {
+        out.set(region, (out.get(region) ?? 0) + part * series)
+      }
     }
   }
   return out
+}
+
+/**
+ * Le volume des muscles couverts par un libellé, prêt à être porté.
+ *
+ * Rend `undefined` quand aucun d'eux n'a assez de volume pour changer quoi que
+ * ce soit : une charge sans correction ne doit pas traîner une carte vide.
+ */
+function volumesDuGroupe(
+  volumes: Map<MuscleRegion, number>,
+  label: string,
+): { volumes: Partial<Record<MuscleRegion, number>> } | undefined {
+  const out: Partial<Record<MuscleRegion, number>> = {}
+  let utile = false
+  for (const region of regionsForGroup(label)) {
+    const v = volumes.get(region) ?? 0
+    if (joursDeVolume(v) === 0) continue
+    out[region] = v
+    utile = true
+  }
+  return utile ? { volumes: out } : undefined
 }
 
 export function groupLoads(
@@ -590,7 +617,7 @@ export function groupLoads(
     // c'est une propriété de la séance entière, pas de la ligne qu'on juge.
     // Douze séries de pectoraux fatiguent plus que quatre, quel que soit
     // l'exercice qui portait la plus forte intensité.
-    const volumes = volumeParGroupe(s, poidsCorps, references)
+    const volumes = volumeParMuscle(s, poidsCorps, references)
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       if (estRecuperation(e)) continue
@@ -614,12 +641,11 @@ export function groupLoads(
         // déclarée retire, et ce que le volume retire. Elles ne mesurent pas la
         // même chose — « c'était dur » et « il y en a eu beaucoup » — et une
         // séance peut très bien être les deux.
-        const volume = joursDeVolume(volumes.get(g.name) ?? 0)
         // L'allure de la LIGNE l'emporte sur l'intensité de la séance, et pour
         // cette ligne seulement : la déclaration la plus précise gagne. Une
         // séance tranquille où l'on s'arrache sur le rameur, c'est le cas
         // courant d'une fin de séance.
-        const sur = recupIntensite(e.allure ?? s.intensite, part) + volume
+        const sur = recupIntensite(e.allure ?? s.intensite, part)
         const effectiveDays = Math.max(0, joursRessentis(days, part, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
@@ -631,7 +657,8 @@ export function groupLoads(
             effectiveDays,
             ...(effort !== 1 ? { effort } : {}),
             ...(sur !== 0 ? { intensiteRecup: sur, intensiteId: s.intensite } : {}),
-            ...(volume !== 0 ? { volume: volumes.get(g.name) ?? 0, volumeRecup: volume } : {}),
+            // Le volume de CHAQUE muscle du libellé, porté tel quel.
+            ...(volumesDuGroupe(volumes, g.name) ?? {}),
           }
         }
       }
