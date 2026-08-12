@@ -115,12 +115,9 @@ export function EntretienCard({
         </>
       )}
 
-      <p className="text-[10px] leading-relaxed text-muted">
-        Dépense estimée du mois, plus l'écart que trahit la pente de ta courbe de poids — la même règle que la
-        Balance, appliquée à un mois révolu. Un point isolé ne veut pas dire grand-chose : sur quatre à huit
-        pesées, l'incertitude de la pente vaut déjà <b>±165 kcal/jour</b>. C'est la <b>suite</b> des points qui se
-        lit. Les barres pâles sont les mois à moins de {PESEES_FIABLES} pesées, et le chiffre à côté de chaque
-        valeur dit combien il y en a eu.
+      <p className="text-[10px] leading-snug text-muted">
+        Un point isolé ne vaut rien — c'est la <b>suite</b> qui se lit. Barres pâles : moins de{' '}
+        {PESEES_FIABLES} pesées dans le mois, donc ±165 kcal d'incertitude.
       </p>
     </section>
   )
