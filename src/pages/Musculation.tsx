@@ -63,7 +63,7 @@ import {
 } from '../lib/intensite'
 import { PROFIL_DEFAUT, loadProfil, type Profil } from '../lib/profil'
 import { ProgressTab } from './MusculationProgress'
-import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
+import { BandeauSeance, LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
   MUSCLE_GROUPS_DEFAULT,
   exerciseProgress,
@@ -581,6 +581,10 @@ export function Journal({
   const [suggest, setSuggest] = useState<{ session: SuggestedSession | null; exclude: Set<string> } | null>(null)
   // Séance en direct : reprise automatique si une séance est en cours (localStorage).
   const [live, setLive] = useState<LiveState | null>(() => loadLive())
+  // … et repliée : on retourne au journal, la séance continue, un bandeau la
+  // ramène. Ce n'est pas un abandon — d'où un booléen d'affichage et non un
+  // effacement.
+  const [liveReduit, setLiveReduit] = useState(false)
 
   // Une seule source de vérité : la récup automatique, corrigée du sommeil puis
   // des courbatures déclarées. La composition vit dans lib/charges.
@@ -832,7 +836,7 @@ export function Journal({
     })
   }
 
-  if (live) {
+  if (live && !liveReduit) {
     return (
       <LiveSession
         userId={userId}
@@ -849,6 +853,7 @@ export function Journal({
           clearLive()
           setLive(null)
         }}
+        onReduire={() => setLiveReduit(true)}
       />
     )
   }
@@ -1013,6 +1018,19 @@ export function Journal({
 
   return (
     <div className="space-y-3">
+      {/* La séance repliée, collée en haut tant qu'elle tourne. Le journal reste
+          entièrement utilisable pendant ce temps — c'est tout l'objet. */}
+      {live && liveReduit ? (
+        <BandeauSeance
+          onOuvrir={() => {
+            // On relit la mémoire locale : la séance a continué de vivre
+            // pendant qu'on était au journal, et l'objet gardé ici est périmé.
+            setLive(loadLive())
+            setLiveReduit(false)
+          }}
+        />
+      ) : null}
+
       <div className="grid grid-cols-3 gap-2">
         <StatCard label={`${FENETRE_STATS} derniers jours`} value={String(recentes.length)} sub="séances" />
         <StatCard
