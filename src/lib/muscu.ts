@@ -815,7 +815,11 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       deux fois : chaque entrée se calibrait sur son propre ressenti — « c'est
 //       ça qui lâche en premier » — au lieu de se situer parmi les autres
 //       efforts. Rouler ne demande pas plus qu'une randonnée avec sac lesté.
-const LIBRARY_SEED_KEY = 'muscu_library_v37'
+// v38 : rotation interne à 90° à la poulie. La rotation interne n'existait
+//       qu'en version « coude au corps », qui n'est pas le même exercice — la
+//       position de l'armé, bras à l'horizontale, est celle où l'épaule est
+//       vulnérable et celle où le sous-scapulaire doit tenir.
+const LIBRARY_SEED_KEY = 'muscu_library_v38'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
