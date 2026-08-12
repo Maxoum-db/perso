@@ -1,5 +1,9 @@
 import { regionsForGroup, ZONE_LARGE, type MuscleRegion } from './muscles'
-import type { GroupLoad } from './muscu'
+// `joursDeVolume` vient de muscu, comme `GroupLoad` : le barème du volume est
+// une règle du mannequin, elle n'a pas à être recopiée ici. Import de valeur et
+// non de type, mais le cycle est inoffensif — muscu ne lit rien de ce module à
+// l'évaluation, seulement dans le corps de fonctions déclarées, qui sont hissées.
+import { joursDeVolume, type GroupLoad } from './muscu'
 import type { Courbature } from './soreness'
 import type { IntensiteId } from './intensite'
 
@@ -393,7 +397,15 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
       // C'est ICI que la déclaration de ressenti s'applique, et pas plus haut :
       // ce muscle-ci, pas les trente-sept autres que le libellé couvre.
       const c = load.courbatures?.[region]
-      const brut = joursCorriges(load.effectiveDays, c) * VITESSE_RECUP[region]
+      // Le VOLUME de ce muscle-ci, appliqué ici et pas plus haut — exactement
+      // comme la courbature déclarée juste au-dessus, et pour la même raison :
+      // un libellé couvre jusqu'à trente-huit muscles, et deux libellés
+      // différents atteignent souvent le même. Compté au niveau du libellé, le
+      // cumul d'un béhourd déclaré sur « Dos » et d'une traction déclarée sur
+      // « Grand dorsal » se perdait entièrement — les deux fatiguent pourtant
+      // le même grand dorsal.
+      const ressentis = Math.max(0, load.effectiveDays - joursDeVolume(load.volumes?.[region] ?? 0))
+      const brut = joursCorriges(ressentis, c) * VITESSE_RECUP[region]
       // Le plafond du jour J : le muscle a beau n'avoir été qu'effleuré, on ne
       // l'annonce pas prêt le soir même de la séance. Sauf si TU dis qu'il l'est
       // — ce plafond est là pour empêcher le barème de sauter du rouge au vert
@@ -409,7 +421,7 @@ export function reposParMuscle(loads: Record<string, GroupLoad>): Partial<Record
           // doit être exacte — et la reconstruire en ré-ajoutant l'ajustement
           // tombait à côté dès que la soustraction avait buté sur le plancher.
           joursPrevus: Math.min(
-            load.effectiveDays * VITESSE_RECUP[region],
+            ressentis * VITESSE_RECUP[region],
             load.days < 1 ? PLAFOND_JOUR_J : Infinity,
           ),
           intensite: load.intensity,
