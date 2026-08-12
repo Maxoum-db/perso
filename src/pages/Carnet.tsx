@@ -88,7 +88,7 @@ export function Poids() {
       {page === 'energie' ? (
         <>
           <EnergieCard sessions={sessions} weighins={weighins} profil={profil} onProfil={majProfil} />
-          <CaloriesCard sessions={sessions} bodyWeight={poids} />
+          <CaloriesCard sessions={sessions} bodyWeight={poids} weighins={weighins} />
         </>
       ) : page === 'corps' ? (
         <>
@@ -107,7 +107,7 @@ export function Poids() {
             👆 C'est cet état qui règle le volume et les charges de « 🧠 Composer une séance selon ma récup ».
           </p>
           <ChargeHebdo sessions={sessions} />
-          <ObjectifKcal sessions={sessions} bodyWeight={poids} objectif={objectif} onObjectif={majObjectif} />
+          <ObjectifKcal sessions={sessions} bodyWeight={poids} weighins={weighins} objectif={objectif} onObjectif={majObjectif} />
         </>
       )}
     </div>

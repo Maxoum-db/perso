@@ -1,5 +1,5 @@
 import { fetchKv, saveKv } from './kv'
-import { sessionCalories } from './calories'
+import { sessionCalories, type PoidsRetenu } from './calories'
 import { type MuscuSession } from './muscu'
 
 // Charge d'entraînement et ratio aigu/chronique (ACWR).
@@ -12,7 +12,7 @@ import { type MuscuSession } from './muscu'
 // 1,5 le risque de blessure grimpe nettement : le corps n'a pas eu le temps de
 // s'adapter à ce qu'on lui demande.
 
-export function chargeSeance(s: MuscuSession, bodyWeight: number | null = null): number {
+export function chargeSeance(s: MuscuSession, bodyWeight: PoidsRetenu = null): number {
   // Le MET de la séance vient d'UN seul endroit : celui des calories. Il était
   // recalculé ici, à l'identique — et « à l'identique » n'a tenu que jusqu'à ce
   // que les calories apprennent à pondérer par le temps et à lire l'allure. La

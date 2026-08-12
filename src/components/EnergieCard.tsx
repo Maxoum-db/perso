@@ -6,6 +6,7 @@ import {
   age,
   depenseParHeure,
   metabolismeDeBase,
+  poidsHistorique,
   tendancePoids,
   type Profil,
 } from '../lib/profil'
@@ -51,7 +52,14 @@ export function EnergieCard({
   // Dépense NETTE, et sur la MÊME fenêtre que la pente de poids : les heures
   // d'entraînement sont déjà comptées dans la vie courante, on ne facture donc
   // que ce que la séance ajoute par-dessus.
-  const bilan = bilanCalories(sessions, poids, FENETRE_BILAN, bmr ? depenseParHeure(bmr) : 0)
+  const bilan = bilanCalories(
+    sessions,
+    // Chaque séance au poids qu'il portait CE JOUR-LÀ : sur vingt-huit jours de
+    // recomposition, la dernière pesée n'est pas celle d'il y a quatre semaines.
+    poidsHistorique(weighins),
+    FENETRE_BILAN,
+    bmr ? depenseParHeure(bmr) : 0,
+  )
   const sportParJour = bilan.moyenne
   const depense = base !== null ? base + sportParJour : null
 

@@ -2,6 +2,19 @@ import { estRessenti, sessionTonnage, type MuscuExo, type MuscuSession } from '.
 import { dureeExercice, dureeLignes } from './duree'
 import { ACTIVITE_NAMES, RECUPERATION_NAMES } from '../data/exercises'
 import { coefIntensite, type IntensiteId } from './intensite'
+import type { PoidsDuJour } from './profil'
+
+/**
+ * Le poids de corps à retenir : un nombre fixe, ou l'historique des pesées.
+ *
+ * Les deux, parce que les deux ont un sens. Une carte qui affiche « à 102 kg »
+ * en pied de tableau veut le nombre ; un bilan qui parcourt quatre semaines
+ * veut la pesée du jour de chaque séance.
+ */
+export type PoidsRetenu = number | null | PoidsDuJour
+
+const kgPour = (p: PoidsRetenu, date: string): number | null =>
+  typeof p === 'function' ? p(date) : p
 
 /** Course, nage, béhourd, slackline… : pas un exercice de salle. */
 const estActivite = (nom: string) => ACTIVITE_NAMES.has(nom.trim().toLowerCase())
@@ -185,7 +198,7 @@ export interface Densite {
   applique: boolean
 }
 
-export function densiteSeance(s: MuscuSession, bodyWeight: number | null): Densite {
+export function densiteSeance(s: MuscuSession, bodyWeight: PoidsRetenu): Densite {
   const exos = s.exercises.filter((e) => !estRessenti(e.name))
   const series = exos.reduce((n, e) => n + Math.max(1, e.sets), 0)
 
@@ -210,7 +223,7 @@ export function densiteSeance(s: MuscuSession, bodyWeight: number | null): Densi
   }
 
   const minutes = s.duration_min
-  const poids = bodyWeight ?? 75
+  const poids = kgPour(bodyWeight, s.date) ?? 75
   const tonnage = sessionTonnage(exos)
   const tonnageParMin = tonnage > 0 ? tonnage / (poids * minutes) : null
   const seriesParMin = series / minutes
@@ -315,7 +328,7 @@ function metPondere(
   return { met: pondere / total, metBrut: brut / total, allureDeclaree }
 }
 
-export function sessionCalories(s: MuscuSession, bodyWeight: number | null): SessionCalories {
+export function sessionCalories(s: MuscuSession, bodyWeight: PoidsRetenu): SessionCalories {
   const minutes = dureeSeance(s)
   // La ligne de ressenti décrit des zones, pas un effort : l'inclure dans la
   // moyenne tirerait le MET d'un sparring vers celui d'une séance de muscu.
@@ -332,7 +345,7 @@ export function sessionCalories(s: MuscuSession, bodyWeight: number | null): Ses
   // Séance sans aucun exercice chiffré : c'est le nom qui porte l'effort.
   const metBrut = exos.length ? pond.metBrut : metPourExercice(s.name)
   const met = exos.length ? pond.met : metBrut * densite.coef
-  const poids = bodyWeight ?? 75
+  const poids = kgPour(bodyWeight, s.date) ?? 75
   return {
     kcal: Math.round(met * poids * (minutes / 60)),
     met,
@@ -389,7 +402,7 @@ export interface BilanCalories {
  */
 export function bilanCalories(
   sessions: MuscuSession[],
-  bodyWeight: number | null,
+  bodyWeight: PoidsRetenu,
   jours = 7,
   baseParHeure = 0,
 ): BilanCalories {
