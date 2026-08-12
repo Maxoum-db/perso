@@ -2,25 +2,32 @@ import {
   FENETRE_RECOMPO,
   evaluerRecomposition,
   manqueRecompo,
+  penteTaille,
 } from '../lib/recomposition'
-import { moyenneGlissante } from '../lib/profil'
+import { moyenneGlissante, tendancePoids } from '../lib/profil'
 import type { Mensuration } from '../lib/mensurations'
 import type { Weighin } from '../lib/workouts'
 
-// Le poids et le tour de taille sur le même graphique, et le verdict qui en
-// sort.
+// Le poids et le tour de taille : une seule carte.
 //
-// Deux unités sur un seul cadre : chaque série a sa propre échelle verticale,
-// calée sur SON amplitude. Les hauteurs ne sont donc pas comparables entre
-// elles — c'est la seule façon de rendre lisibles deux centimètres de taille à
-// côté de trois kilos de poids —, mais les PENTES le sont, et ce sont elles qui
-// portent toute l'information.
+// Il y en avait deux, et elles traçaient la même courbe de poids l'une
+// au-dessus de l'autre. La tendance du poids n'a d'intérêt qu'à côté de celle
+// du tour de taille, de toute façon : seule, la balance ne distingue pas un
+// kilo de muscle d'un kilo de gras.
+//
+// Une échelle verticale par série, chacune calée sur SA propre amplitude. Les
+// hauteurs ne sont donc pas comparables — c'est la seule façon de rendre
+// lisibles deux centimètres à côté de trois kilos — mais les pentes le sont, et
+// ce sont elles qui portent l'information.
+//
+// La fenêtre est celle du verdict, pas une autre : le graphique montre
+// exactement ce que le verdict a lu.
 
-const TONS: Record<'bon' | 'neutre' | 'attention', { couleur: string; fond: string }> = {
-  bon: { couleur: 'text-sage-dark', fond: 'border-sage-dark/40 bg-sage-dark/5' },
-  neutre: { couleur: 'text-ink', fond: 'border-line bg-white/5' },
-  attention: { couleur: 'text-clay', fond: 'border-clay/40 bg-clay/5' },
-}
+const TONS = {
+  bon: 'text-sage-dark',
+  neutre: 'text-ink',
+  attention: 'text-clay',
+} as const
 
 const W = 300
 const H = 116
@@ -44,48 +51,98 @@ export function RecompositionCard({
   const pesees = weighins.filter((w) => w.date >= limiteStr).sort((a, b) => a.date.localeCompare(b.date))
   const tailles = mensurations.filter((m) => m.date >= limiteStr).sort((a, b) => a.date.localeCompare(b.date))
 
-  // La courbe demande les deux séries ; le verdict, lui, a ses propres
-  // exigences et peut manquer alors que le tracé, lui, tient debout.
-  const traçable = pesees.length >= 2 && tailles.length >= 2
+  const lisse = moyenneGlissante(pesees.map((w) => ({ date: w.date, weight_kg: w.weight_kg })), 7)
+  const pentePoids = tendancePoids(weighins, jours)
+  // La ligne du tour de taille ne se trace que si sa pente est lisible : une
+  // ligne plate entre deux points affirmerait « ta taille est stable », qui est
+  // précisément ce qu'on refuse de dire sans les mesures pour l'appuyer.
+  const pT = penteTaille(mensurations, jours)
 
   return (
-    <section className="card space-y-3 p-4">
-      <h2 className="text-sm font-extrabold text-ink">🔀 Poids et tour de taille</h2>
+    <section className="card space-y-2.5 p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-extrabold text-ink">⚖️ Poids et tour de taille</h2>
+        <span className="text-[11px] text-muted">
+          {pesees.length} pesée{pesees.length > 1 ? 's' : ''} · {jours} j
+        </span>
+      </div>
+
+      <div className="flex gap-6">
+        <Chiffre
+          valeur={lisse.length ? `${lisse[lisse.length - 1].value.toFixed(1)} kg` : '—'}
+          aide="lissé"
+          pente={pentePoids}
+          unite="kg"
+          couleur="text-copper"
+        />
+        <Chiffre
+          valeur={tailles.length ? `${tailles[tailles.length - 1].waist_cm.toFixed(1)} cm` : '—'}
+          aide="taille"
+          pente={pT}
+          unite="cm"
+          couleur="text-sage-dark"
+        />
+      </div>
 
       {recompo ? (
-        <div className={`rounded-xl2 border p-3 ${TONS[recompo.ton].fond}`}>
-          <div className={`text-sm font-extrabold ${TONS[recompo.ton].couleur}`}>{recompo.titre}</div>
-          <div className="mt-0.5 text-[11px] font-semibold text-muted">
-            {recompo.pentePoids > 0 ? '+' : ''}
-            {recompo.pentePoids.toFixed(2)} kg/sem · {recompo.penteTaille > 0 ? '+' : ''}
-            {recompo.penteTaille.toFixed(2)} cm/sem
-          </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{recompo.explication}</p>
+        <div>
+          <div className={`text-sm font-extrabold ${TONS[recompo.ton]}`}>{recompo.titre}</div>
+          <p className="text-[11px] leading-snug text-muted">{recompo.explication}</p>
         </div>
       ) : (
-        <p className="rounded-xl2 border border-copper/30 bg-copper/5 p-2 text-[11px] text-ink">
-          {manqueRecompo(weighins, mensurations, jours)}
-        </p>
+        <p className="text-[11px] text-muted">{manqueRecompo(weighins, mensurations, jours)}</p>
       )}
 
-      {traçable ? <Courbe pesees={pesees} tailles={tailles} jours={jours} /> : null}
-
-      <p className="text-[10px] leading-relaxed text-muted">
-        Chaque courbe a sa propre échelle : les hauteurs ne se comparent pas, les <b>pentes</b> si. C'est leur
-        croisement qui tranche — la balance seule ne distingue pas un kilo de muscle d'un kilo de gras, et à poids
-        constant elle affiche exactement la même chose qu'on progresse ou qu'on stagne.
-      </p>
+      {pesees.length >= 2 ? (
+        <Courbe pesees={pesees} lisse={lisse} tailles={tailles} tracerTaille={pT !== null} jours={jours} />
+      ) : null}
     </section>
+  )
+}
+
+function Chiffre({
+  valeur,
+  aide,
+  pente,
+  unite,
+  couleur,
+}: {
+  valeur: string
+  aide: string
+  pente: number | null
+  unite: string
+  couleur: string
+}) {
+  return (
+    <div>
+      <div className={`text-2xl font-extrabold ${couleur}`}>{valeur}</div>
+      <div className="text-[11px] text-muted">
+        {aide}
+        {pente !== null ? (
+          <>
+            {' · '}
+            <b className="text-ink">
+              {pente > 0 ? '+' : ''}
+              {pente.toFixed(2)} {unite}/sem
+            </b>
+          </>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
 function Courbe({
   pesees,
+  lisse,
   tailles,
+  tracerTaille,
   jours,
 }: {
   pesees: Weighin[]
+  lisse: Array<{ date: string; value: number }>
   tailles: Mensuration[]
+  tracerTaille: boolean
   jours: number
 }) {
   const jour = (d: string) => Date.parse(d + 'T00:00:00') / 86400000
@@ -93,9 +150,9 @@ function Courbe({
   const debut = fin - jours
   const px = (d: string) => ((jour(d) - debut) / jours) * (W - 8) + 4
 
-  // Une échelle par série, calée sur sa propre amplitude, avec un plancher
-  // d'amplitude : sans lui, trois pesées à 30 g d'écart rempliraient toute la
-  // hauteur et donneraient à voir une montagne là où il n'y a que du bruit.
+  // Plancher d'amplitude : sans lui, trois pesées à trente grammes d'écart
+  // rempliraient toute la hauteur et donneraient à voir une montagne là où il
+  // n'y a que du bruit.
   const echelle = (valeurs: number[], plancher: number) => {
     const min = Math.min(...valeurs)
     const max = Math.max(...valeurs)
@@ -103,12 +160,8 @@ function Courbe({
     return { min, max, py: (v: number) => H - 14 - ((v - min) / amplitude) * (H - 30) }
   }
 
-  // Le poids se lit lissé — ±1,5 kg de bruit quotidien —, le tour de taille
-  // brut : deux mesures par mois ne se moyennent pas sur sept jours, la moyenne
-  // glissante ne ferait que recopier le dernier point.
-  const lisse = moyenneGlissante(pesees.map((w) => ({ date: w.date, weight_kg: w.weight_kg })), 7)
-  const eP = echelle(lisse.map((p) => p.value), 0.8)
-  const eT = echelle(tailles.map((m) => m.waist_cm), 1.5)
+  const eP = echelle([...lisse.map((p) => p.value), ...pesees.map((w) => w.weight_kg)], 0.8)
+  const eT = tailles.length ? echelle(tailles.map((m) => m.waist_cm), 1.5) : null
 
   const ligne = (pts: Array<{ x: number; y: number }>) =>
     pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
@@ -116,6 +169,14 @@ function Courbe({
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Poids et tour de taille">
+        {/* Pesées brutes : le bruit quotidien, en fond. */}
+        <polyline
+          points={ligne(pesees.map((w) => ({ x: px(w.date), y: eP.py(w.weight_kg) })))}
+          fill="none"
+          stroke="rgb(var(--muted))"
+          strokeWidth="1"
+          strokeOpacity="0.4"
+        />
         <polyline
           points={ligne(lisse.map((p) => ({ x: px(p.date), y: eP.py(p.value) })))}
           fill="none"
@@ -123,45 +184,67 @@ function Courbe({
           strokeWidth="2.2"
           strokeLinejoin="round"
         />
-        <polyline
-          points={ligne(tailles.map((m) => ({ x: px(m.date), y: eT.py(m.waist_cm) })))}
-          fill="none"
-          stroke="rgb(var(--sage-dark))"
-          strokeWidth="2.2"
-          strokeLinejoin="round"
-          strokeDasharray="5 3"
-        />
-        {tailles.map((m) => (
-          <circle key={m.date} cx={px(m.date)} cy={eT.py(m.waist_cm)} r="2.2" fill="rgb(var(--sage-dark))" />
-        ))}
+        {eT && tracerTaille ? (
+          <polyline
+            points={ligne(tailles.map((m) => ({ x: px(m.date), y: eT.py(m.waist_cm) })))}
+            fill="none"
+            stroke="rgb(var(--sage-dark))"
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+            strokeDasharray="5 3"
+          />
+        ) : null}
+        {eT
+          ? tailles.map((m) => (
+              <circle key={m.date} cx={px(m.date)} cy={eT.py(m.waist_cm)} r="2.4" fill="rgb(var(--sage-dark))" />
+            ))
+          : null}
         <text x="2" y="9" fill="rgb(var(--copper))" fontSize="8">
-          {eP.max.toFixed(1)} kg
+          {eP.max.toFixed(1)}
         </text>
         <text x="2" y={H - 2} fill="rgb(var(--copper))" fontSize="8">
-          {eP.min.toFixed(1)} kg
+          {eP.min.toFixed(1)}
         </text>
-        <text x={W - 2} y="9" fill="rgb(var(--sage-dark))" fontSize="8" textAnchor="end">
-          {eT.max.toFixed(1)} cm
-        </text>
-        <text x={W - 2} y={H - 2} fill="rgb(var(--sage-dark))" fontSize="8" textAnchor="end">
-          {eT.min.toFixed(1)} cm
-        </text>
+        {/* Pas de graduation quand toutes les mesures sont identiques : deux
+            fois le même nombre se lit comme un bug, et un seul posé au milieu
+            tombe en travers de la courbe. Le chiffre est déjà en titre. */}
+        {eT && eT.max !== eT.min ? (
+          <>
+            <text x={W - 2} y="9" fill="rgb(var(--sage-dark))" fontSize="8" textAnchor="end">
+              {eT.max.toFixed(1)}
+            </text>
+            <text x={W - 2} y={H - 2} fill="rgb(var(--sage-dark))" fontSize="8" textAnchor="end">
+              {eT.min.toFixed(1)}
+            </text>
+          </>
+        ) : null}
       </svg>
 
-      <div className="mt-1 flex justify-center gap-4 text-[10px] text-muted">
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-0.5 w-4 rounded" style={{ background: 'rgb(var(--copper))' }} /> poids
-          lissé
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span
-            className="inline-block h-0.5 w-4 rounded"
-            style={{ background: 'rgb(var(--sage-dark))' }}
-          />{' '}
-          tour de taille
-        </span>
-        <span>{jours} j</span>
+      <div className="flex justify-center gap-3 text-[10px] text-muted">
+        <Pastille couleur="rgb(var(--copper))" texte="poids lissé" />
+        <Pastille couleur="rgb(var(--muted))" texte="brut" />
+        {tailles.length ? (
+          // Un rond quand on ne trace pas de ligne : la légende ne doit pas
+          // annoncer une courbe qui n'existe pas.
+          <Pastille couleur="rgb(var(--sage-dark))" texte="tour de taille" rond={!tracerTaille} />
+        ) : null}
       </div>
+
+      <p className="mt-1.5 text-[10px] leading-snug text-muted">
+        Échelles indépendantes : les hauteurs ne se comparent pas, les <b>pentes</b> si.
+      </p>
     </div>
+  )
+}
+
+function Pastille({ couleur, texte, rond = false }: { couleur: string; texte: string; rond?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span
+        className={rond ? 'inline-block h-1.5 w-1.5 rounded-full' : 'inline-block h-0.5 w-4 rounded'}
+        style={{ background: couleur }}
+      />
+      {texte}
+    </span>
   )
 }

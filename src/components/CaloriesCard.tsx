@@ -135,16 +135,10 @@ export function CaloriesCard({
         <p className="mt-3 text-center text-[11px] text-muted">Aucune séance sur les 7 derniers jours.</p>
       )}
 
-      <p className="mt-2 text-[10px] leading-relaxed text-muted">
-        Estimation MET × densité × poids de corps × durée
-        {bodyWeight ? ` (${bodyWeight} kg)` : ' (poids de corps non renseigné : 75 kg par défaut)'}. Le MET de la
-        séance est la moyenne de ses exercices <b>pondérée par le temps que chacun prend</b> : cinq minutes de corde
-        à sauter ne pèsent pas autant que cinquante minutes de développé couché. La densité compare tonnage et
-        séries au temps passé : une heure enchaînée compte jusqu'à 35 % de plus qu'une heure traînante. Elle ne
-        s'applique que si tu as saisi la durée — sinon elle serait déduite des séries, donc toujours identique. Une
-        allure déclarée sur une ligne (<b>⏱</b>) l'emporte sur tout le reste, mais pour cette ligne seulement.
-        Dépense <b>brute</b> ici ; l'onglet Balance en retire la vie courante. Compte ±15 % sans capteur
-        cardiaque ; une durée suivie de <b>*</b> a été estimée.
+      <p className="mt-2 text-[10px] leading-snug text-muted">
+        MET × densité × poids × durée{bodyWeight ? ` (${bodyWeight} kg)` : ' (75 kg par défaut)'}, chaque exercice
+        pesé par son temps. Dépense <b>brute</b> — la Balance en retire la vie courante. <b>*</b> durée estimée,{' '}
+        <b>⏱</b> allure déclarée. ±15 % sans capteur cardiaque.
       </p>
     </section>
   )

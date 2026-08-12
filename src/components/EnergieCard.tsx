@@ -92,11 +92,9 @@ export function EnergieCard({
             {ligne('Vie courante', `+ ${(base! - bmr).toLocaleString('fr-FR')} kcal`, `×${FACTEUR_NEAT} sur 24 h`)}
             {ligne('Entraînement', `+ ${sportParJour.toLocaleString('fr-FR')} kcal`, 'en plus de la vie courante')}
           </div>
-          <p className="text-[10px] leading-relaxed text-muted">
-            La vie courante couvre les vingt-quatre heures, entraînement compris. La ligne « Entraînement » ne
-            compte donc que ce que la séance ajoute PAR-DESSUS ces heures-là — sinon le temps passé à la salle
-            serait facturé deux fois. C'est pour ça qu'elle est plus basse que l'onglet « Calories brûlées », qui
-            affiche, lui, la dépense brute d'une séance.
+          <p className="text-[10px] leading-snug text-muted">
+            La vie courante couvre déjà les 24 h : « Entraînement » ne compte que ce que la séance ajoute
+            par-dessus, sinon la salle serait facturée deux fois.
           </p>
         </>
       )}
@@ -116,10 +114,7 @@ export function EnergieCard({
             . Ton apport tourne donc autour de <b className="text-ink">{apport?.toLocaleString('fr-FR')} kcal/jour</b>,
             sans avoir rien pesé.
           </p>
-          <p className="mt-1.5 text-[10px] text-muted">
-            Pour rester à 100 kg en gagnant du muscle, c'est l'équilibre qu'il faut viser — une balance stable avec
-            des charges qui montent (onglet Progression).
-          </p>
+
         </div>
       ) : poids !== null ? (
         <p className="text-[11px] text-muted">
@@ -168,8 +163,7 @@ export function EnergieCard({
           </div>
         </div>
         <p className="mt-1.5 text-[10px] text-muted">
-          Formule de Mifflin-St Jeor, précise à ±10 % sur population générale. Un kilo de masse corporelle vaut
-          ~{KCAL_PAR_KG.toLocaleString('fr-FR')} kcal.
+          Mifflin-St Jeor, ±10 %. Un kilo de masse vaut ~{KCAL_PAR_KG.toLocaleString('fr-FR')} kcal.
         </p>
       </details>
     </section>

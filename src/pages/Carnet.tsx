@@ -7,7 +7,6 @@ import { CaloriesCard } from '../components/CaloriesCard'
 import { EnergieCard } from '../components/EnergieCard'
 import { EntretienCard } from '../components/EntretienCard'
 import { RecompositionCard } from '../components/RecompositionCard'
-import { PoidsCourbe } from '../components/PoidsCourbe'
 import { TourDeTaille } from '../components/TourDeTaille'
 import { ChargeHebdo, ObjectifKcal } from '../components/ChargeEtObjectif'
 import { FormeCard } from '../components/FormeCard'
@@ -96,7 +95,6 @@ export function Poids() {
       ) : page === 'corps' ? (
         <>
           <RecompositionCard weighins={weighins} mensurations={mensurations} />
-          <PoidsCourbe weighins={weighins} />
           <SaisiePoids weighins={weighins} onChange={reload} />
           <TourDeTaille mensurations={mensurations} heightCm={profil.heightCm} onChange={majMensurations} />
         </>

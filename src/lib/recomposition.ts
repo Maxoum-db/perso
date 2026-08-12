@@ -115,6 +115,27 @@ const VERDICTS: Record<VerdictRecompo, { titre: string; explication: string; ton
   },
 }
 
+/**
+ * Pente du tour de taille, cm/semaine, ou null si elle n'est pas lisible.
+ *
+ * Exportée parce que le graphique en a besoin séparément : sans assez de
+ * mesures, il ne doit PAS tracer de ligne. Une ligne plate entre deux points
+ * affirme « ton tour de taille est stable » — exactement la phrase que cette
+ * carte existe pour ne pas dire à la légère. Deux points, deux ronds, et rien
+ * entre les deux.
+ *
+ * Trois mesures étalées sur trois semaines : deux points ne décrivent qu'une
+ * droite, jamais une tendance, et deux mesures prises la même semaine ne disent
+ * rien du trimestre.
+ */
+export function penteTaille(mensurations: Mensuration[], jours = FENETRE_RECOMPO): number | null {
+  return penteHebdo(
+    mensurations.map((m) => ({ date: m.date, value: m.waist_cm })),
+    jours,
+    { minPoints: 3, etendueMin: 21 },
+  )
+}
+
 /** Le signe d'une pente, sa bande de stabilité comprise. */
 function sens(pente: number, seuil: number): -1 | 0 | 1 {
   if (pente > seuil) return 1
@@ -135,32 +156,27 @@ export function evaluerRecomposition(
   jours = FENETRE_RECOMPO,
 ): Recomposition | null {
   const poids: Releve[] = weighins.map((w) => ({ date: w.date, value: w.weight_kg }))
-  const taille: Releve[] = mensurations.map((m) => ({ date: m.date, value: m.waist_cm }))
 
   const pentePoids = penteHebdo(poids, jours)
-  // Trois mesures de taille étalées sur trois semaines : deux points ne
-  // décrivent qu'une droite, jamais une tendance, et deux mesures prises la
-  // même semaine ne disent rien du trimestre.
-  const penteTaille = penteHebdo(taille, jours, { minPoints: 3, etendueMin: 21 })
-  if (pentePoids === null || penteTaille === null) return null
+  const penteT = penteTaille(mensurations, jours)
+  if (pentePoids === null || penteT === null) return null
 
   const p = sens(pentePoids, SEUIL_POIDS)
-  const t = sens(penteTaille, SEUIL_TAILLE)
+  const t = sens(penteT, SEUIL_TAILLE)
 
   let verdict: VerdictRecompo
   if (t < 0) verdict = p < 0 ? 'perte-gras' : 'recomposition'
   else if (t === 0) verdict = p > 0 ? 'prise-muscle' : p === 0 ? 'stagnation' : 'surveiller'
   else verdict = p > 0 ? 'prise-mixte' : 'surveiller'
 
-  return { verdict, pentePoids, penteTaille, ...VERDICTS[verdict] }
+  return { verdict, pentePoids, penteTaille: penteT, ...VERDICTS[verdict] }
 }
 
 /** Ce qu'il manque pour conclure, à dire plutôt que de se taire. */
 export function manqueRecompo(weighins: Weighin[], mensurations: Mensuration[], jours = FENETRE_RECOMPO): string {
   const poids = weighins.map((w) => ({ date: w.date, value: w.weight_kg }))
-  const taille = mensurations.map((m) => ({ date: m.date, value: m.waist_cm }))
   const sansPoids = penteHebdo(poids, jours) === null
-  const sansTaille = penteHebdo(taille, jours, { minPoints: 3, etendueMin: 21 }) === null
+  const sansTaille = penteTaille(mensurations, jours) === null
   if (sansPoids && sansTaille) return 'Il me faut trois pesées et trois tours de taille étalés sur trois semaines.'
   if (sansTaille) return 'Il me manque le tour de taille : trois mesures étalées sur au moins trois semaines.'
   return 'Il me manque des pesées : trois au moins, étalées sur une semaine.'
