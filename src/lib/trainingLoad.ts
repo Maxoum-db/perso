@@ -1,6 +1,6 @@
 import { fetchKv, saveKv } from './kv'
-import { densiteSeance, dureeSeance, metPourExercice } from './calories'
-import { estRessenti, type MuscuSession } from './muscu'
+import { sessionCalories } from './calories'
+import { type MuscuSession } from './muscu'
 
 // Charge d'entraînement et ratio aigu/chronique (ACWR).
 //
@@ -13,12 +13,13 @@ import { estRessenti, type MuscuSession } from './muscu'
 // s'adapter à ce qu'on lui demande.
 
 export function chargeSeance(s: MuscuSession, bodyWeight: number | null = null): number {
-  const minutes = dureeSeance(s)
-  const mets = s.exercises.filter((e) => !estRessenti(e.name)).map((e) => metPourExercice(e.name))
-  const met = mets.length ? mets.reduce((a, b) => a + b, 0) / mets.length : metPourExercice(s.name)
-  // Même modulation que les calories : une heure dense pèse plus qu'une heure
-  // traînante, sinon les deux indicateurs raconteraient des choses différentes.
-  return Math.round(met * densiteSeance(s, bodyWeight).coef * minutes)
+  // Le MET de la séance vient d'UN seul endroit : celui des calories. Il était
+  // recalculé ici, à l'identique — et « à l'identique » n'a tenu que jusqu'à ce
+  // que les calories apprennent à pondérer par le temps et à lire l'allure. La
+  // charge, elle, était restée sur la moyenne plate : les deux indicateurs
+  // s'étaient mis à raconter deux séances différentes.
+  const c = sessionCalories(s, bodyWeight)
+  return Math.round(c.met * c.minutes)
 }
 
 function chargeSurFenetre(sessions: MuscuSession[], depuis: number, jusqua: number): number {

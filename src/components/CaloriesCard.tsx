@@ -84,7 +84,15 @@ export function CaloriesCard({
                 <span className="w-20 shrink-0 text-muted">{frJour(s.date)}</span>
                 <span className="min-w-0 flex-1 truncate text-ink">{s.name}</span>
                 <span className="shrink-0 text-[10px] text-muted">
-                  {c.minutes} min{c.dureeEstimee ? '*' : ''} · MET {c.met}
+                  {c.minutes} min{c.dureeEstimee ? '*' : ''} · MET {c.met.toFixed(1)}
+                  {c.allureDeclaree ? (
+                    // Une allure de ligne l'emporte sur tout le reste POUR SA
+                    // LIGNE : le coefficient affiché à côté ne raconte alors
+                    // qu'une partie de la séance, et il faut le dire.
+                    <span className="ml-1 font-bold text-copper" title="Au moins un exercice porte son allure">
+                      ⏱
+                    </span>
+                  ) : null}
                   {c.declaree && s.intensite ? (
                     // Déclaré à la main : on le dit, sinon on ne sait plus d'où
                     // vient le coefficient en relisant le journal trois mois après.
@@ -116,10 +124,14 @@ export function CaloriesCard({
 
       <p className="mt-2 text-[10px] leading-relaxed text-muted">
         Estimation MET × densité × poids de corps × durée
-        {bodyWeight ? ` (${bodyWeight} kg)` : ' (poids de corps non renseigné : 75 kg par défaut)'}. La densité
-        compare tonnage et séries au temps passé : une heure enchaînée compte jusqu'à 35 % de plus qu'une heure
-        traînante. Elle ne s'applique que si tu as saisi la durée — sinon elle serait déduite des séries, donc
-        toujours identique. Compte ±15 % sans capteur cardiaque ; une durée suivie de <b>*</b> a été estimée.
+        {bodyWeight ? ` (${bodyWeight} kg)` : ' (poids de corps non renseigné : 75 kg par défaut)'}. Le MET de la
+        séance est la moyenne de ses exercices <b>pondérée par le temps que chacun prend</b> : cinq minutes de corde
+        à sauter ne pèsent pas autant que cinquante minutes de développé couché. La densité compare tonnage et
+        séries au temps passé : une heure enchaînée compte jusqu'à 35 % de plus qu'une heure traînante. Elle ne
+        s'applique que si tu as saisi la durée — sinon elle serait déduite des séries, donc toujours identique. Une
+        allure déclarée sur une ligne (<b>⏱</b>) l'emporte sur tout le reste, mais pour cette ligne seulement.
+        Dépense <b>brute</b> ici ; l'onglet Balance en retire la vie courante. Compte ±15 % sans capteur
+        cardiaque ; une durée suivie de <b>*</b> a été estimée.
       </p>
     </section>
   )
