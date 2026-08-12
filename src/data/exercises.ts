@@ -529,6 +529,12 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // (main décollée du bas du dos) est le geste qui l'isole le mieux, parce que
   // le grand pectoral et le grand dorsal ne peuvent pas y participer.
   { name: 'Rotation interne d’épaule à l’élastique (coude au corps)', groups: 'Sous-scapulaire:1, Grand pectoral:0.5, Grand rond:0.4, Grand dorsal:0.4, Deltoïde antérieur:0.3', sets: 3, reps: '15/bras', notes: 'Coude collé au flanc à 90°, une serviette roulée dessous. On ramène l’avant-bras vers le ventre, lentement. Contrepartie indispensable des rotations externes : une coiffe ne s’équilibre pas d’un seul côté.', adaptable: true },
+  // Et la même rotation interne à 90° d'abduction, qui n'est PAS la même chose
+  // que coude au corps : c'est la position de l'armé — bras à l'horizontale,
+  // avant-bras vers le haut — donc celle où l'épaule est la plus vulnérable et
+  // celle où le sous-scapulaire doit tenir. En béhourd comme au lancer, c'est
+  // là que ça lâche, jamais coude au corps.
+  { name: 'Rotation interne à 90° à la poulie', groups: 'Sous-scapulaire:1, Grand pectoral:0.6, Grand rond:0.5, Grand dorsal:0.5, Deltoïde antérieur:0.4, Coiffe des rotateurs:0.3, Dentelé antérieur:0.3', sets: 3, reps: '12/bras', notes: 'Bras à l’horizontale, coude à 90°, poulie à hauteur d’épaule : on fait basculer l’avant-bras vers l’avant et le bas, lentement, sans que le coude descende. La contrepartie exacte de la rotation externe à 90° — et la position où l’épaule travaille vraiment. ⚠️ AC droite : charge légère, jamais à l’échec.', adaptable: true },
   { name: 'Décollement main dans le dos (lift-off)', groups: 'Sous-scapulaire:1, Rhomboïdes:0.5, Deltoïde postérieur:0.4, Trapèze moyen:0.4, Triceps longue portion:0.3', sets: 3, reps: '10/bras', notes: 'Main au creux des reins, paume vers l’arrière, on décolle la main de quelques centimètres. Sans charge au début : la plupart des épaules n’y arrivent pas du premier coup, et c’est précisément le signe qu’il fallait le faire.', adaptable: true },
   // Le petit pectoral bascule l'omoplate vers l'avant et vers le bas. Rien ne
   // le travaille en concentrique dans une salle : on l'ÉTIRE en permanence

@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { estAuTempsOuDistance } from '../lib/muscu'
+import { loadAllures, saveAllures } from '../lib/allure'
+import type { IntensiteId } from '../lib/intensite'
 import {
   exoTonnage,
   fmtTonnage,
@@ -7,6 +10,10 @@ import {
   type CatalogExercise,
   type MuscuSession,
 } from '../lib/muscu'
+import { renommerSiAuto } from '../lib/nommage'
+import { OUTILS, outilDe, type OutilId } from '../lib/materiel'
+import { remodeler, type Changement } from '../lib/remodeler'
+import { AllurePicker } from '../components/AllurePicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
@@ -28,6 +35,12 @@ export interface LiveExo {
   /** Pourquoi cette charge est proposée (« 10 reps la dernière fois : +2,5 kg »). */
   hint?: string
   notes: string
+  /**
+   * Allure déclarée, seulement pour les exercices au temps ou à la distance :
+   * là, la charge ne dit rien de l'effort. Enregistrée à la fin de la séance,
+   * quand la séance a enfin un identifiant.
+   */
+  allure?: IntensiteId
   done: boolean[] // une case par série
 }
 
@@ -39,6 +52,25 @@ export interface LiveState {
   notes: string
   /** Zones sollicitées déclarées à la main (séance sans exercices chiffrés). */
   ressenti?: string
+  /**
+   * Outils déclarés INDISPONIBLES pour cette séance-ci.
+   *
+   * On enregistre ce qui manque, pas ce qui est là : une liste vide veut donc
+   * dire « tout est disponible », ce qui est le cas normal et ce que devient
+   * une séance en cours enregistrée avant que cette case existe. À l'écran, les
+   * cases arrivent donc toutes cochées.
+   *
+   * Propre à la séance, et jamais confondu avec « mon matériel » (lib/monMateriel,
+   * le garage) : ici c'est le rack qui est pris à 19 h 12, pas un achat.
+   */
+  outilsHS?: OutilId[]
+  /**
+   * Fin du repos en cours, en millisecondes epoch. Persisté, et c'est le point :
+   * on peut replier la séance pour retourner au journal, le décompte continue
+   * dans le bandeau du haut et le bip tombe quand même. Un minuteur qui vit
+   * dans l'état d'un écran s'arrête quand on quitte l'écran.
+   */
+  restEnd?: number | null
   exos: LiveExo[]
 }
 
@@ -69,6 +101,60 @@ export function clearLive(): void {
   }
 }
 
+/**
+ * La séance repliée, en bandeau collé en haut du journal.
+ *
+ * Il lit l'état à CHAQUE seconde depuis la mémoire locale plutôt que de le
+ * recevoir en propriété : c'est la seule façon d'afficher un repos lancé sur
+ * l'autre écran sans dupliquer l'état, et le journal n'a pas à savoir ce qui se
+ * passe dans une séance qu'il n'affiche pas.
+ */
+export function BandeauSeance({ onOuvrir }: { onOuvrir: () => void }) {
+  const [now, setNow] = useState(() => Date.now())
+  const [live, setLive] = useState<LiveState | null>(() => loadLive())
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNow(Date.now())
+      setLive(loadLive())
+    }, 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const finirRepos = useCallback(() => {
+    const s = loadLive()
+    if (s) storeLive({ ...s, restEnd: null })
+    setLive(loadLive())
+  }, [])
+  const restLeft = useMinuteurRepos(live?.restEnd, finirRepos)
+
+  if (!live) return null
+  const faites = live.exos.reduce((n, e) => n + e.done.filter(Boolean).length, 0)
+  const total = live.exos.reduce((n, e) => n + e.done.length, 0)
+
+  return (
+    <button
+      onClick={onOuvrir}
+      className="sticky top-0 z-30 -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-2 border-b border-copper/40 bg-card/95 px-3 py-2 text-left backdrop-blur"
+      title="Reprendre la séance"
+    >
+      <span className="inline-block h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-clay" />
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{live.name || 'Séance'}</span>
+      {restLeft !== null && restLeft > 0 ? (
+        <span className="shrink-0 rounded-lg bg-copper/15 px-2 py-0.5 font-mono text-sm font-bold text-copper">
+          😮‍💨 {restLeft}s
+        </span>
+      ) : (
+        <span className="shrink-0 text-[11px] text-muted">
+          {faites}/{total} séries
+        </span>
+      )}
+      <span className="shrink-0 font-mono text-sm font-bold text-copper">⏱ {fmtClock(now - live.startedAt)}</span>
+      <span className="shrink-0 text-xs text-copper">▸</span>
+    </button>
+  )
+}
+
 function parseW(w: string): number | null {
   const n = parseFloat(w.replace(',', '.'))
   return Number.isFinite(n) ? n : null
@@ -97,6 +183,43 @@ function beep() {
   }
 }
 
+/**
+ * Le décompte de repos, où qu'on soit.
+ *
+ * Employé par l'écran de séance ET par le bandeau replié — les deux ne sont
+ * jamais montés en même temps, donc il n'y a jamais deux bips. Une seconde
+ * implémentation dans le bandeau aurait fini par sonner à un autre moment.
+ */
+export function useMinuteurRepos(fin: number | null | undefined, surFin: () => void): number | null {
+  const [now, setNow] = useState(() => Date.now())
+  const sonne = useRef(false)
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Une nouvelle échéance réarme le bip : sans ça, la deuxième série d'un
+  // exercice se terminait en silence.
+  useEffect(() => {
+    sonne.current = false
+  }, [fin])
+
+  useEffect(() => {
+    if (!fin || now < fin || sonne.current) return
+    sonne.current = true
+    try {
+      navigator.vibrate?.([200, 100, 200])
+    } catch {
+      /* ignore */
+    }
+    beep()
+    surFin()
+  }, [now, fin, surFin])
+
+  return fin ? Math.max(0, Math.ceil((fin - now) / 1000)) : null
+}
+
 function fmtClock(ms: number): string {
   const totalS = Math.max(0, Math.floor(ms / 1000))
   const h = Math.floor(totalS / 3600)
@@ -114,6 +237,7 @@ export function LiveSession({
   bodyWeight,
   onFinish,
   onQuit,
+  onReduire,
 }: {
   userId: string
   initial: LiveState
@@ -124,13 +248,22 @@ export function LiveSession({
   bodyWeight: number | null
   onFinish: () => void
   onQuit: () => void
+  /**
+   * Replier la séance pour retourner au journal, sans l'abandonner.
+   *
+   * Absent, le chrono n'est pas cliquable — l'écran se comporte comme avant.
+   */
+  onReduire?: () => void
 }) {
   const [s, setS] = useState<LiveState>(initial)
   const [now, setNow] = useState(() => Date.now())
-  const [restEnd, setRestEnd] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const restNotified = useRef(false)
+  // Ce que le dernier remodelage a changé : sans ce compte rendu, trois lignes
+  // se remplacent en silence et on ne sait plus quelle séance on est en train
+  // de faire.
+  const [changements, setChangements] = useState<Changement[]>([])
+  const [materielOuvert, setMaterielOuvert] = useState(false)
 
   useEffect(() => {
     storeLive(s)
@@ -141,19 +274,12 @@ export function LiveSession({
     return () => clearInterval(t)
   }, [])
 
-  const restLeft = restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : null
-  useEffect(() => {
-    if (restEnd !== null && now >= restEnd && !restNotified.current) {
-      restNotified.current = true
-      try {
-        navigator.vibrate?.([200, 100, 200])
-      } catch {
-        /* ignore */
-      }
-      beep()
-      setRestEnd(null)
-    }
-  }, [now, restEnd])
+  // Le repos vit dans l'état PERSISTÉ, et son décompte dans un hook partagé
+  // avec le bandeau replié : c'est ce qui permet de retourner au journal sans
+  // que le minuteur s'arrête.
+  const finirRepos = useCallback(() => setS((prev) => ({ ...prev, restEnd: null })), [])
+  const restLeft = useMinuteurRepos(s.restEnd, finirRepos)
+  const setRestEnd = (fin: number | null) => setS((prev) => ({ ...prev, restEnd: fin }))
 
   const doneSets = s.exos.reduce((n, e) => n + e.done.filter(Boolean).length, 0)
   const totalSets = s.exos.reduce((n, e) => n + e.done.length, 0)
@@ -174,10 +300,7 @@ export function LiveSession({
         idx === j ? { ...e, done: e.done.map((d, k) => (k === i ? !d : d)) } : e,
       ),
     }))
-    if (!wasDone) {
-      restNotified.current = false
-      setRestEnd(Date.now() + s.restSec * 1000)
-    }
+    if (!wasDone) setRestEnd(Date.now() + s.restSec * 1000)
   }
 
   function addSet(j: number) {
@@ -214,6 +337,60 @@ export function LiveSession({
         },
       ],
     }))
+  }
+
+  // ── Matériel de la séance ────────────────────────────────────────────────
+  //
+  // Les outils que la séance emploie RÉELLEMENT, dans l'ordre où ils
+  // apparaissent : c'est la liste qu'on a sous les yeux, pas les vingt du
+  // catalogue. Elles arrivent toutes cochées — on décoche ce qui est pris.
+  const outilsHS = s.outilsHS ?? []
+  const outilsSeance = [...new Set(s.exos.filter((e) => e.name.trim()).map((e) => outilDe(e.name)))]
+  const dispo = outilsSeance.filter((o) => !outilsHS.includes(o))
+  // Exercices que le matériel manquant rend infaisables, et qui n'ont pas
+  // encore de série cochée : ce sont eux que « remodeler » remplacera.
+  const aRemodeler = s.exos.filter(
+    (e) => e.name.trim() && outilsHS.includes(outilDe(e.name)) && e.done.every((d) => !d),
+  ).length
+
+  function basculerOutil(o: OutilId) {
+    setS((prev) => {
+      const hs = prev.outilsHS ?? []
+      return { ...prev, outilsHS: hs.includes(o) ? hs.filter((x) => x !== o) : [...hs, o] }
+    })
+  }
+
+  /**
+   * Remplace les exercices dont l'outil manque par leur équivalent.
+   *
+   * La charge conseillée est recalculée pour le remplaçant : garder celle du
+   * mouvement d'avant serait pire que ne rien proposer — 100 kg de développé
+   * couché ne sont pas 100 kg de développé haltères.
+   */
+  function remodelerSeance() {
+    const { lignes, changements } = remodeler(
+      s.exos.map((e) => ({ ...e, faites: e.done.filter(Boolean).length })),
+      catalog,
+      dispo,
+      (ligne, par) => {
+        const charge = suggererCharge(sessions, { name: par.name, default_reps: par.default_reps }, bodyWeight)
+        return {
+          ...ligne,
+          name: par.name,
+          muscle_group: par.muscle_group,
+          reps: par.default_reps,
+          weight: charge.weight === null ? '' : String(charge.weight),
+          hint: charge.raison || undefined,
+          // Autant de cases que le remplaçant en demande, jamais moins d'une.
+          done: Array(Math.max(1, par.default_sets)).fill(false),
+        }
+      },
+    )
+    setS((prev) => ({
+      ...prev,
+      exos: lignes.map(({ faites: _faites, ...e }) => e as LiveExo),
+    }))
+    setChangements(changements)
   }
 
   function addBlank() {
@@ -253,11 +430,19 @@ export function LiveSession({
     setBusy(true)
     setError(null)
     try {
-      await saveSession(
+      // Le nom de la séance se décide ICI, pas à l'ouverture : entre les deux,
+      // des exercices ont été ajoutés, d'autres abandonnés sans une seule série
+      // cochée. Seul ce qui a été fait compte. Un nom écrit à la main est
+      // conservé — voir `estNomAutomatique`.
+      const nom = renommerSiAuto(
+        s.name,
+        kept.map((e) => ({ name: e.name, muscle_group: e.muscle_group, sets: e.doneCount })),
+      )
+      const id = await saveSession(
         userId,
         {
           date: new Date().toISOString().slice(0, 10),
-          name: s.name,
+          name: nom,
           duration_min: Math.max(1, Math.round((Date.now() - s.startedAt) / 60000)),
           notes: s.notes,
           template_id: s.template_id,
@@ -276,6 +461,22 @@ export function LiveSession({
             : []),
         ],
       )
+      // Les allures déclarées, une fois la séance enregistrée : elles vivent en
+      // KV indexées par séance + exercice, et la séance n'a d'identifiant qu'ici.
+      const avecAllure = kept.filter((e) => e.allure && estAuTempsOuDistance(e.reps))
+      if (avecAllure.length) {
+        try {
+          await saveAllures(
+            userId,
+            id,
+            avecAllure.map((e) => ({ nom: e.name, allure: e.allure as IntensiteId })),
+            await loadAllures(userId),
+          )
+        } catch {
+          // Une allure perdue ne doit pas faire perdre la séance : elle est
+          // enregistrée, c'est elle qui compte.
+        }
+      }
       clearLive()
       onFinish()
     } catch (e) {
@@ -301,7 +502,20 @@ export function LiveSession({
             value={s.name}
             onChange={(e) => setS({ ...s, name: e.target.value })}
           />
-          <span className="shrink-0 font-mono text-lg font-bold text-copper">⏱ {fmtClock(now - s.startedAt)}</span>
+          {/* Le chrono replie la séance : on retourne au journal, la séance
+              continue, et le bandeau du haut la ramène. Ce n'est PAS un
+              abandon — rien n'est effacé, l'état est déjà en mémoire locale. */}
+          {onReduire ? (
+            <button
+              onClick={onReduire}
+              title="Retourner au journal — la séance continue"
+              className="shrink-0 font-mono text-lg font-bold text-copper transition hover:opacity-70"
+            >
+              ⏱ {fmtClock(now - s.startedAt)} ▾
+            </button>
+          ) : (
+            <span className="shrink-0 font-mono text-lg font-bold text-copper">⏱ {fmtClock(now - s.startedAt)}</span>
+          )}
         </div>
 
         <div className="flex items-center justify-between text-xs text-muted">
@@ -335,6 +549,79 @@ export function LiveSession({
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
+
+      {/* ── Matériel de la séance ──
+          Les outils que CETTE séance emploie, tous cochés d'entrée. On décoche
+          le rack qui est pris, on remodèle, et les exercices concernés sont
+          remplacés par leur équivalent. Rien à voir avec « mon matériel » des
+          réglages : là c'est le garage, ici c'est 19 h 12 un mardi. */}
+      {outilsSeance.length > 0 ? (
+        <div className="card space-y-2 p-3">
+          <button
+            onClick={() => setMaterielOuvert((o) => !o)}
+            className="flex w-full items-center gap-2 text-left text-sm font-bold text-ink"
+          >
+            <span className="text-[10px] text-muted">{materielOuvert ? '▾' : '▸'}</span>
+            🧰 Matériel dispo
+            <span className="ml-auto text-[11px] font-semibold text-muted">
+              {outilsHS.length === 0
+                ? `${outilsSeance.length} poste${outilsSeance.length > 1 ? 's' : ''}`
+                : `${outilsHS.length} indispo`}
+            </span>
+          </button>
+
+          {materielOuvert ? (
+            <>
+              <div className="flex flex-wrap gap-1.5">
+                {outilsSeance.map((o) => {
+                  const ok = !outilsHS.includes(o)
+                  return (
+                    <button
+                      key={o}
+                      onClick={() => basculerOutil(o)}
+                      aria-pressed={ok}
+                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                        ok ? 'bg-copper text-white' : 'bg-bg text-muted line-through'
+                      }`}
+                      title={ok ? 'Disponible — toucher pour dire qu’il est pris' : 'Indisponible'}
+                    >
+                      {ok ? '☑' : '☐'} {OUTILS[o].emoji} {OUTILS[o].label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-muted">
+                Décoche ce qui est pris, puis remodèle : les exercices concernés sont remplacés par
+                l'équivalent le plus proche. Ce qui est déjà coché ne bouge pas.
+              </p>
+            </>
+          ) : null}
+
+          {outilsHS.length > 0 ? (
+            <button
+              onClick={remodelerSeance}
+              disabled={aRemodeler === 0}
+              className="btn-primary w-full py-2 text-sm disabled:opacity-50"
+            >
+              🔄 Remodeler la séance
+              {aRemodeler > 0 ? ` (${aRemodeler} exercice${aRemodeler > 1 ? 's' : ''})` : ''}
+            </button>
+          ) : null}
+
+          {changements.length > 0 ? (
+            <ul className="space-y-0.5 text-[11px]">
+              {changements.map((c, i) => (
+                <li key={i} className={c.sort === 'remplace' ? 'text-sage-dark' : 'text-clay'}>
+                  {c.sort === 'remplace' ? '↪' : c.sort === 'retire' ? '✕' : '⚠️'} {c.avant}
+                  {c.sort === 'remplace' ? ` → ${c.apres}` : null}
+                  {c.sort === 'retire' ? ' — aucun équivalent avec ce matériel' : null}
+                  {c.sort === 'garde' ? ' — déjà entamé, gardé tel quel' : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Exercices ── */}
       <ul className="space-y-2">
@@ -397,6 +684,35 @@ export function LiveSession({
                   />
                   kg
                 </label>
+                {/* Mesuré en temps ou en distance : la charge ne dit rien de
+                    l'effort, et c'est l'allure qui le dit. Trente secondes de
+                    rameur en récupération et trente secondes à fond pesaient
+                    exactement pareil. */}
+                {estAuTempsOuDistance(e.reps) ? (
+                  <AllurePicker
+                    value={e.allure ?? null}
+                    onChange={(allure) => updateExo(j, { allure: allure ?? undefined })}
+                    compact
+                  />
+                ) : null}
+                {/* L'outil, juste après les kilos : c'est ce qu'on cherche des
+                    yeux entre deux séries — où va-t-on, et avec quoi. Barré
+                    quand le poste a été déclaré pris là-haut : la ligne
+                    concernée se repère alors sans relire le panneau. */}
+                {e.name.trim() ? (
+                  <span
+                    className={`text-[11px] font-semibold ${
+                      outilsHS.includes(outilDe(e.name)) ? 'text-clay line-through' : 'text-muted'
+                    }`}
+                    title={
+                      outilsHS.includes(outilDe(e.name))
+                        ? `${OUTILS[outilDe(e.name)].label} — déclaré pris`
+                        : OUTILS[outilDe(e.name)].label
+                    }
+                  >
+                    {OUTILS[outilDe(e.name)].emoji} {OUTILS[outilDe(e.name)].label}
+                  </span>
+                ) : null}
                 {e.hint ? <span className="text-[11px] font-semibold text-copper">💡 {e.hint}</span> : null}
               </div>
 

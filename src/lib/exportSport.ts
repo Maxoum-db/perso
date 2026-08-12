@@ -299,7 +299,7 @@ function blocObservations(obs: Observations): string[] {
 /** Les réglages qui expliquent pourquoi les séances proposées ressemblent à ça. */
 function blocReglages(focus: FocusId[] | undefined, behourd: boolean | undefined): string[] {
   const lignes: string[] = []
-  const utiles = (focus ?? []).filter((f) => f !== 'aucun')
+  const utiles = focus ?? []
   if (utiles.length) lignes.push(`- Point faible travaillé en priorité : ${utiles.map((f) => FOCUS[f].label).join(', ')}`)
   if (behourd) lignes.push('- Mode béhourd actif : les séances proposées privilégient le port d’armure et le combat.')
   return bloc('Réglages', lignes)

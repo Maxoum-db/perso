@@ -9,6 +9,7 @@ import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { appliquerComptage, comptageReglable, loadExclues, nettoyerExclues, saveExclue, type Exclues } from '../lib/comptage'
+import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { RecuperationCard } from '../components/RecuperationCard'
@@ -32,6 +33,15 @@ import { chargesCourantes } from '../lib/charges'
 import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
 import { DUREE_PAR_DEFAUT, dureeLignes, fmtDuree, loadDuree, saveDuree } from '../lib/duree'
 import { composerSeance } from '../lib/prochaine'
+import { avecEmoji, emojiDuNom, nomSansEmoji, renommerSiAuto } from '../lib/nommage'
+import { SCORE_MAX, SCORE_MIN, scoreParDefaut } from '../lib/scoreExercice'
+import { OUTILS, noteAvecOutil, outilDe } from '../lib/materiel'
+import { useMonMateriel } from '../lib/useMonMateriel'
+import { faisable } from '../lib/monMateriel'
+import { remodeler, type Changement } from '../lib/remodeler'
+import { AllurePicker } from '../components/AllurePicker'
+import { loadAllures, nettoyerAllures, saveAllures, type Allures } from '../lib/allure'
+import { buildSession } from '../lib/sessionBuilder'
 import {
   loadObservations,
   noterObservation,
@@ -55,7 +65,7 @@ import {
 } from '../lib/intensite'
 import { PROFIL_DEFAUT, loadProfil, type Profil } from '../lib/profil'
 import { ProgressTab } from './MusculationProgress'
-import { LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
+import { BandeauSeance, LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
   MUSCLE_GROUPS_DEFAULT,
   exerciseProgress,
@@ -65,6 +75,7 @@ import {
   sessionTonnage,
   distanceEnMetres,
   RESSENTI_NAME,
+  estAuTempsOuDistance,
   estRessenti,
   parseGroupEntries,
   METRES_PAR_REP,
@@ -148,24 +159,9 @@ function brasDAcier(s: MuscuSession): boolean {
   return maxIntensite >= 0.8 && series >= 9
 }
 
-// Une séance n'a pas de colonne « icône » : l'emoji choisi à la main vit en
-// préfixe de son nom. Visible, modifiable, et sans migration de schéma.
-const PREFIXE_EMOJI = /^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s*/u
-
-export function emojiDuNom(nom: string): string | null {
-  return nom.match(PREFIXE_EMOJI)?.[1] ?? null
-}
-
-/** Le nom sans son emoji, pour ne pas l'afficher deux fois. */
-function nomSansEmoji(nom: string): string {
-  return nom.replace(PREFIXE_EMOJI, '').trim() || nom
-}
-
-/** Remplace (ou retire) l'emoji en tête d'un nom de séance. */
-function avecEmoji(nom: string, emoji: string | null): string {
-  const base = nom.replace(PREFIXE_EMOJI, '').trim()
-  return emoji ? `${emoji} ${base}`.trim() : base
-}
+// L'emoji choisi à la main vit en préfixe du nom de la séance : les trois
+// fonctions qui le posent et le retirent sont dans lib/nommage, avec le
+// renommage automatique qui doit s'appuyer sur la MÊME définition du préfixe.
 
 /** Emoji d'une séance du journal : choisi à la main, sinon sa séance type, sinon déduit. */
 function sessionEmoji(s: MuscuSession, templates: MuscuTemplate[]): string {
@@ -206,6 +202,8 @@ interface ExoDraft {
   hintTon?: TonCharge
   /** Fait à vide, en amplitude : la ligne compte comme récupération. */
   doux?: boolean
+  /** Allure déclarée — seulement pour les exercices au temps ou à la distance. */
+  allure?: IntensiteId
 }
 
 function emptyExo(group = ''): ExoDraft {
@@ -221,6 +219,7 @@ function exoToDraft(e: MuscuExo): ExoDraft {
     weight: e.weight_kg === null ? '' : String(e.weight_kg),
     notes: e.notes,
     doux: e.doux,
+    allure: e.allure,
   }
 }
 
@@ -302,6 +301,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [intensites, setIntensites] = useState<Intensites>({})
   // Exercices déclarés faits en version douce, indexés par séance + exercice.
   const [douceurs, setDouceurs] = useState<Douceurs>({})
+  // Allures déclarées sur les exercices au temps ou à la distance, même index.
+  const [allures, setAllures] = useState<Allures>({})
   // Séances décochées : au journal, mais hors du mannequin.
   const [exclues, setExclues] = useState<Exclues>({})
   // Nuits renseignées : elles décalent la récupération du mannequin.
@@ -324,7 +325,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -339,6 +340,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadBehourd(user.id).catch(() => false),
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
+        loadAllures(user.id).catch(() => ({}) as Allures),
         loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
         sections.includes('course') ? listSorties(user.id).catch(() => [] as Sortie[]) : [],
@@ -355,6 +357,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setDouceurs(nettoyerDouceurs(dx, new Set(s.map((x) => x.id))))
+      setAllures(nettoyerAllures(al, new Set(s.map((x) => x.id))))
       setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
       setObservations(ob)
@@ -446,6 +449,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           onIntensite={setIntensites}
           douceurs={douceurs}
           onDouceurs={setDouceurs}
+          allures={allures}
+          onAllures={setAllures}
           onCourbatures={(next) => {
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
@@ -494,7 +499,7 @@ interface SessionDraft {
   intensite: IntensiteId | null
 }
 
-function Journal({
+export function Journal({
   userId,
   sessions,
   pourLaRecup,
@@ -518,6 +523,8 @@ function Journal({
   onIntensite,
   douceurs,
   onDouceurs,
+  allures,
+  onAllures,
   exclues,
   onExclues,
   sexe,
@@ -553,6 +560,9 @@ function Journal({
   /** Exercices déclarés faits en version douce, indexés par séance + exercice. */
   douceurs: Douceurs
   onDouceurs: (d: Douceurs) => void
+  /** Allures déclarées sur les exercices au temps ou à la distance. */
+  allures: Allures
+  onAllures: (a: Allures) => void
   /** Séances décochées : au journal, mais hors du mannequin. */
   exclues: Exclues
   onExclues: (e: Exclues) => void
@@ -572,8 +582,15 @@ function Journal({
   pourLaRecup: MuscuSession[]
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
-  const [picking, setPicking] = useState<null | 'live' | 'manual'>(null)
+  // Plus qu'un seul mode d'ouverture manuelle. « En direct » était le second,
+  // et il partait d'une page blanche : c'est le compositeur qui ouvre désormais
+  // les séances chronométrées, à partir de ce que le mannequin sait.
+  const [picking, setPicking] = useState<null | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Les séances précédentes sont repliées par défaut : le journal courant doit
+  // tenir à l'écran. L'état n'est pas persisté — on le rouvre quand on en a
+  // besoin, ce qui est justement l'usage.
+  const [voirAnciennes, setVoirAnciennes] = useState(false)
   // Lignes du journal, pour amener l'écran sur une séance depuis le mannequin.
   const lignes = useRef(new Map<string, HTMLLIElement>())
   // Séance composée automatiquement : on garde les exercices déjà proposés pour
@@ -581,6 +598,10 @@ function Journal({
   const [suggest, setSuggest] = useState<{ session: SuggestedSession | null; exclude: Set<string> } | null>(null)
   // Séance en direct : reprise automatique si une séance est en cours (localStorage).
   const [live, setLive] = useState<LiveState | null>(() => loadLive())
+  // … et repliée : on retourne au journal, la séance continue, un bandeau la
+  // ramène. Ce n'est pas un abandon — d'où un booléen d'affichage et non un
+  // effacement.
+  const [liveReduit, setLiveReduit] = useState(false)
 
   // Une seule source de vérité : la récup automatique, corrigée du sommeil puis
   // des courbatures déclarées. La composition vit dans lib/charges.
@@ -589,6 +610,15 @@ function Journal({
   // elles pèsent sur la récupération sans jamais rejoindre le journal, ni le
   // tonnage, ni les records — elles ont leur propre écran pour ça.
   const loads = chargesCourantes(pourLaRecup, courbatures, nuits, Date.now(), bodyWeight)
+
+  // Le journal se coupe à trente jours. Au-delà, une séance ne se relit plus,
+  // elle se retrouve — et trente jours est déjà la fenêtre sur laquelle la page
+  // raisonne (tonnage du mois, progression). `sessions` arrive de la plus
+  // récente à la plus ancienne, l'ordre est donc conservé des deux côtés.
+  const JOURS_JOURNAL = 30
+  const limiteJournal = new Date(Date.now() - JOURS_JOURNAL * 86400000).toLocaleDateString('en-CA')
+  const duMois = sessions.filter((s) => s.date >= limiteJournal)
+  const precedentes = sessions.filter((s) => s.date < limiteJournal)
   // État de forme : charge d'entraînement + balance énergétique déduite du poids.
   // C'est lui qui dicte le volume et les charges de la séance proposée.
   const forme = evaluerForme(sessions, weighins)
@@ -685,7 +715,6 @@ function Journal({
   const recentTonnage = recentes.reduce((sum, s) => sum + sessionTonnage(s.exercises), 0)
 
   function startBlank() {
-    if (picking === 'live') return startLive(null)
     setPicking(null)
     // Vierge veut dire vierge : aucune ligne. La ligne vide d'avant n'était pas
     // un point de départ mais un formulaire à moitié rempli — champs de séries,
@@ -697,7 +726,6 @@ function Journal({
   }
 
   function startFromTemplate(tpl: MuscuTemplate) {
-    if (picking === 'live') return startLive(tpl)
     setPicking(null)
     setDraft({
       date: today(),
@@ -722,35 +750,6 @@ function Journal({
     })
   }
 
-  function startLive(tpl: MuscuTemplate | null) {
-    setPicking(null)
-    const state: LiveState = {
-      startedAt: Date.now(),
-      name: tpl?.name ?? 'Séance',
-      template_id: tpl?.id ?? null,
-      restSec: 90,
-      notes: '',
-      // Une ligne sans nom traîne parfois dans un modèle : elle occupe une
-      // carte, se coche, et se perd à l'enregistrement puisque `finish` la
-      // filtre. Elle n'a rien à faire dans une séance qui démarre.
-      exos: (tpl?.exercises ?? []).filter((e) => e.name.trim()).map((e) => {
-        const last = lastExo(sessions, e.name)
-        const charge = suggererCharge(sessions, { name: e.name, default_reps: e.reps }, bodyWeight)
-        const weight = charge.weight ?? e.weight_kg
-        return {
-          name: e.name,
-          muscle_group: e.muscle_group,
-          reps: last?.reps || e.reps,
-          weight: weight === null ? '' : String(weight),
-          hint: charge.raison || undefined,
-          notes: '',
-          done: Array(Math.max(1, e.sets)).fill(false),
-        }
-      }),
-    }
-    storeLive(state)
-    setLive(state)
-  }
 
   // ── Séance composée depuis l'état de récupération ─────────────────────────
 
@@ -854,7 +853,7 @@ function Journal({
     })
   }
 
-  if (live) {
+  if (live && !liveReduit) {
     return (
       <LiveSession
         userId={userId}
@@ -871,6 +870,7 @@ function Journal({
           clearLive()
           setLive(null)
         }}
+        onReduire={() => setLiveReduit(true)}
       />
     )
   }
@@ -885,12 +885,26 @@ function Journal({
         bodyWeight={bodyWeight}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
+          // Même règle qu'à « Terminé » : une séance dont le nom n'a pas été
+          // écrit à la main prend celui de ses muscles. La saisie après coup part
+          // presque toujours d'une « séance vierge » — ce titre-là ne survit pas
+          // à l'enregistrement.
+          const nom = renommerSiAuto(
+            d.name,
+            d.exos
+              .filter((e) => e.name.trim())
+              .map((e) => ({
+                name: e.name,
+                muscle_group: e.muscle_group,
+                sets: parseInt(e.sets, 10) || 1,
+              })),
+          )
           const id = await saveSession(
             userId,
             {
               id: d.id,
               date: d.date,
-              name: d.name,
+              name: nom,
               duration_min: parseInt(d.duration, 10) || null,
               notes: d.notes,
               template_id: d.template_id,
@@ -907,6 +921,18 @@ function Journal({
               douceurs,
             ),
           )
+          // Les allures, même chemin : elles ne peuvent s'écrire qu'une fois la
+          // séance identifiée, et seulement là où elles ont un sens.
+          onAllures(
+            await saveAllures(
+              userId,
+              id,
+              d.exos
+                .filter((e) => e.allure && e.name.trim() && estAuTempsOuDistance(e.reps))
+                .map((e) => ({ nom: e.name, allure: e.allure as IntensiteId })),
+              allures,
+            ),
+          )
           setDraft(null)
           onChange()
         }}
@@ -914,109 +940,16 @@ function Journal({
     )
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
-        <StatCard label={`${FENETRE_STATS} derniers jours`} value={String(recentes.length)} sub="séances" />
-        <StatCard
-          label="Temps"
-          value={recentMin ? `${Math.floor(recentMin / 60)}h${String(recentMin % 60).padStart(2, '0')}` : '—'}
-          sub={`cumulé sur ${FENETRE_STATS} j`}
-        />
-        <StatCard
-          label="Tonnage"
-          value={recentTonnage ? fmtTonnage(recentTonnage) : '—'}
-          sub={`soulevé sur ${FENETRE_STATS} j`}
-        />
-      </div>
 
-      {picking ? (
-        <div className="card space-y-2 p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-ink">
-              {picking === 'live' ? '▶️ Démarrer : quelle séance ?' : '✍️ Saisir : quelle séance ?'}
-            </span>
-            <button onClick={() => setPicking(null)} className="text-xs text-copper">
-              Fermer
-            </button>
-          </div>
-          {/* La séance vierge d'abord, les modèles ensuite : une séance saisie
-              après coup part presque toujours de rien — on note ce qu'on a fait,
-              on ne déroule pas un programme. En dernière case, il fallait
-              parcourir toute la grille pour trouver le cas le plus fréquent. */}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={startBlank} className="card p-2 text-left text-sm hover:shadow-lift">
-              ✍️ <span className="font-semibold text-ink">Séance vierge</span>
-              <div className="text-[11px] text-muted">repartir de zéro</div>
-            </button>
-            {templates.map((t) => (
-              <button key={t.id} onClick={() => startFromTemplate(t)} className="card p-2 text-left text-sm hover:shadow-lift">
-                <span className="mr-1">{t.icon}</span>
-                <span className="font-semibold text-ink">{t.name}</span>
-                <div className="text-[11px] text-muted">
-                  {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
-                </div>
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-muted">💡 Les charges et reps sont pré-remplies depuis ta dernière séance.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <button onClick={() => setPicking('live')} className="btn-primary w-full py-3">
-            ▶️ Démarrer une séance (en direct)
-          </button>
-          <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
-            ✍️ Saisir une séance après coup
-          </button>
-          <button onClick={() => suggerer()} className="btn-ghost w-full py-2 text-sm">
-            {estModeRecup(focus)
-              ? '🧊 Composer une séance de récupération'
-              : '🧠 Composer une séance selon ma récup'}
-          </button>
-        </div>
-      )}
-
-      <FocusPicker
-        value={focus}
-        onChange={onFocus}
-        behourd={behourd}
-        onBehourd={onBehourd}
-        duree={duree}
-        onDuree={onDuree}
-      />
-
-      {suggest ? (
-        <SuggestedSessionCard
-          suggestion={suggest.session}
-          forme={forme}
-          onLive={() => lancerSuggestion(true)}
-          onManual={() => lancerSuggestion(false)}
-          onRegenerate={regenerer}
-          onClose={() => setSuggest(null)}
-        />
-      ) : null}
-
-      <RecuperationCard
-        journal={sessions}
-        pourLaRecup={pourLaRecup}
-        courbatures={courbatures}
-        nuits={nuits}
-        loads={loads}
-        exclues={sessions.filter((x) => exclues[x.id]).length}
-        poidsCorps={bodyWeight}
-        sexe={sexe}
-        onSoreness={declarerCourbatures}
-        onPret={declarerTotalementBon}
-        onExercice={ouvrirSurExercice}
-        onSeance={ouvrirSeance}
-      />
-
-      {sessions.length === 0 ? (
-        <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>
-      ) : (
-        <ul className="space-y-2">
-          {sessions.map((s) => (
+  /**
+   * Une ligne du journal.
+   *
+   * Extraite parce qu'elle est rendue par DEUX listes — les séances du mois et
+   * les précédentes. Recopiée, la seconde aurait fini par perdre une case à
+   * cocher ou un bouton au premier changement, sans que rien ne le signale.
+   */
+  function ligneSeance(s: MuscuSession) {
+    return (
             <li
               key={s.id}
               ref={(el) => {
@@ -1109,8 +1042,151 @@ function Journal({
                 </div>
               ) : null}
             </li>
-          ))}
-        </ul>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* La séance repliée, collée en haut tant qu'elle tourne. Le journal reste
+          entièrement utilisable pendant ce temps — c'est tout l'objet. */}
+      {live && liveReduit ? (
+        <BandeauSeance
+          onOuvrir={() => {
+            // On relit la mémoire locale : la séance a continué de vivre
+            // pendant qu'on était au journal, et l'objet gardé ici est périmé.
+            setLive(loadLive())
+            setLiveReduit(false)
+          }}
+        />
+      ) : null}
+
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard label={`${FENETRE_STATS} derniers jours`} value={String(recentes.length)} sub="séances" />
+        <StatCard
+          label="Temps"
+          value={recentMin ? `${Math.floor(recentMin / 60)}h${String(recentMin % 60).padStart(2, '0')}` : '—'}
+          sub={`cumulé sur ${FENETRE_STATS} j`}
+        />
+        <StatCard
+          label="Tonnage"
+          value={recentTonnage ? fmtTonnage(recentTonnage) : '—'}
+          sub={`soulevé sur ${FENETRE_STATS} j`}
+        />
+      </div>
+
+      {picking ? (
+        <div className="card space-y-2 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-ink">
+              ✍️ Saisir : quelle séance ?
+            </span>
+            <button onClick={() => setPicking(null)} className="text-xs text-copper">
+              Fermer
+            </button>
+          </div>
+          {/* La séance vierge d'abord, les modèles ensuite : une séance saisie
+              après coup part presque toujours de rien — on note ce qu'on a fait,
+              on ne déroule pas un programme. En dernière case, il fallait
+              parcourir toute la grille pour trouver le cas le plus fréquent. */}
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={startBlank} className="card p-2 text-left text-sm hover:shadow-lift">
+              ✍️ <span className="font-semibold text-ink">Séance vierge</span>
+              <div className="text-[11px] text-muted">repartir de zéro</div>
+            </button>
+            {templates.map((t) => (
+              <button key={t.id} onClick={() => startFromTemplate(t)} className="card p-2 text-left text-sm hover:shadow-lift">
+                <span className="mr-1">{t.icon}</span>
+                <span className="font-semibold text-ink">{t.name}</span>
+                <div className="text-[11px] text-muted">
+                  {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
+                </div>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted">💡 Les charges et reps sont pré-remplies depuis ta dernière séance.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {/* Un seul point d'entrée : composer. La séance « en direct » partait
+              d'une page blanche qu'il fallait remplir soi-même, alors que
+              l'application sait déjà quels muscles sont prêts — c'est même tout
+              ce qu'elle fait. Deux boutons pour ouvrir une séance, dont un qui
+              ignore le mannequin, c'était proposer de travailler à l'aveugle. */}
+          <button onClick={() => suggerer()} className="btn-primary w-full py-3">
+            {estModeRecup(focus) ? '🧊 Composer une séance de récupération' : '🧠 Composer une séance'}
+          </button>
+          <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
+            ✍️ Saisir une séance après coup
+          </button>
+        </div>
+      )}
+
+      <FocusPicker
+        value={focus}
+        onChange={onFocus}
+        behourd={behourd}
+        onBehourd={onBehourd}
+        duree={duree}
+        onDuree={onDuree}
+      />
+
+      {suggest ? (
+        <SuggestedSessionCard
+          suggestion={suggest.session}
+          forme={forme}
+          onLive={() => lancerSuggestion(true)}
+          onManual={() => lancerSuggestion(false)}
+          onRegenerate={regenerer}
+          onClose={() => setSuggest(null)}
+        />
+      ) : null}
+
+      <RecuperationCard
+        journal={sessions}
+        pourLaRecup={pourLaRecup}
+        courbatures={courbatures}
+        nuits={nuits}
+        loads={loads}
+        exclues={sessions.filter((x) => exclues[x.id]).length}
+        poidsCorps={bodyWeight}
+        sexe={sexe}
+        onSoreness={declarerCourbatures}
+        onPret={declarerTotalementBon}
+        onExercice={ouvrirSurExercice}
+        onSeance={ouvrirSeance}
+      />
+
+      {sessions.length === 0 ? (
+        <p className="text-center text-xs text-muted">Aucune séance enregistrée. Lance ta première ! 💪</p>
+      ) : (
+        <>
+          <ul className="space-y-2">{duMois.map((s) => ligneSeance(s))}</ul>
+
+          {/* Les séances de plus d'un mois ne se relisent plus, elles se
+              retrouvent. Elles descendent donc tout en bas, repliées derrière
+              leur compte — le journal courant tient à l'écran, et l'historique
+              reste à un clic. Trente jours, parce que c'est la fenêtre sur
+              laquelle la page raisonne déjà (tonnage du mois, progression). */}
+          {precedentes.length > 0 ? (
+            <div className="pt-2">
+              <button
+                onClick={() => setVoirAnciennes((v) => !v)}
+                className="flex w-full items-center justify-between rounded-xl2 border border-line/60 px-3 py-2 text-left text-xs font-semibold text-muted"
+              >
+                <span>
+                  {voirAnciennes ? '▾' : '▸'} Séances précédentes
+                  <span className="ml-1.5 font-normal">
+                    ({precedentes.length} · avant le {frDate(precedentes[0].date)})
+                  </span>
+                </span>
+                <span className="font-normal">plus de 30 j</span>
+              </button>
+              {voirAnciennes ? (
+                <ul className="mt-2 space-y-2 opacity-70">{precedentes.map((s) => ligneSeance(s))}</ul>
+              ) : null}
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   )
@@ -1397,6 +1473,46 @@ function ExoListEditor({
   bodyWeight?: number | null
   onChange: (exos: ExoDraft[]) => void
 }) {
+  // Le matériel coché sous « chercher un exercice ». C'est le MÊME magasin
+  // partagé : décocher la poulie là-haut doit se voir ici, sinon on remodèle
+  // contre une liste que l'écran ne montre pas.
+  const { outils } = useMonMateriel()
+  const [changements, setChangements] = useState<Changement[]>([])
+  // Ce que le matériel coché rend infaisable. La ligne de ressenti n'est pas un
+  // exercice : elle n'a pas d'outil et ne se remplace pas.
+  const infaisables = exos.filter((e) => e.name.trim() && !estRessenti(e.name) && !faisable(e.name, outils))
+
+  /**
+   * Remplace les exercices qu'on ne peut pas faire par leur équivalent.
+   *
+   * Même règle qu'en séance en direct (lib/remodeler), et volontairement le
+   * même bouton au même endroit : sous le sélecteur de matériel, là où on vient
+   * de décocher. Ici rien n'est « déjà fait » — une séance en préparation n'a
+   * pas de série cochée —, donc tout est remplaçable.
+   */
+  function remodelerListe() {
+    const { lignes, changements: faits } = remodeler(
+      exos.map((e) => ({ ...e, faites: 0 })),
+      catalog,
+      outils,
+      (ligne, par) => {
+        const charge = suggererCharge(sessions, { name: par.name, default_reps: par.default_reps }, bodyWeight ?? null)
+        return {
+          ...ligne,
+          name: par.name,
+          muscle_group: par.muscle_group,
+          sets: String(par.default_sets),
+          reps: par.default_reps,
+          weight: charge.weight === null ? '' : String(charge.weight),
+          hint: charge.raison || undefined,
+          hintTon: charge.ton,
+        }
+      },
+    )
+    setChangements(faits)
+    onChange(lignes.map(({ faites: _faites, ...e }) => e as ExoDraft))
+  }
+
   const update = (i: number, patch: Partial<ExoDraft>) =>
     onChange(exos.map((e, j) => (j === i ? { ...e, ...patch } : e)))
   const remove = (i: number) => onChange(exos.filter((_, j) => j !== i))
@@ -1458,25 +1574,57 @@ function ExoListEditor({
               value={e.reps}
               onChange={(ev) => update(i, { reps: ev.target.value })}
             />
+            {/* La pastille PDC : ce que le mouvement fait porter au corps, déjà
+                rempli et jamais à saisir. Le champ à côté ne reçoit QUE ce qu'on
+                ajoute — kettlebells, disque, barre. Les deux vivaient confondus
+                dans un seul champ, et la charge d'une fente marchée avec deux
+                kettlebells de 12 kg valait 24 kg pour un homme de 102. */}
+            {poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 ? (
+              <span
+                className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-muted"
+                title={`Poids du corps déplacé par ce mouvement (${Math.round(partDuCorps(e.name) * 100)} % de ${bodyWeight} kg)`}
+              >
+                PDC {poidsDuCorpsPorte(e.name, bodyWeight ?? null)} kg
+              </span>
+            ) : null}
             <label className="flex items-center gap-1 text-xs text-muted">
+              {poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 ? '+' : null}
               <input
                 className="field w-20"
                 type="number"
                 inputMode="decimal"
                 step="0.5"
-                placeholder="PdC"
-                title="Charge en kg (vide = poids du corps)"
+                placeholder={poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 ? 'lest' : 'kg'}
+                title="Ce que tu AJOUTES en kg : haltères, kettlebells, disque, barre. Le poids du corps est déjà compté à côté."
                 value={e.weight}
                 onChange={(ev) => update(i, { weight: ev.target.value })}
               />
               kg
             </label>
+            {/* Le total, dit une fois : c'est lui que le mannequin lit. */}
+            {poidsDuCorpsPorte(e.name, bodyWeight ?? null) > 0 && parseFloat(e.weight.replace(',', '.')) > 0 ? (
+              <span className="text-[11px] font-semibold text-copper">
+                = {Math.round(chargeTotale({ name: e.name, weight_kg: parseFloat(e.weight.replace(',', '.')) }, bodyWeight ?? null) * 10) / 10} kg
+              </span>
+            ) : null}
             {e.hint ? (
               <span className={`text-[11px] font-semibold ${TON_STYLE[e.hintTon ?? 'maintien'].classe}`}>
                 {TON_STYLE[e.hintTon ?? 'maintien'].icone} {e.hint}
               </span>
             ) : null}
           </div>
+          {/* Mesuré en temps ou en distance : la charge ne dit rien de l'effort.
+              Trente secondes de rameur en récupération et trente secondes à
+              fond pesaient exactement pareil sur le mannequin. */}
+          {estAuTempsOuDistance(e.reps) ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-muted">Allure</span>
+              <AllurePicker
+                value={e.allure ?? null}
+                onChange={(allure) => update(i, { allure: allure ?? undefined })}
+              />
+            </div>
+          ) : null}
           {/* La case n'apparaît que sur les exercices qui ONT une version douce
               — la bibliothèque le dit. La proposer partout laisserait croire
               qu'un squat allégé se compte comme de la récupération : il ne se
@@ -1509,6 +1657,38 @@ function ExoListEditor({
         onPick={(c) => onChange([...exos, catalogToDraft(c, sessions, bodyWeight)])}
         onBlank={() => onChange([...exos, emptyExo()])}
       />
+
+      {/* REMODELER, juste sous le sélecteur de matériel : c'est là qu'on vient
+          de décocher la poulie, c'est donc là qu'on doit pouvoir dire « alors
+          remplace-les ». Le bouton n'apparaît que s'il y a quelque chose à
+          remplacer — un bouton toujours visible qui ne fait rien la moitié du
+          temps n'apprend rien de ce qu'il fait. */}
+      {infaisables.length > 0 ? (
+        <div className="card space-y-1.5 border-copper/40 p-3">
+          <p className="text-[11px] text-muted">
+            {infaisables.length} exercice{infaisables.length > 1 ? 's' : ''} de cette séance demande
+            {infaisables.length > 1 ? 'nt' : ''} du matériel que tu n'as pas coché :{' '}
+            <b className="text-ink">
+              {[...new Set(infaisables.map((e) => OUTILS[outilDe(e.name)].label))].join(', ')}
+            </b>
+            .
+          </p>
+          <button onClick={remodelerListe} className="btn-primary w-full py-2 text-sm">
+            🔄 Remodeler la séance ({infaisables.length})
+          </button>
+        </div>
+      ) : null}
+
+      {changements.length > 0 ? (
+        <ul className="space-y-0.5 px-1 text-[11px]">
+          {changements.map((c, i) => (
+            <li key={i} className={c.sort === 'remplace' ? 'text-sage-dark' : 'text-clay'}>
+              {c.sort === 'remplace' ? '↪' : '✕'} {c.avant}
+              {c.sort === 'remplace' ? ` → ${c.apres}` : ' — aucun équivalent avec ce matériel'}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }
@@ -1670,7 +1850,7 @@ function summary(exos: MuscuExo[]): string {
   return gs.slice(0, 3).join(', ') + (gs.length > 3 ? '…' : '')
 }
 
-function TemplateEditor({
+export function TemplateEditor({
   draft,
   groups,
   catalog,
@@ -1686,6 +1866,48 @@ function TemplateEditor({
   const [d, setD] = useState(draft)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Le matériel coché sous « chercher un exercice » : c'est LUI qui décide de
+  // ce que la proposition a le droit d'employer. Une séance type composée avec
+  // une poulie qu'on n'a pas chez soi n'est pas une séance type, c'est une
+  // liste de courses.
+  const { outils } = useMonMateriel()
+
+  /**
+   * Remplit le modèle avec une séance composée sous la contrainte du matériel.
+   *
+   * Sans historique : une séance TYPE n'est pas la séance d'aujourd'hui. Elle ne
+   * doit dépendre ni des courbatures du moment ni des charges de la semaine —
+   * sinon le modèle enregistré porterait l'état d'un jour précis, et on le
+   * relirait des mois plus tard sans savoir lequel.
+   */
+  function proposer() {
+    const s = buildSession(catalog, [], {
+      count: 6,
+      outils,
+      dureeCible: parseInt(d.duration, 10) || undefined,
+    })
+    if (!s) {
+      setError(
+        outils.length
+          ? 'Rien de composable avec ce matériel. Ajoute un outil sous « chercher un exercice ».'
+          : 'Pas encore assez d’exercices exploitables au catalogue.',
+      )
+      return
+    }
+    setError(null)
+    setD((prev) => ({
+      ...prev,
+      name: prev.name.trim() || s.name,
+      exos: s.exercises.map((x) => ({
+        name: x.exo.name,
+        muscle_group: x.exo.muscle_group,
+        sets: String(x.exo.default_sets),
+        reps: x.exo.default_reps,
+        weight: '',
+        notes: '',
+      })),
+    }))
+  }
 
   async function save() {
     setBusy(true)
@@ -1749,6 +1971,19 @@ function TemplateEditor({
         />
       </div>
 
+      {/* La proposition, au-dessus de la liste : c'est par là qu'on commence
+          quand on part de rien, et elle se relance autant de fois qu'on veut. */}
+      <div className="card space-y-1.5 p-3">
+        <button onClick={proposer} className="btn-ghost w-full py-2 text-sm">
+          🧠 Proposer des exercices{outils.length ? ' avec mon matériel' : ''}
+        </button>
+        <p className="text-[11px] text-muted">
+          {outils.length
+            ? `Limité à : ${outils.map((o) => `${OUTILS[o].emoji} ${OUTILS[o].label}`).join(' · ')} — plus le poids du corps. Le matériel se coche sous « chercher un exercice ».`
+            : 'Tout le catalogue. Coche ton matériel sous « chercher un exercice » pour t’y limiter — utile pour une séance à la maison.'}
+        </p>
+      </div>
+
       <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
@@ -1768,9 +2003,70 @@ interface CatalogDraft {
   reps: string
   weight: string
   notes: string
+  /**
+   * Note sur 5 : la priorité de l'exercice dans le générateur.
+   *
+   * `null` tant qu'on ne s'est pas prononcé — la note affichée suit alors le
+   * barème, et donc les muscles qu'on coche. Un exercice qu'on vient d'étiqueter
+   * « tout le dos » ne reste pas à 3 par inadvertance.
+   */
+  score: number | null
 }
 
-function CatalogManager({
+/**
+ * La note sur 5, en cinq boutons.
+ *
+ * Cinq boutons et pas un champ numérique : la note n'a que cinq valeurs, elle se
+ * lit d'un coup d'œil et se change au pouce. Le sens des extrêmes est écrit
+ * dessous — une note sans échelle ne veut rien dire, et « 3 » ne se devine pas.
+ */
+function ScorePicker({
+  value,
+  auto,
+  onChange,
+}: {
+  value: number
+  /** La note vient du barème et n'a pas encore été choisie à la main. */
+  auto?: boolean
+  onChange: (n: number) => void
+}) {
+  const NIVEAUX: Record<number, string> = {
+    1: 'à éviter',
+    2: 'accessoire',
+    3: 'correct',
+    4: 'très bon',
+    5: 'incontournable',
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] text-muted">Priorité</span>
+        {Array.from({ length: SCORE_MAX - SCORE_MIN + 1 }, (_, i) => i + SCORE_MIN).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            aria-label={`${n} sur ${SCORE_MAX} — ${NIVEAUX[n]}`}
+            aria-pressed={n <= value}
+            className={`text-lg leading-none transition ${n <= value ? 'text-copper' : 'text-muted/40'}`}
+          >
+            ★
+          </button>
+        ))}
+        <span className="text-[11px] font-semibold text-ink">
+          {value}/{SCORE_MAX}
+        </span>
+      </div>
+      <p className="text-[11px] text-muted">
+        {NIVEAUX[value]} — pèse sur le classement des séances composées.
+        {auto ? ' Déduit des muscles et du mouvement tant que tu n’y touches pas.' : ''}
+      </p>
+    </div>
+  )
+}
+
+/** Exporté pour le banc d'essai : la note sur 5 se vérifie sur le vrai écran. */
+export function CatalogManager({
   userId,
   catalog,
   groups,
@@ -1801,6 +2097,7 @@ function CatalogManager({
         default_reps: draft.reps,
         default_weight_kg: null, // la charge se saisit à la séance, pas au catalogue
         notes: draft.notes,
+        score: draft.score ?? scoreParDefaut(draft.name, draft.muscle_group),
       })
       setDraft(null)
       onChange()
@@ -1816,7 +2113,9 @@ function CatalogManager({
           Sélectionnables dans l'éditeur de séance. La charge se saisit pendant la séance.
         </p>
         <button
-          onClick={() => setDraft({ name: '', muscle_group: '', sets: '3', reps: '10', weight: '', notes: '' })}
+          onClick={() =>
+            setDraft({ name: '', muscle_group: '', sets: '3', reps: '10', weight: '', notes: '', score: null })
+          }
           className="shrink-0 text-xs font-semibold text-copper"
         >
           + Ajouter
@@ -1856,7 +2155,20 @@ function CatalogManager({
             />
             <input className="field w-24" placeholder="reps ou 45s" value={draft.reps} onChange={(e) => setDraft({ ...draft, reps: e.target.value })} />
           </div>
-          <input className="field text-xs" placeholder="Notes (machine, consignes…)" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+          {/* L'outil est déduit du nom et ouvre la note : il n'a pas à être
+              écrit à la main, et il ne peut donc pas contredire le regroupement
+              par poste que la séance composée applique. */}
+          <div className="rounded-lg bg-bg px-2 py-1 text-[11px] text-muted">
+            📝 <b className="text-ink">{noteAvecOutil(draft.name, draft.notes)}</b>
+          </div>
+          <input className="field text-xs" placeholder="Notes (réglages, consignes…) — l’outil s’ajoute tout seul" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+          {/* La note suit les muscles cochés tant qu'on ne l'a pas touchée ; un
+              clic sur une étoile fige le choix. */}
+          <ScorePicker
+            value={draft.score ?? scoreParDefaut(draft.name, draft.muscle_group)}
+            auto={draft.score === null}
+            onChange={(score) => setDraft({ ...draft, score })}
+          />
           <div className="flex gap-2">
             <button onClick={save} disabled={busy || !draft.name.trim()} className="btn-primary flex-1 py-1.5 text-sm">
               Enregistrer
@@ -1873,11 +2185,20 @@ function CatalogManager({
           <li key={c.id} className="flex items-center gap-2 border-b border-line/40 pb-1 text-sm last:border-0">
             <div className="min-w-0 flex-1">
               <span className="font-semibold text-ink">{c.name}</span>
+              {/* La note d'abord, juste après le nom : c'est elle qui décide de
+                  ce que le générateur propose, elle doit se voir en parcourant
+                  la liste sans ouvrir une seule fiche. */}
+              <span className="ml-1 whitespace-nowrap text-xs font-bold text-copper" title={`Priorité ${c.score}/${SCORE_MAX}`}>
+                {c.score}/{SCORE_MAX}
+              </span>
               <span className="text-xs text-muted">
                 {' '}
                 — {c.default_sets}×{c.default_reps}
                 {c.muscle_group ? ` · ${c.muscle_group}` : ''}
               </span>
+              {/* La note, outil en tête : c'est la ligne qu'on lit avant de
+                  partir vers la machine. */}
+              <div className="text-[11px] italic text-muted">{noteAvecOutil(c.name, c.notes)}</div>
             </div>
             <button
               onClick={() =>
@@ -1889,6 +2210,7 @@ function CatalogManager({
                   reps: c.default_reps,
                   weight: '',
                   notes: c.notes,
+                  score: c.score,
                 })
               }
               className="shrink-0 text-xs text-copper"

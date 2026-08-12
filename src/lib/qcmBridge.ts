@@ -68,10 +68,23 @@ function dayIndex(len: number): number {
   return doy % len
 }
 
-export async function fetchNotionDuJourQcm(): Promise<QcmItem | null> {
+/**
+ * La prochaine question à poser, en écartant celles qu'on vient de faire.
+ *
+ * L'index par jour de l'année donne la stabilité — la même question toute la
+ * journée, pas un tirage différent à chaque ouverture de l'accueil. Mais dès
+ * qu'on en répond une, il faut la SUIVANTE, sinon l'accueil repose la même.
+ */
+export function prochaineQcm<T extends { id: string }>(items: T[], exclure: ReadonlySet<string> = new Set()): T | null {
+  const restants = exclure.size ? items.filter((it) => !exclure.has(it.id)) : items
+  return restants.length > 0 ? restants[dayIndex(restants.length)] : null
+}
+
+/** @param exclure Questions déjà répondues depuis l'ouverture de l'accueil. */
+export async function fetchNotionDuJourQcm(exclure: ReadonlySet<string> = new Set()): Promise<QcmItem | null> {
   const items = await fetchQcmBank()
   if (!items) return null
-  return items[dayIndex(items.length)]
+  return prochaineQcm(items, exclure)
 }
 
 export const QCM_KIND_LABELS: Record<QcmItem['kind'], string> = {

@@ -58,6 +58,9 @@ export function Home() {
   const [creneau, setCreneau] = useState(DUREE_PAR_DEFAUT)
   const [sorties, setSorties] = useState<Sortie[]>([])
   const [notion, setNotion] = useState<QcmItem | null>(null)
+  // Les notions déjà répondues depuis l'ouverture de l'accueil. Sert à ne pas
+  // reposer la même question et à compter ce qu'on a fait aujourd'hui.
+  const [notionsVues, setNotionsVues] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (!user) return
@@ -190,7 +193,28 @@ export function Home() {
         contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau }}
       />
 
-      {notion ? <NotionDuJourCard notion={notion} /> : null}
+      {/* La suivante arrive dès qu'on a répondu à celle-ci : `key` sur l'id de
+          la question, sinon la carte suivante arriverait avec l'explication
+          de la précédente encore affichée. */}
+      {notion ? (
+        <NotionDuJourCard
+          key={notion.id}
+          notion={notion}
+          faites={notionsVues.size}
+          onSuivante={async () => {
+            const vues = new Set(notionsVues).add(notion.id)
+            setNotionsVues(vues)
+            setNotion(await fetchNotionDuJourQcm(vues))
+          }}
+        />
+      ) : notionsVues.size > 0 ? (
+        <div className="card p-4 text-center">
+          <div className="text-sm font-bold text-ink">
+            🧠 {notionsVues.size} notion{notionsVues.size > 1 ? 's' : ''} répondue{notionsVues.size > 1 ? 's' : ''}
+          </div>
+          <p className="mt-1 text-xs text-muted">Plus de questions dans le stock du Hub pour l'instant.</p>
+        </div>
+      ) : null}
 
       {tasks.length > 0 ? (
         <div className="card p-4">
@@ -628,14 +652,32 @@ function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) 
  * voir lib/qcmBridge). Correction immédiate au clic, explication et source
  * juste en dessous. Même question toute la journée.
  */
-function NotionDuJourCard({ notion }: { notion: QcmItem }) {
+function NotionDuJourCard({
+  notion,
+  faites = 0,
+  onSuivante,
+}: {
+  notion: QcmItem
+  /** Notions déjà répondues depuis l'ouverture : sert à l'afficher, rien d'autre. */
+  faites?: number
+  /** Amène la question suivante (en écartant celles déjà vues). */
+  onSuivante: () => Promise<void>
+}) {
   const [picked, setPicked] = useState<number | null>(null)
 
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between gap-2 p-4 pb-0">
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">🧠 Notion du jour</div>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            <span className="truncate">🧠 Notion du jour</span>
+            {/* Le compte du jour : c'est lui qui transforme « une notion
+                quotidienne » en série. Sans ce chiffre, enchaîner plusieurs
+                questions ne laisse aucune trace à l'écran. */}
+            {faites > 0 ? (
+              <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-0.5 text-[10px] font-bold text-sage">+{faites}</span>
+            ) : null}
+          </div>
           <div className="truncate text-[11px] text-muted">
             {QCM_KIND_LABELS[notion.kind]} · {notion.srcLabel}
           </div>
@@ -673,16 +715,40 @@ function NotionDuJourCard({ notion }: { notion: QcmItem }) {
         </div>
 
         {picked !== null ? (
-          <div className="rounded-xl2 bg-bg/60 p-3 text-xs">
-            <p className={`mb-1 font-bold ${picked === notion.correct ? 'text-sage' : 'text-clay'}`}>
-              {picked === notion.correct ? '✅ Bonne réponse' : '❌ Mauvaise réponse'}
-            </p>
-            <p className="text-muted">{notion.explication}</p>
-            {notion.source ? <p className="mt-1.5 text-[10px] italic text-muted">Source : {notion.source}</p> : null}
-          </div>
+          <>
+            <div className="rounded-xl2 bg-bg/60 p-3 text-xs">
+              <p className={`mb-1 font-bold ${picked === notion.correct ? 'text-sage' : 'text-clay'}`}>
+                {picked === notion.correct ? '✅ Bonne réponse' : '❌ Mauvaise réponse'}
+              </p>
+              <p className="text-muted">{notion.explication}</p>
+              {notion.source ? <p className="mt-1.5 text-[10px] italic text-muted">Source : {notion.source}</p> : null}
+            </div>
+            <SuivanteButton onSuivante={onSuivante} />
+          </>
         ) : null}
       </div>
     </div>
+  )
+}
+
+/** Bouton « Question suivante » — désactivé pendant le fetch, pour éviter le double-clic. */
+function SuivanteButton({ onSuivante }: { onSuivante: () => Promise<void> }) {
+  const [sending, setSending] = useState(false)
+  async function go() {
+    setSending(true)
+    try {
+      await onSuivante()
+      // Pas de `setSending(false)` en cas de succès : la carte est démontée par
+      // le parent (nouvelle `key`). Le remettre à faux ferait clignoter le
+      // bouton juste avant la disparition.
+    } catch {
+      setSending(false)
+    }
+  }
+  return (
+    <button onClick={go} disabled={sending} className="btn-primary w-full py-2.5 disabled:opacity-60">
+      {sending ? 'Question suivante…' : 'Question suivante →'}
+    </button>
   )
 }
 

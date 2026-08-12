@@ -11,6 +11,7 @@ import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 export { PAS_HEURES, PAS_JOURS }
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
+import { clefAllure, loadAllures, type Allures } from './allure'
 import { loadExclues, type Exclues } from './comptage'
 // Import croisé assumé : `effort` a besoin de la lecture des reps, qui vit ici
 // depuis le tonnage, et `groupLoads` a besoin du facteur, qui vit là-bas parce
@@ -18,6 +19,12 @@ import { loadExclues, type Exclues } from './comptage'
 // ni l'un ni l'autre n'appelle l'autre au chargement du module, seulement dans
 // le corps de fonctions déclarées, qui sont hissées.
 import { facteurEffort, referencesEffort } from './effort'
+// Même arrangement, pour la même raison : la note par défaut a besoin de la
+// famille de mouvement et du comptage des muscles, qui vivent dans `composition`
+// — lequel relit les étiquettes d'ici. Aucun des trois modules ne touche l'autre
+// à l'évaluation : `ETIRES` et `POLYARTICULAIRES` sont des listes littérales,
+// tout le reste est déclaré en fonctions, donc hissé.
+import { borner, scoreParDefaut } from './scoreExercice'
 
 // ── Module Musculation ───────────────────────────────────────────────────────
 // Séances types (modèles éditables, pré-remplies depuis le programme Basic Fit)
@@ -45,6 +52,15 @@ export interface MuscuExo extends ExoInput {
    * pas à le savoir.
    */
   doux?: boolean
+  /**
+   * Allure déclarée SUR CET EXERCICE — seulement pour ceux qui se mesurent en
+   * temps ou en distance, où la charge ne dit rien de l'effort.
+   *
+   * Recollée au chargement depuis le KV, comme `doux` et comme l'intensité de
+   * séance. Elle l'emporte sur l'intensité de la séance pour cette ligne, et
+   * pour elle seule : la déclaration la plus précise gagne.
+   */
+  allure?: IntensiteId
 }
 
 export interface MuscuTemplate {
@@ -94,6 +110,16 @@ export interface CatalogExercise {
   default_weight_kg: number | null
   notes: string
   position: number
+  /**
+   * Note sur 5 : la priorité de l'exercice dans le générateur.
+   *
+   * Toujours renseignée ici, jamais forcément en base. La colonne est vide tant
+   * qu'on n'a rien décidé, et c'est `scoreParDefaut` qui remplit — un exercice
+   * ajouté demain arrive donc noté, sans amorçage ni migration de données. Dès
+   * qu'une note est enregistrée, c'est elle qui fait foi : le calcul ne
+   * connaît ni le matériel disponible, ni l'épaule qui coince.
+   */
+  score: number
 }
 
 /**
@@ -124,6 +150,21 @@ export function distanceEnMetres(reps: string): number | null {
   const val = parseFloat(m[1].replace(',', '.'))
   if (!Number.isFinite(val)) return null
   return m[2].toLowerCase() === 'km' ? val * 1000 : val
+}
+
+/**
+ * Cet exercice se mesure-t-il en TEMPS ou en DISTANCE plutôt qu'en répétitions ?
+ *
+ * C'est la famille où la charge ne dit rien de l'effort : un rameur, un
+ * gainage, une marche du fermier, un traîneau. Le facteur d'effort vaut 1 pour
+ * eux (cf. lib/effort) — il n'a rien à comparer —, donc vingt minutes de rameur
+ * à 60 % et vingt minutes à fond fatiguaient identiquement.
+ *
+ * Une seule définition, lue par le calcul comme par l'écran : c'est elle qui
+ * décide où le réglage d'allure apparaît, et où il compte.
+ */
+export function estAuTempsOuDistance(reps: string): boolean {
+  return /\d\s*(s|sec|min|h)\b/i.test(reps) || distanceEnMetres(reps) !== null
 }
 
 /** Répétitions retenues pour le tonnage : distance convertie, sinon le nombre saisi. */
@@ -263,6 +304,21 @@ export interface GroupLoad {
   effort?: number
   /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
+  /**
+   * Séries EFFECTIVES posées sur chaque MUSCLE par la séance.
+   *
+   * Par muscle et non par libellé, exactement comme les courbatures déclarées
+   * juste au-dessus, et pour la même raison : un libellé couvre jusqu'à
+   * trente-huit muscles, et deux libellés différents atteignent souvent le même
+   * muscle. « Dos » et « Grand dorsal » sont deux entrées distinctes ici, et
+   * pourtant c'est le même grand dorsal qui encaisse — 54 des 54 régions sont
+   * dans ce cas. Compté par libellé, le cumul d'un béhourd déclaré sur « Dos »
+   * et d'une traction déclarée sur « Grand dorsal » se perdait entièrement.
+   *
+   * PORTÉES et non appliquées : c'est `reposParMuscle` qui les applique, muscle
+   * par muscle.
+   */
+  volumes?: Partial<Record<MuscleRegion, number>>
   /**
    * Déclarations de ressenti qui s'appliquent à cette charge, PAR MUSCLE.
    *
@@ -420,6 +476,100 @@ export function seanceDuJour(sessions: MuscuSession[], jour: string): MuscuSessi
  * est le même — seule l'horloge avance —, donc il n'y a rien à dupliquer pour
  * projeter, et une projection ne peut pas dériver du calcul réel.
  */
+/**
+ * Ce qu'un exercice ordinaire pose sur un muscle : quatre séries.
+ *
+ * En dessous, le volume ne retire rien — c'est déjà ce que le barème suppose
+ * quand il ne compte que l'intensité.
+ */
+export const SERIES_NEUTRES = 4
+
+/** Ce que le volume peut coûter, au maximum : un jour de récupération, presque. */
+export const VOLUME_MAX_JOURS = 0.9
+
+/**
+ * La constante de saturation, en séries. Plus elle est grande, plus il faut de
+ * volume pour approcher le plafond.
+ */
+const VOLUME_K = 5
+
+/**
+ * Ce que le VOLUME retire de jours de récupération, en plus de l'intensité.
+ *
+ * Le barème ne comptait que l'intensité maximale posée sur un muscle : une
+ * série de développé couché et dix séries donnaient exactement le même
+ * pectoral, et quatre exercices de pectoraux valaient un seul. Mesuré à 36 h,
+ * le muscle sortait à 1,275 dans les cinq cas.
+ *
+ * C'est faux, et c'est faux dans le sens dangereux : le mannequin annonçait
+ * frais un muscle qu'on venait d'enterrer sous douze séries.
+ *
+ * La courbe SATURE — 0 à quatre séries, ~0,5 jour à huit, ~0,7 à douze, jamais
+ * plus de 0,9. C'est délibéré : le volume allonge la récupération, il ne la
+ * double pas, et un barème sans plafond finirait par déclarer un muscle mort
+ * pour une séance longue.
+ *
+ * Sources : la fatigue continue de monter au-delà du volume qui fait pousser
+ * (cf. lib/composition), et la récupération complète d'une séance à haut volume
+ * se compte en 48-72 h contre 24-48 h pour une séance courte.
+ *   https://pubmed.ncbi.nlm.nih.gov/28698222/
+ */
+export function joursDeVolume(series: number): number {
+  const sup = Math.max(0, series - SERIES_NEUTRES)
+  if (sup === 0) return 0
+  return Math.round(VOLUME_MAX_JOURS * (1 - Math.exp(-sup / VOLUME_K)) * 100) / 100
+}
+
+/**
+ * Séries EFFECTIVES posées sur chaque libellé de groupe par une séance.
+ *
+ * Effectives : pondérées par la part du muscle dans l'exercice ET par l'effort
+ * de la série. Quatre séries de développé couché à vide ne sont pas quatre
+ * séries de développé couché à 100 kg, et le triceps n'y prend pas ce que le
+ * pectoral y prend.
+ */
+function volumeParMuscle(
+  s: MuscuSession,
+  poidsCorps: number | null,
+  references: Map<string, number>,
+): Map<MuscleRegion, number> {
+  const out = new Map<MuscleRegion, number>()
+  for (const e of s.exercises) {
+    if (estRecuperation(e)) continue
+    const effort = facteurEffort(e, poidsCorps, references)
+    const series = Math.max(0, Math.round(e.sets) || 0)
+    if (series === 0) continue
+    for (const g of parseGroupEntries(e.muscle_group)) {
+      const part = partEffective({ intensity: g.intensity, effort })
+      for (const region of regionsForGroup(g.name)) {
+        out.set(region, (out.get(region) ?? 0) + part * series)
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Le volume des muscles couverts par un libellé, prêt à être porté.
+ *
+ * Rend `undefined` quand aucun d'eux n'a assez de volume pour changer quoi que
+ * ce soit : une charge sans correction ne doit pas traîner une carte vide.
+ */
+function volumesDuGroupe(
+  volumes: Map<MuscleRegion, number>,
+  label: string,
+): { volumes: Partial<Record<MuscleRegion, number>> } | undefined {
+  const out: Partial<Record<MuscleRegion, number>> = {}
+  let utile = false
+  for (const region of regionsForGroup(label)) {
+    const v = volumes.get(region) ?? 0
+    if (joursDeVolume(v) === 0) continue
+    out[region] = v
+    utile = true
+  }
+  return utile ? { volumes: out } : undefined
+}
+
 export function groupLoads(
   sessions: MuscuSession[],
   maintenant = Date.now(),
@@ -463,6 +613,11 @@ export function groupLoads(
     if (s.horsMannequin) continue
     if (s.date > aujourdhui) continue // séance datée dans le futur : ignorée
     const days = ancienneteEnJours(s, now)
+    // Le VOLUME de la séance, groupe par groupe, avant de regarder les lignes :
+    // c'est une propriété de la séance entière, pas de la ligne qu'on juge.
+    // Douze séries de pectoraux fatiguent plus que quatre, quel que soit
+    // l'exercice qui portait la plus forte intensité.
+    const volumes = volumeParMuscle(s, poidsCorps, references)
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       if (estRecuperation(e)) continue
@@ -482,7 +637,15 @@ export function groupLoads(
         // « tranquille » rend des jours au lieu d'en prendre, et retranchée après
         // coup elle passait par-dessus le plafond du jour J.
         const part = partEffective({ intensity: g.intensity, effort })
-        const sur = recupIntensite(s.intensite, part)
+        // Deux corrections, additionnées avant le plafond : ce que l'intensité
+        // déclarée retire, et ce que le volume retire. Elles ne mesurent pas la
+        // même chose — « c'était dur » et « il y en a eu beaucoup » — et une
+        // séance peut très bien être les deux.
+        // L'allure de la LIGNE l'emporte sur l'intensité de la séance, et pour
+        // cette ligne seulement : la déclaration la plus précise gagne. Une
+        // séance tranquille où l'on s'arrache sur le rameur, c'est le cas
+        // courant d'une fin de séance.
+        const sur = recupIntensite(e.allure ?? s.intensite, part)
         const effectiveDays = Math.max(0, joursRessentis(days, part, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
@@ -494,6 +657,8 @@ export function groupLoads(
             effectiveDays,
             ...(effort !== 1 ? { effort } : {}),
             ...(sur !== 0 ? { intensiteRecup: sur, intensiteId: s.intensite } : {}),
+            // Le volume de CHAQUE muscle du libellé, porté tel quel.
+            ...(volumesDuGroupe(volumes, g.name) ?? {}),
           }
         }
       }
@@ -799,7 +964,14 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       deux fois : chaque entrée se calibrait sur son propre ressenti — « c'est
 //       ça qui lâche en premier » — au lieu de se situer parmi les autres
 //       efforts. Rouler ne demande pas plus qu'une randonnée avec sac lesté.
-const LIBRARY_SEED_KEY = 'muscu_library_v37'
+// v38 : rotation interne à 90° à la poulie. La rotation interne n'existait
+//       qu'en version « coude au corps », qui n'est pas le même exercice — la
+//       position de l'armé, bras à l'horizontale, est celle où l'épaule est
+//       vulnérable et celle où le sous-scapulaire doit tenir.
+// Exporté pour le banc d'essai du réalignement : il l'écrivait à la main, et il
+// est donc tombé au premier relèvement de version — en annonçant un défaut de
+// l'amorçage alors que le seul défaut était dans le banc.
+export const LIBRARY_SEED_KEY = 'muscu_library_v38'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
@@ -921,7 +1093,7 @@ function exoRows(userId: string, parentCol: 'template_id' | 'session_id', parent
 export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
   const { data, error } = await supabase
     .from('perso_muscu_exercises')
-    .select('id,name,muscle_group,default_sets,default_reps,default_weight_kg,notes,position')
+    .select('id,name,muscle_group,default_sets,default_reps,default_weight_kg,notes,position,score')
     .eq('user_id', userId)
   if (error) throw new Error(error.message)
   // Ordre alphabétique (localeCompare : « Élévations » se range bien avec les E).
@@ -929,6 +1101,12 @@ export async function listCatalog(userId: string): Promise<CatalogExercise[]> {
     .map((r) => ({
       ...r,
       default_weight_kg: r.default_weight_kg === null ? null : Number(r.default_weight_kg),
+      // Note vide en base = pas encore décidée : le barème la calcule. Une note
+      // enregistrée gagne toujours, y compris contre un barème qui changerait.
+      score:
+        r.score === null || r.score === undefined
+          ? scoreParDefaut(String(r.name ?? ''), String(r.muscle_group ?? ''))
+          : Number(r.score),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })) as CatalogExercise[]
 }
@@ -949,7 +1127,9 @@ function messageLisible(brut: string): string {
 
 export async function saveCatalogExercise(
   userId: string,
-  exo: Omit<CatalogExercise, 'id' | 'position'> & { id?: string },
+  // La note est facultative à l'écriture : à défaut, c'est le barème qui la
+  // pose. Un appelant qui n'a pas d'avis sur la priorité n'a pas à en inventer.
+  exo: Omit<CatalogExercise, 'id' | 'position' | 'score'> & { id?: string; score?: number },
 ): Promise<void> {
   const base = {
     name: exo.name.trim() || 'Exercice',
@@ -958,6 +1138,7 @@ export async function saveCatalogExercise(
     default_reps: exo.default_reps.trim() || '10',
     default_weight_kg: exo.default_weight_kg,
     notes: exo.notes.trim(),
+    score: borner(exo.score ?? scoreParDefaut(exo.name, exo.muscle_group)),
   }
   if (exo.id) {
     // Le NOM est le seul lien entre le catalogue et les séances déjà faites :
@@ -1117,6 +1298,7 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   }
   const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
   const douceurs: Douceurs = await loadDouceurs(userId).catch(() => ({}))
+  const allures: Allures = await loadAllures(userId).catch(() => ({}))
   const exclues: Exclues = await loadExclues(userId).catch(() => ({}))
   // Le catalogue est relu ICI, une fois, plutôt que dans chaque écran : c'est le
   // seul moyen que le mannequin, l'export, l'historique et les calories voient
@@ -1126,9 +1308,11 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   return (sessions ?? []).map((s) => ({
     ...s,
     notes: s.notes ?? '',
-    exercises: appliquerCatalogue(bySession.get(s.id) ?? [], catalog).map((e) =>
-      douceurs[clefDouceur(s.id as string, e.name)] ? { ...e, doux: true } : e,
-    ),
+    exercises: appliquerCatalogue(bySession.get(s.id) ?? [], catalog).map((e) => {
+      const allure = allures[clefAllure(s.id as string, e.name)]
+      const doux = douceurs[clefDouceur(s.id as string, e.name)] === true
+      return doux || allure ? { ...e, ...(doux ? { doux: true } : {}), ...(allure ? { allure } : {}) } : e
+    }),
     intensite: intensites[s.id],
     ...(exclues[s.id as string] ? { horsMannequin: true } : {}),
   })) as MuscuSession[]

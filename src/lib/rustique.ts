@@ -189,3 +189,5 @@ export async function submitRustiqueReview(cardId: string, rating: RustiqueRatin
 
 // La Notion du jour de l'accueil ne vient plus d'ici — voir lib/qcmBridge.ts
 // (vrai QCM à choix multiple, importé statiquement depuis le Hub Prométhée).
+// L'exclusion "prochaine carte en écartant celles déjà vues" a migré avec
+// elle, cf. prochaineQcm dans qcmBridge.ts.

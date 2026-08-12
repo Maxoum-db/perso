@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
-import { fmtAnciennete, PAS_HEURES, PAS_JOURS, type GroupLoad } from '../lib/muscu'
+import { fmtAnciennete, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
-import { MUSCLE_LABELS, SOLLICITATION_MARQUEUR, type MuscleRegion, type Sollicitation } from '../lib/muscles'
+import { MUSCLE_LABELS, type MuscleRegion } from '../lib/muscles'
 import { VITESSE_RECUP, fmtDelai, reposParMuscle, resteAvantPret, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
 import { morphPath, type Sexe } from '../lib/morphologie'
@@ -379,23 +379,8 @@ export function MuscleBodyDiagram({
             </span>
           ))}
         </div>
-        <p className="mt-0.5 text-center text-[9px] text-muted">
-          Une case = {PAS_HEURES} h · le corps change de couleur deux fois par jour
-        </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted">
-        <span className="font-semibold">Intensité du dernier travail :</span>
-        {(['principal', 'secondaire', 'leger'] as Sollicitation[]).map((s) => (
-          <span key={s} className="inline-flex items-center gap-1.5">
-            <span
-              className="inline-block h-2.5 w-2.5 rounded"
-              style={{ background: recoveryColor(PAS_JOURS, s === 'principal' ? 1 : s === 'secondaire' ? 0.6 : 0.3) }}
-            />
-            {SOLLICITATION_MARQUEUR[s]} {s === 'leger' ? 'appoint' : s}
-          </span>
-        ))}
-      </div>
 
       {Object.keys(loads).length === 0 ? (
         <p className="text-center text-[11px] text-muted">

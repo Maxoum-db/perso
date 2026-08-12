@@ -1,6 +1,9 @@
+import { useMemo } from 'react'
 import { bilanCalories, sessionCalories } from '../lib/calories'
 import { INTENSITES } from '../lib/intensite'
+import { poidsHistorique } from '../lib/profil'
 import type { MuscuSession } from '../lib/muscu'
+import type { Weighin } from '../lib/workouts'
 
 // Dépense des séances sur 7 jours. L'intérêt n'est pas le chiffre absolu —
 // c'est une estimation — mais la comparaison d'une semaine à l'autre.
@@ -18,11 +21,21 @@ function frJour(date: string): string {
 export function CaloriesCard({
   sessions,
   bodyWeight,
+  weighins = [],
 }: {
   sessions: MuscuSession[]
+  /** Dernière pesée — pour le pied de carte, qui parle d'aujourd'hui. */
   bodyWeight: number | null
+  /** Toutes les pesées : chaque séance est calculée au poids de SON jour. */
+  weighins?: Weighin[]
 }) {
-  const bilan = bilanCalories(sessions, bodyWeight, 7)
+  // Mémoïsé : la fonction retournée referme un tableau trié, et la recréer à
+  // chaque rendu retrierait quatre-vingts pesées pour rien.
+  const poids = useMemo(
+    () => (weighins.length ? poidsHistorique(weighins) : bodyWeight),
+    [weighins, bodyWeight],
+  )
+  const bilan = bilanCalories(sessions, poids, 7)
   const delta = bilan.totalPrecedent > 0 ? bilan.total - bilan.totalPrecedent : null
   const aujourdhui = new Date().toLocaleDateString('en-CA')
 
@@ -78,13 +91,21 @@ export function CaloriesCard({
       {recentes.length > 0 ? (
         <ul className="mt-3 space-y-1 border-t border-line/60 pt-2">
           {recentes.slice(0, 6).map((s) => {
-            const c = sessionCalories(s, bodyWeight)
+            const c = sessionCalories(s, poids)
             return (
               <li key={s.id} className="flex items-baseline gap-2 text-xs">
                 <span className="w-20 shrink-0 text-muted">{frJour(s.date)}</span>
                 <span className="min-w-0 flex-1 truncate text-ink">{s.name}</span>
                 <span className="shrink-0 text-[10px] text-muted">
-                  {c.minutes} min{c.dureeEstimee ? '*' : ''} · MET {c.met}
+                  {c.minutes} min{c.dureeEstimee ? '*' : ''} · MET {c.met.toFixed(1)}
+                  {c.allureDeclaree ? (
+                    // Une allure de ligne l'emporte sur tout le reste POUR SA
+                    // LIGNE : le coefficient affiché à côté ne raconte alors
+                    // qu'une partie de la séance, et il faut le dire.
+                    <span className="ml-1 font-bold text-copper" title="Au moins un exercice porte son allure">
+                      ⏱
+                    </span>
+                  ) : null}
                   {c.declaree && s.intensite ? (
                     // Déclaré à la main : on le dit, sinon on ne sait plus d'où
                     // vient le coefficient en relisant le journal trois mois après.
@@ -114,12 +135,10 @@ export function CaloriesCard({
         <p className="mt-3 text-center text-[11px] text-muted">Aucune séance sur les 7 derniers jours.</p>
       )}
 
-      <p className="mt-2 text-[10px] leading-relaxed text-muted">
-        Estimation MET × densité × poids de corps × durée
-        {bodyWeight ? ` (${bodyWeight} kg)` : ' (poids de corps non renseigné : 75 kg par défaut)'}. La densité
-        compare tonnage et séries au temps passé : une heure enchaînée compte jusqu'à 35 % de plus qu'une heure
-        traînante. Elle ne s'applique que si tu as saisi la durée — sinon elle serait déduite des séries, donc
-        toujours identique. Compte ±15 % sans capteur cardiaque ; une durée suivie de <b>*</b> a été estimée.
+      <p className="mt-2 text-[10px] leading-snug text-muted">
+        MET × densité × poids × durée{bodyWeight ? ` (${bodyWeight} kg)` : ' (75 kg par défaut)'}, chaque exercice
+        pesé par son temps. Dépense <b>brute</b> — la Balance en retire la vie courante. <b>*</b> durée estimée,{' '}
+        <b>⏱</b> allure déclarée. ±15 % sans capteur cardiaque.
       </p>
     </section>
   )
