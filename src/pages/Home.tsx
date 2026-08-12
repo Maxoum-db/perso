@@ -64,6 +64,11 @@ export function Home() {
   const [creneau, setCreneau] = useState(DUREE_PAR_DEFAUT)
   const [sorties, setSorties] = useState<Sortie[]>([])
   const [notion, setNotion] = useState<RustiqueNotion | null>(null)
+  // Les notions déjà répondues depuis l'ouverture de l'accueil. Elles servent à
+  // deux choses : ne pas reposer la question à laquelle on vient de répondre —
+  // une carte notée « à revoir » reste due quelques minutes —, et compter ce
+  // qu'on a fait aujourd'hui.
+  const [notionsVues, setNotionsVues] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (!user) return
@@ -196,7 +201,37 @@ export function Home() {
         contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau }}
       />
 
-      {notion ? <NotionDuJourCard notion={notion} /> : null}
+      {/* La suivante arrive dès qu'on a noté celle-ci : une notion par jour,
+          c'est un rythme imposé par le calendrier, pas par l'envie d'apprendre.
+          `key` sur l'identifiant de la carte : la nouvelle question arrive
+          repliée, sans quoi la réponse de la précédente resterait ouverte. */}
+      {notion ? (
+        <NotionDuJourCard
+          key={notion.card.id}
+          notion={notion}
+          faites={notionsVues.size}
+          onNotee={async (rating) => {
+            await submitRustiqueReview(notion.card.id, rating)
+            const vues = new Set(notionsVues).add(notion.card.id)
+            setNotionsVues(vues)
+            const r = await fetchNotionDuJour(vues)
+            setNotion(r.status === 'ok' ? r.notion : null)
+          }}
+        />
+      ) : notionsVues.size > 0 ? (
+        <div className="card p-4 text-center">
+          <div className="text-sm font-bold text-ink">
+            🧠 {notionsVues.size} notion{notionsVues.size > 1 ? 's' : ''} révisée
+            {notionsVues.size > 1 ? 's' : ''}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Plus rien à réviser pour aujourd'hui. Le planning reprendra la main demain.
+          </p>
+          <Link to="/rustique" className="mt-2 inline-block text-xs font-semibold text-copper">
+            Ouvrir Apprentissage →
+          </Link>
+        </div>
+      ) : null}
 
       {tasks.length > 0 ? (
         <div className="card p-4">
@@ -635,17 +670,28 @@ function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) 
  * qu'au Quiz — noter ici avance le même planning FSRS que dans Rustique,
  * sans avoir à quitter l'accueil pour la seule notion du jour.
  */
-function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
+export function NotionDuJourCard({
+  notion,
+  faites = 0,
+  onNotee,
+}: {
+  notion: RustiqueNotion
+  /** Notions déjà répondues depuis l'ouverture : sert à l'afficher, rien d'autre. */
+  faites?: number
+  /** Note la carte ET amène la suivante. Le parent tient la liste des vues. */
+  onNotee: (rating: RustiqueRating) => Promise<void>
+}) {
   const [revele, setRevele] = useState(false)
-  const [rated, setRated] = useState<RustiqueRating | null>(null)
   const [sending, setSending] = useState(false)
 
   async function rate(r: RustiqueRating) {
     setSending(true)
     try {
-      await submitRustiqueReview(notion.card.id, r)
-      setRated(r)
+      await onNotee(r)
     } finally {
+      // Pas de `setSending(false)` en cas de succès : la carte est démontée par
+      // le parent (nouvelle `key`). Le remettre à faux ferait clignoter les
+      // boutons juste avant la disparition.
       setSending(false)
     }
   }
@@ -656,6 +702,14 @@ function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
         <div className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: notion.theme.color }} />
           <span className="truncate">🧠 Notion du jour · {notion.theme.title}</span>
+          {/* Le compte du jour : c'est lui qui transforme « une notion
+              quotidienne » en série. Sans ce chiffre, enchaîner quatre cartes
+              ne laisse aucune trace à l'écran. */}
+          {faites > 0 ? (
+            <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-0.5 text-[10px] font-bold text-sage">
+              +{faites}
+            </span>
+          ) : null}
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -677,15 +731,14 @@ function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
           <>
             <div className="mt-2 whitespace-pre-wrap border-t border-line/60 pt-2 text-sm text-ink">{notion.card.back}</div>
 
-            {rated ? (
-              <p className="mt-3 text-xs text-sage">✓ Notée — {RUSTIQUE_RATING_BUTTONS.find((b) => b.rating === rated)?.label}</p>
+            {sending ? (
+              <p className="mt-3 text-xs text-sage">✓ Notée — question suivante…</p>
             ) : (
               <div className="mt-3 grid grid-cols-4 gap-1.5">
                 {RUSTIQUE_RATING_BUTTONS.map((b) => (
                   <button
                     key={b.rating}
                     onClick={() => rate(b.rating)}
-                    disabled={sending}
                     className={`rounded-xl2 py-2 text-[11px] font-semibold ${b.className}`}
                   >
                     {b.label}
