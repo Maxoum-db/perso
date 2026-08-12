@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { estAuTempsOuDistance } from '../lib/muscu'
+import { loadAllures, saveAllures } from '../lib/allure'
+import type { IntensiteId } from '../lib/intensite'
 import {
   exoTonnage,
   fmtTonnage,
@@ -10,6 +13,7 @@ import {
 import { renommerSiAuto } from '../lib/nommage'
 import { OUTILS, outilDe, type OutilId } from '../lib/materiel'
 import { remodeler, type Changement } from '../lib/remodeler'
+import { AllurePicker } from '../components/AllurePicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
@@ -31,6 +35,12 @@ export interface LiveExo {
   /** Pourquoi cette charge est proposée (« 10 reps la dernière fois : +2,5 kg »). */
   hint?: string
   notes: string
+  /**
+   * Allure déclarée, seulement pour les exercices au temps ou à la distance :
+   * là, la charge ne dit rien de l'effort. Enregistrée à la fin de la séance,
+   * quand la séance a enfin un identifiant.
+   */
+  allure?: IntensiteId
   done: boolean[] // une case par série
 }
 
@@ -428,7 +438,7 @@ export function LiveSession({
         s.name,
         kept.map((e) => ({ name: e.name, muscle_group: e.muscle_group, sets: e.doneCount })),
       )
-      await saveSession(
+      const id = await saveSession(
         userId,
         {
           date: new Date().toISOString().slice(0, 10),
@@ -451,6 +461,22 @@ export function LiveSession({
             : []),
         ],
       )
+      // Les allures déclarées, une fois la séance enregistrée : elles vivent en
+      // KV indexées par séance + exercice, et la séance n'a d'identifiant qu'ici.
+      const avecAllure = kept.filter((e) => e.allure && estAuTempsOuDistance(e.reps))
+      if (avecAllure.length) {
+        try {
+          await saveAllures(
+            userId,
+            id,
+            avecAllure.map((e) => ({ nom: e.name, allure: e.allure as IntensiteId })),
+            await loadAllures(userId),
+          )
+        } catch {
+          // Une allure perdue ne doit pas faire perdre la séance : elle est
+          // enregistrée, c'est elle qui compte.
+        }
+      }
       clearLive()
       onFinish()
     } catch (e) {
@@ -658,6 +684,17 @@ export function LiveSession({
                   />
                   kg
                 </label>
+                {/* Mesuré en temps ou en distance : la charge ne dit rien de
+                    l'effort, et c'est l'allure qui le dit. Trente secondes de
+                    rameur en récupération et trente secondes à fond pesaient
+                    exactement pareil. */}
+                {estAuTempsOuDistance(e.reps) ? (
+                  <AllurePicker
+                    value={e.allure ?? null}
+                    onChange={(allure) => updateExo(j, { allure: allure ?? undefined })}
+                    compact
+                  />
+                ) : null}
                 {/* L'outil, juste après les kilos : c'est ce qu'on cherche des
                     yeux entre deux séries — où va-t-on, et avec quoi. Barré
                     quand le poste a été déclaré pris là-haut : la ligne

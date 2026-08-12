@@ -11,6 +11,7 @@ import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 export { PAS_HEURES, PAS_JOURS }
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
 import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
+import { clefAllure, loadAllures, type Allures } from './allure'
 import { loadExclues, type Exclues } from './comptage'
 // Import croisé assumé : `effort` a besoin de la lecture des reps, qui vit ici
 // depuis le tonnage, et `groupLoads` a besoin du facteur, qui vit là-bas parce
@@ -51,6 +52,15 @@ export interface MuscuExo extends ExoInput {
    * pas à le savoir.
    */
   doux?: boolean
+  /**
+   * Allure déclarée SUR CET EXERCICE — seulement pour ceux qui se mesurent en
+   * temps ou en distance, où la charge ne dit rien de l'effort.
+   *
+   * Recollée au chargement depuis le KV, comme `doux` et comme l'intensité de
+   * séance. Elle l'emporte sur l'intensité de la séance pour cette ligne, et
+   * pour elle seule : la déclaration la plus précise gagne.
+   */
+  allure?: IntensiteId
 }
 
 export interface MuscuTemplate {
@@ -140,6 +150,21 @@ export function distanceEnMetres(reps: string): number | null {
   const val = parseFloat(m[1].replace(',', '.'))
   if (!Number.isFinite(val)) return null
   return m[2].toLowerCase() === 'km' ? val * 1000 : val
+}
+
+/**
+ * Cet exercice se mesure-t-il en TEMPS ou en DISTANCE plutôt qu'en répétitions ?
+ *
+ * C'est la famille où la charge ne dit rien de l'effort : un rameur, un
+ * gainage, une marche du fermier, un traîneau. Le facteur d'effort vaut 1 pour
+ * eux (cf. lib/effort) — il n'a rien à comparer —, donc vingt minutes de rameur
+ * à 60 % et vingt minutes à fond fatiguaient identiquement.
+ *
+ * Une seule définition, lue par le calcul comme par l'écran : c'est elle qui
+ * décide où le réglage d'allure apparaît, et où il compte.
+ */
+export function estAuTempsOuDistance(reps: string): boolean {
+  return /\d\s*(s|sec|min|h)\b/i.test(reps) || distanceEnMetres(reps) !== null
 }
 
 /** Répétitions retenues pour le tonnage : distance convertie, sinon le nombre saisi. */
@@ -590,7 +615,11 @@ export function groupLoads(
         // même chose — « c'était dur » et « il y en a eu beaucoup » — et une
         // séance peut très bien être les deux.
         const volume = joursDeVolume(volumes.get(g.name) ?? 0)
-        const sur = recupIntensite(s.intensite, part) + volume
+        // L'allure de la LIGNE l'emporte sur l'intensité de la séance, et pour
+        // cette ligne seulement : la déclaration la plus précise gagne. Une
+        // séance tranquille où l'on s'arrache sur le rameur, c'est le cas
+        // courant d'une fin de séance.
+        const sur = recupIntensite(e.allure ?? s.intensite, part) + volume
         const effectiveDays = Math.max(0, joursRessentis(days, part, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
@@ -1242,6 +1271,7 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   }
   const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
   const douceurs: Douceurs = await loadDouceurs(userId).catch(() => ({}))
+  const allures: Allures = await loadAllures(userId).catch(() => ({}))
   const exclues: Exclues = await loadExclues(userId).catch(() => ({}))
   // Le catalogue est relu ICI, une fois, plutôt que dans chaque écran : c'est le
   // seul moyen que le mannequin, l'export, l'historique et les calories voient
@@ -1251,9 +1281,11 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   return (sessions ?? []).map((s) => ({
     ...s,
     notes: s.notes ?? '',
-    exercises: appliquerCatalogue(bySession.get(s.id) ?? [], catalog).map((e) =>
-      douceurs[clefDouceur(s.id as string, e.name)] ? { ...e, doux: true } : e,
-    ),
+    exercises: appliquerCatalogue(bySession.get(s.id) ?? [], catalog).map((e) => {
+      const allure = allures[clefAllure(s.id as string, e.name)]
+      const doux = douceurs[clefDouceur(s.id as string, e.name)] === true
+      return doux || allure ? { ...e, ...(doux ? { doux: true } : {}), ...(allure ? { allure } : {}) } : e
+    }),
     intensite: intensites[s.id],
     ...(exclues[s.id as string] ? { horsMannequin: true } : {}),
   })) as MuscuSession[]
