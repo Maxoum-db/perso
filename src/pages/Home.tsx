@@ -33,13 +33,7 @@ import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
-import {
-  fetchNotionDuJour,
-  RUSTIQUE_RATING_BUTTONS,
-  submitRustiqueReview,
-  type RustiqueNotion,
-  type RustiqueRating,
-} from '../lib/rustique'
+import { fetchNotionDuJourQcm, QCM_KIND_LABELS, type QcmItem } from '../lib/qcmBridge'
 
 export function Home() {
   const { user } = useAuth()
@@ -63,7 +57,7 @@ export function Home() {
   const [behourd, setBehourd] = useState(false)
   const [creneau, setCreneau] = useState(DUREE_PAR_DEFAUT)
   const [sorties, setSorties] = useState<Sortie[]>([])
-  const [notion, setNotion] = useState<RustiqueNotion | null>(null)
+  const [notion, setNotion] = useState<QcmItem | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -86,8 +80,8 @@ export function Home() {
     loadFocus(user.id).then(setFocus).catch(() => {})
     loadBehourd(user.id).then(setBehourd).catch(() => {})
     loadDuree(user.id).then(setCreneau).catch(() => {})
-    fetchNotionDuJour()
-      .then((r) => setNotion(r.status === 'ok' ? r.notion : null))
+    fetchNotionDuJourQcm()
+      .then(setNotion)
       .catch(() => {})
     // Prochains événements du couple (espace partagé).
     getMySpace()
@@ -629,81 +623,65 @@ function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) 
 }
 
 /**
- * La notion du jour : une carte à réviser (priorité au thème le plus en
- * retard) ou, à défaut, une carte jamais étudiée. Réponse repliée par défaut
- * pour forcer le rappel actif avant de la révéler, puis les MÊMES 4 boutons
- * qu'au Quiz — noter ici avance le même planning FSRS que dans Rustique,
- * sans avoir à quitter l'accueil pour la seule notion du jour.
+ * La notion du jour : une vraie question à choix multiple (4 options),
+ * piochée dans le QCM du Hub Prométhée (fiches, modules, BPREA, aides —
+ * voir lib/qcmBridge). Correction immédiate au clic, explication et source
+ * juste en dessous. Même question toute la journée.
  */
-function NotionDuJourCard({ notion }: { notion: RustiqueNotion }) {
-  const [revele, setRevele] = useState(false)
-  const [rated, setRated] = useState<RustiqueRating | null>(null)
-  const [sending, setSending] = useState(false)
-
-  async function rate(r: RustiqueRating) {
-    setSending(true)
-    try {
-      await submitRustiqueReview(notion.card.id, r)
-      setRated(r)
-    } finally {
-      setSending(false)
-    }
-  }
+function NotionDuJourCard({ notion }: { notion: QcmItem }) {
+  const [picked, setPicked] = useState<number | null>(null)
 
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between gap-2 p-4 pb-0">
-        <div className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: notion.theme.color }} />
-          <span className="truncate">🧠 Notion du jour · {notion.theme.title}</span>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">🧠 Notion du jour</div>
+          <div className="truncate text-[11px] text-muted">
+            {QCM_KIND_LABELS[notion.kind]} · {notion.srcLabel}
+          </div>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-            notion.isNew ? 'bg-sage/20 text-sage' : 'bg-copper/20 text-copper'
-          }`}
-        >
-          {notion.isNew ? 'nouveau' : 'à réviser'}
-        </span>
       </div>
 
-      <div className="p-4">
-        <div className="whitespace-pre-wrap text-sm font-semibold text-ink">{notion.card.front}</div>
+      <div className="space-y-2 p-4">
+        <div className="whitespace-pre-wrap text-sm font-semibold text-ink">{notion.q}</div>
 
-        {!revele ? (
-          <button onClick={() => setRevele(true)} className="btn-ghost mt-2 px-3 py-1.5 text-xs">
-            Voir la réponse
-          </button>
-        ) : (
-          <>
-            <div className="mt-2 whitespace-pre-wrap border-t border-line/60 pt-2 text-sm text-ink">{notion.card.back}</div>
+        <div className="space-y-1.5">
+          {notion.options.map((opt, idx) => {
+            const isCorrect = idx === notion.correct
+            const isPicked = idx === picked
+            const revealed = picked !== null
+            return (
+              <button
+                key={idx}
+                onClick={() => picked === null && setPicked(idx)}
+                disabled={revealed}
+                className={`flex w-full items-start gap-2 rounded-xl2 border p-2.5 text-left text-xs transition ${
+                  revealed && isCorrect
+                    ? 'border-sage bg-sage/10 text-ink'
+                    : revealed && isPicked
+                      ? 'border-clay bg-clay/10 text-ink'
+                      : 'border-line text-ink hover:border-copper/50'
+                }`}
+              >
+                <span className="mt-0.5 shrink-0 font-bold text-muted">{String.fromCharCode(65 + idx)}</span>
+                <span className="min-w-0 flex-1 whitespace-pre-wrap">{opt}</span>
+                {revealed && isCorrect ? <span className="shrink-0 text-sage">✓</span> : null}
+                {revealed && isPicked && !isCorrect ? <span className="shrink-0 text-clay">✗</span> : null}
+              </button>
+            )
+          })}
+        </div>
 
-            {rated ? (
-              <p className="mt-3 text-xs text-sage">✓ Notée — {RUSTIQUE_RATING_BUTTONS.find((b) => b.rating === rated)?.label}</p>
-            ) : (
-              <div className="mt-3 grid grid-cols-4 gap-1.5">
-                {RUSTIQUE_RATING_BUTTONS.map((b) => (
-                  <button
-                    key={b.rating}
-                    onClick={() => rate(b.rating)}
-                    disabled={sending}
-                    className={`rounded-xl2 py-2 text-[11px] font-semibold ${b.className}`}
-                  >
-                    {b.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+        {picked !== null ? (
+          <div className="rounded-xl2 bg-bg/60 p-3 text-xs">
+            <p className={`mb-1 font-bold ${picked === notion.correct ? 'text-sage' : 'text-clay'}`}>
+              {picked === notion.correct ? '✅ Bonne réponse' : '❌ Mauvaise réponse'}
+            </p>
+            <p className="text-muted">{notion.explication}</p>
+            {notion.source ? <p className="mt-1.5 text-[10px] italic text-muted">Source : {notion.source}</p> : null}
+          </div>
+        ) : null}
       </div>
-
-      <Link
-        to="/rustique"
-        state={{ openTheme: notion.theme.id, openCard: notion.card.id }}
-        className="block border-t border-line/60 p-3 text-center text-xs font-semibold text-copper transition hover:bg-copper/5"
-      >
-        Voir dans Apprentissage →
-      </Link>
     </div>
   )
 }
