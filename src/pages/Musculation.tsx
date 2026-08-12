@@ -39,6 +39,8 @@ import { OUTILS, noteAvecOutil, outilDe } from '../lib/materiel'
 import { useMonMateriel } from '../lib/useMonMateriel'
 import { faisable } from '../lib/monMateriel'
 import { remodeler, type Changement } from '../lib/remodeler'
+import { AllurePicker } from '../components/AllurePicker'
+import { loadAllures, nettoyerAllures, saveAllures, type Allures } from '../lib/allure'
 import { buildSession } from '../lib/sessionBuilder'
 import {
   loadObservations,
@@ -73,6 +75,7 @@ import {
   sessionTonnage,
   distanceEnMetres,
   RESSENTI_NAME,
+  estAuTempsOuDistance,
   estRessenti,
   parseGroupEntries,
   METRES_PAR_REP,
@@ -199,6 +202,8 @@ interface ExoDraft {
   hintTon?: TonCharge
   /** Fait à vide, en amplitude : la ligne compte comme récupération. */
   doux?: boolean
+  /** Allure déclarée — seulement pour les exercices au temps ou à la distance. */
+  allure?: IntensiteId
 }
 
 function emptyExo(group = ''): ExoDraft {
@@ -214,6 +219,7 @@ function exoToDraft(e: MuscuExo): ExoDraft {
     weight: e.weight_kg === null ? '' : String(e.weight_kg),
     notes: e.notes,
     doux: e.doux,
+    allure: e.allure,
   }
 }
 
@@ -295,6 +301,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [intensites, setIntensites] = useState<Intensites>({})
   // Exercices déclarés faits en version douce, indexés par séance + exercice.
   const [douceurs, setDouceurs] = useState<Douceurs>({})
+  // Allures déclarées sur les exercices au temps ou à la distance, même index.
+  const [allures, setAllures] = useState<Allures>({})
   // Séances décochées : au journal, mais hors du mannequin.
   const [exclues, setExclues] = useState<Exclues>({})
   // Nuits renseignées : elles décalent la récupération du mannequin.
@@ -317,7 +325,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -332,6 +340,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadBehourd(user.id).catch(() => false),
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
+        loadAllures(user.id).catch(() => ({}) as Allures),
         loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
         sections.includes('course') ? listSorties(user.id).catch(() => [] as Sortie[]) : [],
@@ -348,6 +357,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setDouceurs(nettoyerDouceurs(dx, new Set(s.map((x) => x.id))))
+      setAllures(nettoyerAllures(al, new Set(s.map((x) => x.id))))
       setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
       setObservations(ob)
@@ -439,6 +449,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           onIntensite={setIntensites}
           douceurs={douceurs}
           onDouceurs={setDouceurs}
+          allures={allures}
+          onAllures={setAllures}
           onCourbatures={(next) => {
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
@@ -511,6 +523,8 @@ export function Journal({
   onIntensite,
   douceurs,
   onDouceurs,
+  allures,
+  onAllures,
   exclues,
   onExclues,
   sexe,
@@ -546,6 +560,9 @@ export function Journal({
   /** Exercices déclarés faits en version douce, indexés par séance + exercice. */
   douceurs: Douceurs
   onDouceurs: (d: Douceurs) => void
+  /** Allures déclarées sur les exercices au temps ou à la distance. */
+  allures: Allures
+  onAllures: (a: Allures) => void
   /** Séances décochées : au journal, mais hors du mannequin. */
   exclues: Exclues
   onExclues: (e: Exclues) => void
@@ -902,6 +919,18 @@ export function Journal({
               id,
               d.exos.filter((e) => e.doux && e.name.trim()).map((e) => e.name),
               douceurs,
+            ),
+          )
+          // Les allures, même chemin : elles ne peuvent s'écrire qu'une fois la
+          // séance identifiée, et seulement là où elles ont un sens.
+          onAllures(
+            await saveAllures(
+              userId,
+              id,
+              d.exos
+                .filter((e) => e.allure && e.name.trim() && estAuTempsOuDistance(e.reps))
+                .map((e) => ({ nom: e.name, allure: e.allure as IntensiteId })),
+              allures,
             ),
           )
           setDraft(null)
@@ -1584,6 +1613,18 @@ function ExoListEditor({
               </span>
             ) : null}
           </div>
+          {/* Mesuré en temps ou en distance : la charge ne dit rien de l'effort.
+              Trente secondes de rameur en récupération et trente secondes à
+              fond pesaient exactement pareil sur le mannequin. */}
+          {estAuTempsOuDistance(e.reps) ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-muted">Allure</span>
+              <AllurePicker
+                value={e.allure ?? null}
+                onChange={(allure) => update(i, { allure: allure ?? undefined })}
+              />
+            </div>
+          ) : null}
           {/* La case n'apparaît que sur les exercices qui ONT une version douce
               — la bibliothèque le dit. La proposer partout laisserait croire
               qu'un squat allégé se compte comme de la récupération : il ne se
