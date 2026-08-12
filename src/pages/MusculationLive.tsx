@@ -552,6 +552,24 @@ export function LiveSession({
                   />
                   kg
                 </label>
+                {/* L'outil, juste après les kilos : c'est ce qu'on cherche des
+                    yeux entre deux séries — où va-t-on, et avec quoi. Barré
+                    quand le poste a été déclaré pris là-haut : la ligne
+                    concernée se repère alors sans relire le panneau. */}
+                {e.name.trim() ? (
+                  <span
+                    className={`text-[11px] font-semibold ${
+                      outilsHS.includes(outilDe(e.name)) ? 'text-clay line-through' : 'text-muted'
+                    }`}
+                    title={
+                      outilsHS.includes(outilDe(e.name))
+                        ? `${OUTILS[outilDe(e.name)].label} — déclaré pris`
+                        : OUTILS[outilDe(e.name)].label
+                    }
+                  >
+                    {OUTILS[outilDe(e.name)].emoji} {OUTILS[outilDe(e.name)].label}
+                  </span>
+                ) : null}
                 {e.hint ? <span className="text-[11px] font-semibold text-copper">💡 {e.hint}</span> : null}
               </div>
 
