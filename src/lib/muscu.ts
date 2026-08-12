@@ -280,6 +280,17 @@ export interface GroupLoad {
   /** Jours « ressentis » — cf. `joursRessentis`. */
   effectiveDays: number
   /**
+   * Séries EFFECTIVES posées sur ce groupe par la séance, et ce qu'elles
+   * retirent de jours (cf. `joursDeVolume`). Absents quand le volume ne change
+   * rien — c'est-à-dire à quatre séries ou moins.
+   *
+   * Portés jusqu'ici pour que la fiche puisse DIRE pourquoi un muscle est plus
+   * fatigué qu'un autre à intensité égale. Une correction qu'on ne peut pas
+   * expliquer à l'écran est une correction qu'on finit par ne plus croire.
+   */
+  volume?: number
+  volumeRecup?: number
+  /**
    * Déclarations de ressenti qui s'appliquent à cette charge, PAR MUSCLE.
    *
    * Portées et non appliquées : une charge est indexée par libellé de groupe, et
@@ -436,6 +447,77 @@ export function seanceDuJour(sessions: MuscuSession[], jour: string): MuscuSessi
  * est le même — seule l'horloge avance —, donc il n'y a rien à dupliquer pour
  * projeter, et une projection ne peut pas dériver du calcul réel.
  */
+/**
+ * Ce qu'un exercice ordinaire pose sur un muscle : quatre séries.
+ *
+ * En dessous, le volume ne retire rien — c'est déjà ce que le barème suppose
+ * quand il ne compte que l'intensité.
+ */
+export const SERIES_NEUTRES = 4
+
+/** Ce que le volume peut coûter, au maximum : un jour de récupération, presque. */
+export const VOLUME_MAX_JOURS = 0.9
+
+/**
+ * La constante de saturation, en séries. Plus elle est grande, plus il faut de
+ * volume pour approcher le plafond.
+ */
+const VOLUME_K = 5
+
+/**
+ * Ce que le VOLUME retire de jours de récupération, en plus de l'intensité.
+ *
+ * Le barème ne comptait que l'intensité maximale posée sur un muscle : une
+ * série de développé couché et dix séries donnaient exactement le même
+ * pectoral, et quatre exercices de pectoraux valaient un seul. Mesuré à 36 h,
+ * le muscle sortait à 1,275 dans les cinq cas.
+ *
+ * C'est faux, et c'est faux dans le sens dangereux : le mannequin annonçait
+ * frais un muscle qu'on venait d'enterrer sous douze séries.
+ *
+ * La courbe SATURE — 0 à quatre séries, ~0,5 jour à huit, ~0,7 à douze, jamais
+ * plus de 0,9. C'est délibéré : le volume allonge la récupération, il ne la
+ * double pas, et un barème sans plafond finirait par déclarer un muscle mort
+ * pour une séance longue.
+ *
+ * Sources : la fatigue continue de monter au-delà du volume qui fait pousser
+ * (cf. lib/composition), et la récupération complète d'une séance à haut volume
+ * se compte en 48-72 h contre 24-48 h pour une séance courte.
+ *   https://pubmed.ncbi.nlm.nih.gov/28698222/
+ */
+export function joursDeVolume(series: number): number {
+  const sup = Math.max(0, series - SERIES_NEUTRES)
+  if (sup === 0) return 0
+  return Math.round(VOLUME_MAX_JOURS * (1 - Math.exp(-sup / VOLUME_K)) * 100) / 100
+}
+
+/**
+ * Séries EFFECTIVES posées sur chaque libellé de groupe par une séance.
+ *
+ * Effectives : pondérées par la part du muscle dans l'exercice ET par l'effort
+ * de la série. Quatre séries de développé couché à vide ne sont pas quatre
+ * séries de développé couché à 100 kg, et le triceps n'y prend pas ce que le
+ * pectoral y prend.
+ */
+function volumeParGroupe(
+  s: MuscuSession,
+  poidsCorps: number | null,
+  references: Map<string, number>,
+): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const e of s.exercises) {
+    if (estRecuperation(e)) continue
+    const effort = facteurEffort(e, poidsCorps, references)
+    const series = Math.max(0, Math.round(e.sets) || 0)
+    if (series === 0) continue
+    for (const g of parseGroupEntries(e.muscle_group)) {
+      const part = partEffective({ intensity: g.intensity, effort })
+      out.set(g.name, (out.get(g.name) ?? 0) + part * series)
+    }
+  }
+  return out
+}
+
 export function groupLoads(
   sessions: MuscuSession[],
   maintenant = Date.now(),
@@ -479,6 +561,11 @@ export function groupLoads(
     if (s.horsMannequin) continue
     if (s.date > aujourdhui) continue // séance datée dans le futur : ignorée
     const days = ancienneteEnJours(s, now)
+    // Le VOLUME de la séance, groupe par groupe, avant de regarder les lignes :
+    // c'est une propriété de la séance entière, pas de la ligne qu'on juge.
+    // Douze séries de pectoraux fatiguent plus que quatre, quel que soit
+    // l'exercice qui portait la plus forte intensité.
+    const volumes = volumeParGroupe(s, poidsCorps, references)
     // Un exercice peut viser plusieurs groupes, chacun à sa propre intensité.
     for (const e of s.exercises) {
       if (estRecuperation(e)) continue
@@ -498,7 +585,12 @@ export function groupLoads(
         // « tranquille » rend des jours au lieu d'en prendre, et retranchée après
         // coup elle passait par-dessus le plafond du jour J.
         const part = partEffective({ intensity: g.intensity, effort })
-        const sur = recupIntensite(s.intensite, part)
+        // Deux corrections, additionnées avant le plafond : ce que l'intensité
+        // déclarée retire, et ce que le volume retire. Elles ne mesurent pas la
+        // même chose — « c'était dur » et « il y en a eu beaucoup » — et une
+        // séance peut très bien être les deux.
+        const volume = joursDeVolume(volumes.get(g.name) ?? 0)
+        const sur = recupIntensite(s.intensite, part) + volume
         const effectiveDays = Math.max(0, joursRessentis(days, part, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
@@ -510,6 +602,7 @@ export function groupLoads(
             effectiveDays,
             ...(effort !== 1 ? { effort } : {}),
             ...(sur !== 0 ? { intensiteRecup: sur, intensiteId: s.intensite } : {}),
+            ...(volume !== 0 ? { volume: volumes.get(g.name) ?? 0, volumeRecup: volume } : {}),
           }
         }
       }
@@ -819,7 +912,10 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       qu'en version « coude au corps », qui n'est pas le même exercice — la
 //       position de l'armé, bras à l'horizontale, est celle où l'épaule est
 //       vulnérable et celle où le sous-scapulaire doit tenir.
-const LIBRARY_SEED_KEY = 'muscu_library_v38'
+// Exporté pour le banc d'essai du réalignement : il l'écrivait à la main, et il
+// est donc tombé au premier relèvement de version — en annonçant un défaut de
+// l'amorçage alors que le seul défaut était dans le banc.
+export const LIBRARY_SEED_KEY = 'muscu_library_v38'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
