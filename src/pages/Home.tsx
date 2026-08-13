@@ -34,6 +34,7 @@ import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
 import { fetchNotionDuJourQcm, QCM_KIND_LABELS, type QcmItem } from '../lib/qcmBridge'
+import { recordQcmAnswer } from '../lib/qcmStats'
 
 export function Home() {
   const { user } = useAuth()
@@ -695,7 +696,11 @@ function NotionDuJourCard({
             return (
               <button
                 key={idx}
-                onClick={() => picked === null && setPicked(idx)}
+                onClick={() => {
+                  if (picked !== null) return
+                  setPicked(idx)
+                  recordQcmAnswer(notion.kind, idx === notion.correct)
+                }}
                 disabled={revealed}
                 className={`flex w-full items-start gap-2 rounded-xl2 border p-2.5 text-left text-xs transition ${
                   revealed && isCorrect

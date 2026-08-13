@@ -1,11 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
 import { RustiqueApprentissage } from '../components/RustiqueApprentissage'
 import { RustiqueChat } from '../components/RustiqueChat'
 import { RustiqueQuiz } from '../components/RustiqueQuiz'
-import { fetchRustiqueOverview, type RustiqueOverview, type RustiqueOverviewResult } from '../lib/rustique'
-import { fetchHubRecipes, type HubRecipesResult } from '../lib/brews'
+import { groupDecksByTheme, listRustiqueDecks, type RustiqueDecksResult } from '../lib/rustique'
+import { QCM_KIND_LABELS } from '../lib/qcmBridge'
+import { getQcmStats } from '../lib/qcmStats'
 
 function num(v: unknown): string {
   if (typeof v === 'number') return v.toLocaleString('fr-FR')
@@ -26,8 +27,8 @@ function HubNotConfigured() {
   )
 }
 
-// Rustique : deuxième cerveau — aperçu du Hub Prométhée (apiculture,
-// distillation, BPREA, recettes) + un assistant qui pioche dans les deux bases.
+// Rustique : deuxième cerveau — apprentissage (fiches, modules, BPREA) sur
+// les données du Hub Prométhée + un assistant qui pioche dans les deux bases.
 export function Rustique() {
   // Arrivée depuis la Notion du jour (accueil) avec `state: { openTheme,
   // openCard }` : capturé une fois au montage, pas à chaque changement de
@@ -67,40 +68,77 @@ export function Rustique() {
   )
 }
 
+// Aperçu : dédié à l'avancement — thèmes FSRS à réviser (Quiz) + progression
+// sur le QCM à choix multiple (Notion du jour de l'accueil). Deux systèmes
+// distincts, donc deux sources : les decks du hub pour les thèmes, le
+// localStorage local (qcmStats) pour le QCM — aucune des deux ne remplace l'autre.
 function RustiqueApercu() {
-  const [res, setRes] = useState<RustiqueOverviewResult | null>(null)
-  const [recipes, setRecipes] = useState<HubRecipesResult | null>(null)
+  const [decksRes, setDecksRes] = useState<RustiqueDecksResult | null>(null)
+  const [qcmStats] = useState(() => getQcmStats())
 
   useEffect(() => {
-    fetchRustiqueOverview().then(setRes)
-    fetchHubRecipes().then(setRecipes)
+    listRustiqueDecks().then(setDecksRes)
   }, [])
 
-  if (!res) return <p className="text-center text-sm text-muted">Chargement du hub…</p>
-  if (res.status === 'not_configured') return <HubNotConfigured />
-  if (res.status === 'error')
-    return (
-      <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">
-        Impossible de charger le hub.{res.message ? ` (${res.message})` : ''}
-      </div>
-    )
-
-  const overview = res.overview as RustiqueOverview
+  const themeGroups = useMemo(() => (decksRes?.status === 'ok' ? groupDecksByTheme(decksRes.decks) : []), [decksRes])
+  const aReviser = useMemo(() => [...themeGroups].filter((g) => g.dueCount > 0).sort((a, b) => b.dueCount - a.dueCount), [themeGroups])
+  const totalDue = themeGroups.reduce((s, g) => s + g.dueCount, 0)
+  const totalCards = themeGroups.reduce((s, g) => s + g.cardCount, 0)
+  const qcmPct = qcmStats.attempts > 0 ? Math.round((100 * qcmStats.correct) / qcmStats.attempts) : null
 
   return (
     <div className="space-y-3">
-      <ApicultureCard params={overview.params.apiculture} paused={Boolean(overview.params.pauses.pause_apiculture)} />
-      <DistillationCard
-        distillation={overview.params.distillation}
-        ambulant={overview.params.ambulant}
-        paused={Boolean(overview.params.pauses.pause_dist_fixe)}
-        ambPaused={Boolean(overview.params.pauses.pause_ambulant)}
-      />
-      <BpreaCard bprea={overview.bprea} />
-      <RecettesCard recipes={recipes} />
-      {overview.updatedAt ? (
-        <p className="text-center text-[11px] text-muted">Hub mis à jour le {new Date(overview.updatedAt).toLocaleString('fr-FR')}</p>
+      {decksRes?.status === 'not_configured' ? <HubNotConfigured /> : null}
+      {decksRes?.status === 'error' ? (
+        <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">
+          Impossible de charger le hub.{decksRes.message ? ` (${decksRes.message})` : ''}
+        </div>
       ) : null}
+
+      <CardShell title="Thèmes à réviser" emoji="🎯" badge={totalDue > 0 ? `${totalDue} due${totalDue > 1 ? 's' : ''}` : undefined}>
+        {!decksRes ? (
+          <p className="text-xs text-muted">Chargement…</p>
+        ) : aReviser.length === 0 ? (
+          <p className="text-xs text-muted">Rien à réviser pour l'instant. 🎉</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {aReviser.map((g) => (
+              <li key={g.theme.id} className="flex items-center gap-2 text-sm">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: g.theme.color }} />
+                <span className="min-w-0 flex-1 truncate text-ink">{g.theme.title}</span>
+                <span className="shrink-0 font-semibold text-copper">{g.dueCount}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {totalCards > 0 ? (
+          <p className="mt-1 border-t border-line/60 pt-2 text-[11px] text-muted">
+            {totalCards} carte{totalCards > 1 ? 's' : ''} au total dans {themeGroups.length} thème{themeGroups.length > 1 ? 's' : ''}.
+          </p>
+        ) : null}
+      </CardShell>
+
+      <CardShell title="QCM — Notion du jour" emoji="🧠">
+        <Stat label="Questions répondues" value={num(qcmStats.attempts)} />
+        <Stat label="Bonnes réponses" value={num(qcmStats.correct)} />
+        <Stat label="Taux de réussite" value={qcmPct == null ? '—' : `${qcmPct} %`} />
+        {qcmStats.attempts === 0 ? (
+          <p className="mt-1 text-[11px] text-muted">Réponds à la Notion du jour sur l'accueil pour démarrer le suivi.</p>
+        ) : (
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-line/60 pt-2 text-[11px]">
+            {(Object.keys(QCM_KIND_LABELS) as (keyof typeof QCM_KIND_LABELS)[])
+              .filter((k) => qcmStats.byKind[k].attempts > 0)
+              .map((k) => (
+                <div key={k} className="flex justify-between gap-2">
+                  <span className="truncate text-muted">{QCM_KIND_LABELS[k]}</span>
+                  <span className="shrink-0 font-semibold text-ink">
+                    {qcmStats.byKind[k].correct}/{qcmStats.byKind[k].attempts}
+                  </span>
+                </div>
+              ))}
+          </div>
+        )}
+      </CardShell>
     </div>
   )
 }
@@ -128,70 +166,3 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ApicultureCard({ params, paused }: { params: Record<string, unknown>; paused: boolean }) {
-  return (
-    <CardShell title="Apiculture" emoji="🐝" badge={paused ? 'En pause' : undefined}>
-      <Stat label="Ruches (départ)" value={num(params.api_nb_ruches_depart)} />
-      <Stat label="Croissance ruches/an" value={num(params.api_croissance_ruches_an)} />
-      <Stat label="Rendement (kg/ruche)" value={num(params.api_rendement_kg_ruche)} />
-      <Stat label="Prix du miel (€/kg)" value={num(params.api_prix_kg_miel)} />
-    </CardShell>
-  )
-}
-
-function DistillationCard({
-  distillation,
-  ambulant,
-  paused,
-  ambPaused,
-}: {
-  distillation: Record<string, unknown>
-  ambulant: Record<string, unknown>
-  paused: boolean
-  ambPaused: boolean
-}) {
-  return (
-    <CardShell title="Distillation & Ambulant" emoji="🥃" badge={paused ? 'Fixe en pause' : undefined}>
-      <Stat label="Année de lancement (fixe)" value={num(distillation.dist_annee_lancement)} />
-      <Stat label="Capacité (LAP)" value={num(distillation.dist_capacite_LAP)} />
-      <Stat label="Ambulant" value={ambPaused ? 'En pause' : 'Actif'} />
-      <Stat label="LAP façon/an (ambulant)" value={num(ambulant.amb_lap_an_facon)} />
-    </CardShell>
-  )
-}
-
-function BpreaCard({ bprea }: { bprea: RustiqueOverview['bprea'] }) {
-  if (bprea.modulesDecks === 0 && bprea.biblioDecks === 0) {
-    return (
-      <CardShell title="BPREA / Étude" emoji="📚">
-        <p className="text-xs text-muted">Rien à réviser pour l'instant.</p>
-      </CardShell>
-    )
-  }
-  return (
-    <CardShell title="BPREA / Étude" emoji="📚">
-      <Stat label="Modules BPREA" value={`${bprea.modulesDecks} decks · ${bprea.modulesCards} cartes`} />
-      <Stat label="Bibliothèque" value={`${bprea.biblioDecks} decks · ${bprea.biblioCards} cartes`} />
-      <Stat label="Cartes dues aujourd'hui" value={num(bprea.dueToday)} />
-    </CardShell>
-  )
-}
-
-function RecettesCard({ recipes }: { recipes: HubRecipesResult | null }) {
-  if (!recipes || recipes.status !== 'ok') {
-    return (
-      <CardShell title="Recettes & Brassage" emoji="🍺">
-        <p className="text-xs text-muted">Chargement…</p>
-      </CardShell>
-    )
-  }
-  const beer = recipes.recipes.filter((r) => r.type === 'beer').length
-  const spirit = recipes.recipes.filter((r) => r.type !== 'beer').length
-  return (
-    <CardShell title="Recettes & Brassage" emoji="🍺">
-      <Stat label="Bières" value={num(beer)} />
-      <Stat label="Spiritueux & whiskies" value={num(spirit)} />
-      <p className="mt-1 text-[11px] text-muted">Le détail est dans l'onglet 📖 Recettes du Brassage.</p>
-    </CardShell>
-  )
-}
