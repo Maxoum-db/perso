@@ -679,7 +679,7 @@ function NotionDuJourCard({
               <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-0.5 text-[10px] font-bold text-sage">+{faites}</span>
             ) : null}
           </div>
-          <div className="truncate text-[11px] text-muted">
+          <div className="text-[11px] text-muted">
             {QCM_KIND_LABELS[notion.kind]} · {notion.srcLabel}
           </div>
         </div>
