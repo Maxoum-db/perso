@@ -60,31 +60,49 @@ export async function fetchQcmBank(): Promise<QcmItem[] | null> {
   }
 }
 
-/** Indexé sur le jour de l'année : la même question toute la journée, pas un tirage différent à chaque ouverture. */
-function dayIndex(len: number): number {
-  if (len <= 0) return 0
-  const start = Date.UTC(new Date().getFullYear(), 0, 0)
-  const doy = Math.floor((Date.now() - start) / 86400000)
-  return doy % len
+// Historique persistant des dernières questions VUES (pas seulement répondues),
+// pour qu'une question ne puisse pas revenir tout de suite — y compris après un
+// rechargement de page, qui vide l'état en mémoire du composant. Sans ça, un
+// index déterministe (jour de l'année) rendait la même question à chaque
+// ouverture et l'enchaînement "suivante" retombait dans une boucle prévisible.
+const HISTORY_KEY = 'perso_qcm_recent_history_v1'
+const HISTORY_MAX = 60 // grand devant le rythme réel d'usage, minuscule devant les 1031 questions du pool
+
+function readHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch {
+    return []
+  }
 }
 
-/**
- * La prochaine question à poser, en écartant celles qu'on vient de faire.
- *
- * L'index par jour de l'année donne la stabilité — la même question toute la
- * journée, pas un tirage différent à chaque ouverture de l'accueil. Mais dès
- * qu'on en répond une, il faut la SUIVANTE, sinon l'accueil repose la même.
- */
+function pushHistory(id: string) {
+  try {
+    const hist = readHistory()
+    hist.push(id)
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(-HISTORY_MAX)))
+  } catch {
+    // Quota localStorage dépassé : tant pis, l'exclusion se limitera à la session en cours.
+  }
+}
+
+/** La prochaine question à poser, tirée au hasard parmi celles qui ne sont pas exclues. */
 export function prochaineQcm<T extends { id: string }>(items: T[], exclure: ReadonlySet<string> = new Set()): T | null {
   const restants = exclure.size ? items.filter((it) => !exclure.has(it.id)) : items
-  return restants.length > 0 ? restants[dayIndex(restants.length)] : null
+  const pool = restants.length > 0 ? restants : items // tout exclu (improbable vu HISTORY_MAX) : on retombe sur le pool complet
+  return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : null
 }
 
-/** @param exclure Questions déjà répondues depuis l'ouverture de l'accueil. */
+/** @param exclure Questions déjà répondues depuis l'ouverture de l'accueil (en plus de l'historique persistant). */
 export async function fetchNotionDuJourQcm(exclure: ReadonlySet<string> = new Set()): Promise<QcmItem | null> {
   const items = await fetchQcmBank()
   if (!items) return null
-  return prochaineQcm(items, exclure)
+  const historique = readHistory()
+  const combinee = historique.length ? new Set([...exclure, ...historique]) : exclure
+  const notion = prochaineQcm(items, combinee)
+  if (notion) pushHistory(notion.id)
+  return notion
 }
 
 export const QCM_KIND_LABELS: Record<QcmItem['kind'], string> = {
