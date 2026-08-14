@@ -773,6 +773,46 @@ export function Journal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composerAuto])
 
+  /**
+   * Change la priorité d'un exercice depuis la séance proposée.
+   *
+   * Écriture optimiste : la carte répond au clic, l'enregistrement part
+   * derrière. Une note est un geste qu'on fait en lisant, souvent deux ou trois
+   * de suite — attendre l'aller-retour réseau à chaque clic rendrait le réglage
+   * pénible, donc inutilisé, ce qui est exactement l'état dont on sort.
+   *
+   * L'exercice reste dans la séance du jour : la note pèse sur les compositions
+   * SUIVANTES, et une liste qu'on est en train de lire n'a pas à se réordonner
+   * sous les yeux.
+   */
+  async function noterExo(exo: CatalogExercise, score: number) {
+    const note = Math.max(SCORE_MIN, Math.min(SCORE_MAX, score))
+    if (note === exo.score) return
+    const poser = (valeur: number) =>
+      setSuggest((prev) =>
+        prev?.session
+          ? {
+              ...prev,
+              session: {
+                ...prev.session,
+                exercises: prev.session.exercises.map((x) =>
+                  x.exo.id === exo.id ? { ...x, exo: { ...x.exo, score: valeur } } : x,
+                ),
+              },
+            }
+          : prev,
+      )
+    poser(note)
+    try {
+      await saveCatalogExercise(userId, { ...exo, score: note })
+      onChange()
+    } catch {
+      // L'écriture a échoué : on remet la note d'avant plutôt que de laisser la
+      // carte annoncer un réglage qui n'existe pas en base.
+      poser(exo.score)
+    }
+  }
+
   function regenerer() {
     if (!suggest) return
     const next = new Set(suggest.exclude)
@@ -1138,6 +1178,7 @@ export function Journal({
           onManual={() => lancerSuggestion(false)}
           onRegenerate={regenerer}
           onClose={() => setSuggest(null)}
+          onNoter={noterExo}
         />
       ) : null}
 

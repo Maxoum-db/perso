@@ -122,6 +122,29 @@ function pack(card: Record<string, unknown>): PackedCard {
   };
 }
 
+// Le compte qui possède le planning de révision, tant que la table n'est pas
+// cloisonnée par utilisateur (cf. le garde-fou de `submit_review`). Même valeur
+// que PROPRIETAIRE dans src/lib/acces.ts.
+const PROPRIETAIRE = "maximilien@ferme-promethee.fr";
+
+/** L'adresse du compte appelant, ou "" si elle n'est pas lisible. */
+async function lecteur(req: Request): Promise<string> {
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const anon = Deno.env.get("SUPABASE_ANON_KEY");
+    const auth = req.headers.get("Authorization");
+    if (!url || !anon || !auth) return "";
+    const perso = createClient(url, anon, {
+      global: { headers: { Authorization: auth } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data } = await perso.auth.getUser();
+    return data.user?.email ?? "";
+  } catch {
+    return "";
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -138,7 +161,20 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Liste des paquets avec compteurs (cartes / dues aujourd'hui).
+    // Liste des paquets avec compteurs : cartes, cartes NEUVES, cartes DUES.
+    //
+    // ⚠️ `dueCount` comptait les deux ensemble — toute carte sans état de
+    // révision était réputée « due ». Sur neuf cent quarante-cinq cartes dont
+    // six seulement avaient été révisées, l'application annonçait donc neuf cent
+    // quarante-quatre cartes « à réviser » là où il y en avait CINQ. Un compteur
+    // qui ne peut pas descendre ne veut rien dire, et c'est ce qui a laissé une
+    // carte réellement échue passer six semaines inaperçue : le vrai signal
+    // était noyé dans le stock.
+    //
+    // Les deux nombres sont donc séparés. `dueCount` garde son nom mais ne
+    // compte plus que les cartes réellement échues — un client pas encore
+    // redéployé affichera un nombre plus PETIT et toujours juste, jamais une
+    // erreur.
     if (action === "list_decks") {
       const [decksRes, cardsRes, reviewRes] = await Promise.all([
         hub.from("learn_decks").select("id, title, scope"),
@@ -156,10 +192,15 @@ Deno.serve(async (req: Request) => {
       const now = Date.now();
       const cardsByDeck = new Map<string, number>();
       const dueByDeck = new Map<string, number>();
+      const newByDeck = new Map<string, number>();
       for (const c of (cardsRes.data ?? []) as Card[]) {
         cardsByDeck.set(c.deck_id, (cardsByDeck.get(c.deck_id) ?? 0) + 1);
         const due = dueByCard.get(c.id);
-        if (!due || new Date(due).getTime() <= now) {
+        if (!due) {
+          // Jamais présentée : c'est du stock à découvrir, pas une échéance
+          // manquée. Les deux se travaillent, mais seule l'échéance se rattrape.
+          newByDeck.set(c.deck_id, (newByDeck.get(c.deck_id) ?? 0) + 1);
+        } else if (new Date(due).getTime() <= now) {
           dueByDeck.set(c.deck_id, (dueByDeck.get(c.deck_id) ?? 0) + 1);
         }
       }
@@ -170,6 +211,7 @@ Deno.serve(async (req: Request) => {
         theme: themeForDeck(d.id, d.scope),
         cardCount: cardsByDeck.get(d.id) ?? 0,
         dueCount: dueByDeck.get(d.id) ?? 0,
+        newCount: newByDeck.get(d.id) ?? 0,
       }));
       return json({ decks });
     }
@@ -215,8 +257,15 @@ Deno.serve(async (req: Request) => {
           review: stateByCard.get(c.id) ?? null,
         }),
       );
+      // Même distinction qu'à `list_decks` : « échues » ne veut pas dire
+      // « jamais vues ». `due_only` ne rend donc que ce qui est réellement dû,
+      // et `new_only` ce qui n'a jamais été présenté. Sans ça, « Réviser (5) »
+      // ouvrait une session de neuf cent quarante-quatre cartes.
+      const newOnly = Boolean(body.new_only);
       if (dueOnly) {
-        cards = cards.filter((c) => !c.review || new Date((c.review as { due: string }).due).getTime() <= now);
+        cards = cards.filter((c) => c.review && new Date((c.review as { due: string }).due).getTime() <= now);
+      } else if (newOnly) {
+        cards = cards.filter((c) => !c.review);
       }
       return json({ cards });
     }
@@ -227,6 +276,24 @@ Deno.serve(async (req: Request) => {
       const cardId = body.card_id as string;
       const rating = Math.max(1, Math.min(4, Number(body.rating) || 3));
       if (!cardId) return json({ error: "bad_request" }, 400);
+
+      // ⚠️ Garde-fou : l'état de révision n'est PAS cloisonné par compte.
+      //
+      // `learn_review_state` a pour clé `card_id` seul — pas de `user_id`. Deux
+      // personnes qui révisent la même carte écrasent donc mutuellement leur
+      // planning, en silence et sans qu'aucune des deux ne puisse s'en rendre
+      // compte : la carte réapparaît ou disparaît sans raison visible.
+      //
+      // Cloisonner pour de bon demande de toucher la table ET l'application Hub
+      // Prométhée, qui écrit dans la même table avec `onConflict: card_id` — la
+      // migration seule casserait ses écritures. Tant que les deux ne sont pas
+      // faits ensemble, on interdit l'écriture aux autres comptes plutôt que de
+      // laisser un mélange silencieux s'installer. La LECTURE reste ouverte :
+      // consulter les fiches ne dérange personne.
+      const email = (await lecteur(req)).toLowerCase();
+      if (email !== PROPRIETAIRE) {
+        return json({ error: "review_non_cloisonnee" }, 409);
+      }
 
       const { data: current, error: curErr } = await hub
         .from("learn_review_state")

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "verifier-etiquetage": "node tools/verifier-etiquetage.mjs",
+    "prebuild": "node tools/verifier-etiquetage.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"

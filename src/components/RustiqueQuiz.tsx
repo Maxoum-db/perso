@@ -7,6 +7,7 @@ import {
   RUSTIQUE_RATING_BUTTONS,
   submitRustiqueReview,
   type RustiqueCard,
+  type PorteeCartes,
   type RustiqueDeck,
   type RustiqueRating,
   type RustiqueThemeGroup,
@@ -45,11 +46,11 @@ export function RustiqueQuiz() {
 
   const themeGroups = useMemo(() => (decks ? groupDecksByTheme(decks) : []), [decks])
 
-  async function openSession(source: SessionSource, dueOnly: boolean) {
+  async function openSession(source: SessionSource, portee: PorteeCartes) {
     setError(null)
     const res = source.themeId
-      ? await listRustiqueThemeCards(source.themeId, dueOnly)
-      : await listRustiqueCards(source.deckId as string, dueOnly)
+      ? await listRustiqueThemeCards(source.themeId, portee)
+      : await listRustiqueCards(source.deckId as string, portee)
     if (res.status !== 'ok') {
       setError(res.message ?? 'Impossible de charger les cartes.')
       return
@@ -93,8 +94,8 @@ export function RustiqueQuiz() {
           group={g}
           open={openTheme === g.theme.id}
           onToggle={() => setOpenTheme(openTheme === g.theme.id ? null : g.theme.id)}
-          onReviewTheme={() => openSession({ label: g.theme.title, themeId: g.theme.id }, g.dueCount > 0)}
-          onOpenDeck={(d) => openSession({ label: d.title, deckId: d.id }, d.dueCount > 0)}
+          onReviewTheme={(portee) => openSession({ label: g.theme.title, themeId: g.theme.id }, portee)}
+          onOpenDeck={(d, portee) => openSession({ label: d.title, deckId: d.id }, portee)}
         />
       ))}
     </div>
@@ -111,8 +112,8 @@ function ThemeCard({
   group: RustiqueThemeGroup
   open: boolean
   onToggle: () => void
-  onReviewTheme: () => void
-  onOpenDeck: (deck: RustiqueDeck) => void
+  onReviewTheme: (portee: PorteeCartes) => void
+  onOpenDeck: (deck: RustiqueDeck, portee: PorteeCartes) => void
 }) {
   return (
     <div className="card overflow-hidden">
@@ -123,19 +124,38 @@ function ThemeCard({
           <div className="text-xs text-muted">
             {group.decks.length} paquet{group.decks.length > 1 ? 's' : ''} · {group.cardCount} carte
             {group.cardCount > 1 ? 's' : ''}
-            {group.dueCount > 0 ? ` · ${group.dueCount} à réviser` : ''}
+            {group.dueCount > 0 ? ` · ${group.dueCount} à revoir` : ''}
+            {group.newCount > 0 ? ` · ${group.newCount} nouvelle${group.newCount > 1 ? 's' : ''}` : ''}
           </div>
         </div>
         <span className="shrink-0 text-muted">{open ? '▾' : '▸'}</span>
       </button>
 
+      {/* Deux gestes, deux boutons. « Réviser » rattrape ce qui est échu — un
+          nombre petit, atteignable, qui redescend à zéro. « Découvrir » entame
+          le stock, qui lui ne descendra pas de sitôt. Les confondre revenait à
+          proposer neuf cents cartes sous le mot « réviser », donc à ne jamais
+          finir et à ne jamais s'y mettre. */}
       <div className="flex gap-2 border-t border-line/60 bg-bg/40 p-3">
+        {group.dueCount > 0 ? (
+          <button onClick={() => onReviewTheme('dues')} className="btn-primary flex-1 py-2 text-xs">
+            Réviser ({group.dueCount})
+          </button>
+        ) : null}
+        {group.newCount > 0 ? (
+          <button
+            onClick={() => onReviewTheme('nouvelles')}
+            className={`${group.dueCount > 0 ? 'btn-ghost' : 'btn-primary'} flex-1 py-2 text-xs`}
+          >
+            Découvrir ({group.newCount})
+          </button>
+        ) : null}
         <button
-          onClick={onReviewTheme}
+          onClick={() => onReviewTheme('toutes')}
           disabled={group.cardCount === 0}
-          className="btn-primary flex-1 py-2 text-xs disabled:opacity-40"
+          className={`${group.dueCount > 0 || group.newCount > 0 ? 'btn-ghost px-3' : 'btn-primary flex-1'} py-2 text-xs disabled:opacity-40`}
         >
-          {group.dueCount > 0 ? `Réviser tout le thème (${group.dueCount})` : 'Consulter tout le thème'}
+          {group.dueCount > 0 || group.newCount > 0 ? 'Tout' : 'Consulter tout le thème'}
         </button>
       </div>
 
@@ -147,11 +167,16 @@ function ThemeCard({
                 <div className="truncate text-xs font-semibold text-ink">{d.title}</div>
                 <div className="text-[11px] text-muted">
                   {d.cardCount} carte{d.cardCount > 1 ? 's' : ''}
-                  {d.dueCount > 0 ? ` · ${d.dueCount} due${d.dueCount > 1 ? 's' : ''}` : ''}
+                  {d.dueCount > 0 ? ` · ${d.dueCount} à revoir` : ''}
+                  {(d.newCount ?? 0) > 0 ? ` · ${d.newCount} nouvelle${(d.newCount ?? 0) > 1 ? 's' : ''}` : ''}
                 </div>
               </div>
-              <button onClick={() => onOpenDeck(d)} disabled={d.cardCount === 0} className="btn-ghost shrink-0 px-2.5 py-1 text-[11px] disabled:opacity-40">
-                {d.dueCount > 0 ? 'Réviser' : 'Consulter'}
+              <button
+                onClick={() => onOpenDeck(d, d.dueCount > 0 ? 'dues' : 'toutes')}
+                disabled={d.cardCount === 0}
+                className="btn-ghost shrink-0 px-2.5 py-1 text-[11px] disabled:opacity-40"
+              >
+                {d.dueCount > 0 ? `Réviser (${d.dueCount})` : 'Consulter'}
               </button>
             </li>
           ))}
@@ -165,6 +190,8 @@ function QuizSession({ label, cards, onExit }: { label: string; cards: RustiqueC
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [sending, setSending] = useState(false)
+  // Une note qui n'est pas partie doit se voir : sans ça on croit avoir révisé.
+  const [echec, setEchec] = useState<string | null>(null)
 
   if (cards.length === 0) {
     return (
@@ -195,7 +222,21 @@ function QuizSession({ label, cards, onExit }: { label: string; cards: RustiqueC
   async function rate(rating: RustiqueRating) {
     setSending(true)
     try {
-      await submitRustiqueReview(card.id, rating)
+      const res = await submitRustiqueReview(card.id, rating)
+      if (!res.ok) {
+        // On ne passe PAS à la carte suivante : avancer donnerait à croire que
+        // la note est partie, et la prochaine échéance serait fausse sans que
+        // rien ne l'indique.
+        setEchec(
+          res.raison === 'non_cloisonne'
+            ? 'Le planning de révision appartient au compte principal — ta note n’a pas été enregistrée.'
+            : res.raison === 'hub'
+              ? 'Hub non configuré : la note n’a pas été enregistrée.'
+              : 'Note non enregistrée (réseau ou hub indisponible). Réessaie.',
+        )
+        return
+      }
+      setEchec(null)
       setFlipped(false)
       setIndex((i) => i + 1)
     } finally {
@@ -224,6 +265,12 @@ function QuizSession({ label, cards, onExit }: { label: string; cards: RustiqueC
           <div className="whitespace-pre-wrap border-t border-line/60 pt-3 text-sm text-ink">{card.back}</div>
         ) : null}
       </div>
+
+      {echec ? (
+        <p className="rounded-xl2 border border-clay/40 bg-clay/5 p-2.5 text-[11px] font-semibold text-clay">
+          ⚠️ {echec}
+        </p>
+      ) : null}
 
       {!flipped ? (
         <button onClick={() => setFlipped(true)} className="btn-primary w-full py-2.5">

@@ -1,5 +1,6 @@
 import { isBodyweightExercise, type MuscuSession } from './muscu'
 import { poidsDuCorpsPorte } from './effort'
+import { clefReference } from '../data/exercises'
 
 // Charge conseillée pour le prochain passage sur un exercice, déduite de ce qui
 // a réellement été fait avant. C'est la double progression que la page conseille
@@ -57,14 +58,19 @@ export function suggererCharge(
   exo: { name: string; default_reps: string },
   bodyWeight: number | null,
 ): ChargeSuggestion {
-  const key = exo.name.trim().toLowerCase()
+  // Sur l'IDENTITÉ du mouvement, renvoi de nom suivi. Comparés par libellé
+  // brut, « Rowing barre » — deux passages à 60 kg — ne se reconnaissait pas
+  // dans « Tirage buste penché à la barre », et la page annonçait « jamais
+  // chargé » sur l'exercice le plus lourd de la séance. C'est exactement là
+  // qu'une charge conseillée sert, et exactement là qu'elle disparaissait.
+  const key = clefReference(exo.name)
   if (!key) return { weight: null, ton: 'nouveau', raison: '' }
 
   // Historique de cet exercice, du plus récent au plus ancien.
   const histo: Array<{ date: string; reps: string; weight: number }> = []
   for (const s of [...sessions].sort((a, b) => b.date.localeCompare(a.date))) {
     for (const e of s.exercises) {
-      if (e.name.trim().toLowerCase() !== key) continue
+      if (clefReference(e.name) !== key) continue
       if (e.weight_kg !== null && e.weight_kg > 0) histo.push({ date: s.date, reps: e.reps, weight: e.weight_kg })
     }
   }

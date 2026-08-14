@@ -5,8 +5,9 @@ import { RustiqueApprentissage } from '../components/RustiqueApprentissage'
 import { RustiqueChat } from '../components/RustiqueChat'
 import { RustiqueQuiz } from '../components/RustiqueQuiz'
 import { groupDecksByTheme, listRustiqueDecks, type RustiqueDecksResult } from '../lib/rustique'
-import { QCM_KIND_LABELS } from '../lib/qcmBridge'
-import { getQcmStats } from '../lib/qcmStats'
+import { fetchQcmBank, QCM_KIND_LABELS, type QcmItem } from '../lib/qcmBridge'
+import { chargerMemoire, memoireEnCache, statsQcm, type Memoire } from '../lib/qcmMemoire'
+import { useAuth } from '../lib/auth'
 
 function num(v: unknown): string {
   if (typeof v === 'number') return v.toLocaleString('fr-FR')
@@ -73,18 +74,35 @@ export function Rustique() {
 // distincts, donc deux sources : les decks du hub pour les thèmes, le
 // localStorage local (qcmStats) pour le QCM — aucune des deux ne remplace l'autre.
 function RustiqueApercu() {
+  const { user } = useAuth()
   const [decksRes, setDecksRes] = useState<RustiqueDecksResult | null>(null)
-  const [qcmStats] = useState(() => getQcmStats())
+  const [memoire, setMemoire] = useState<Memoire>(() => memoireEnCache())
+  const [banque, setBanque] = useState<QcmItem[] | null>(null)
 
   useEffect(() => {
     listRustiqueDecks().then(setDecksRes)
+    fetchQcmBank().then(setBanque)
   }, [])
 
+  useEffect(() => {
+    if (user) chargerMemoire(user.id).then(setMemoire)
+  }, [user])
+
   const themeGroups = useMemo(() => (decksRes?.status === 'ok' ? groupDecksByTheme(decksRes.decks) : []), [decksRes])
-  const aReviser = useMemo(() => [...themeGroups].filter((g) => g.dueCount > 0).sort((a, b) => b.dueCount - a.dueCount), [themeGroups])
+  // Les ÉCHUES seulement. Le tri par nombre décroissant n'avait pas de sens
+  // tant que le compteur incluait le stock jamais vu : il classait les thèmes
+  // par taille, pas par urgence.
+  const aReviser = useMemo(
+    () => themeGroups.filter((g) => g.dueCount > 0).sort((a, b) => b.dueCount - a.dueCount),
+    [themeGroups],
+  )
   const totalDue = themeGroups.reduce((s, g) => s + g.dueCount, 0)
+  const totalNeuves = themeGroups.reduce((s, g) => s + g.newCount, 0)
   const totalCards = themeGroups.reduce((s, g) => s + g.cardCount, 0)
-  const qcmPct = qcmStats.attempts > 0 ? Math.round((100 * qcmStats.correct) / qcmStats.attempts) : null
+
+  const stats = useMemo(() => statsQcm(memoire, banque), [memoire, banque])
+  const pct = stats.reponses > 0 ? Math.round((100 * stats.bonnes) / stats.reponses) : null
+  const restantes = banque ? Math.max(0, banque.length - stats.vues) : null
 
   return (
     <div className="space-y-3">
@@ -95,11 +113,15 @@ function RustiqueApercu() {
         </div>
       ) : null}
 
-      <CardShell title="Thèmes à réviser" emoji="🎯" badge={totalDue > 0 ? `${totalDue} due${totalDue > 1 ? 's' : ''}` : undefined}>
+      <CardShell
+        title="Échéances de révision"
+        emoji="🎯"
+        badge={totalDue > 0 ? `${totalDue} à revoir` : undefined}
+      >
         {!decksRes ? (
           <p className="text-xs text-muted">Chargement…</p>
         ) : aReviser.length === 0 ? (
-          <p className="text-xs text-muted">Rien à réviser pour l'instant. 🎉</p>
+          <p className="text-xs text-muted">Aucune échéance passée. 🎉</p>
         ) : (
           <ul className="space-y-1.5">
             {aReviser.map((g) => (
@@ -111,28 +133,48 @@ function RustiqueApercu() {
             ))}
           </ul>
         )}
+        {/* Le stock et les échéances sont deux nombres différents, et les
+            confondre annulait le second : « 944 à réviser » ne redescend
+            jamais, donc ne prévient de rien. Ce qui est en retard tient en
+            haut ; ce qui n'a jamais été ouvert est du stock, et le dire
+            ainsi. */}
         {totalCards > 0 ? (
           <p className="mt-1 border-t border-line/60 pt-2 text-[11px] text-muted">
-            {totalCards} carte{totalCards > 1 ? 's' : ''} au total dans {themeGroups.length} thème{themeGroups.length > 1 ? 's' : ''}.
+            {totalNeuves > 0 ? (
+              <>
+                <b className="text-ink">{totalNeuves}</b> carte{totalNeuves > 1 ? 's' : ''} jamais ouverte
+                {totalNeuves > 1 ? 's' : ''} — du stock, pas du retard.{' '}
+              </>
+            ) : null}
+            {totalCards} au total dans {themeGroups.length} thème{themeGroups.length > 1 ? 's' : ''}.
           </p>
         ) : null}
       </CardShell>
 
-      <CardShell title="QCM — Notion du jour" emoji="🧠">
-        <Stat label="Questions répondues" value={num(qcmStats.attempts)} />
-        <Stat label="Bonnes réponses" value={num(qcmStats.correct)} />
-        <Stat label="Taux de réussite" value={qcmPct == null ? '—' : `${qcmPct} %`} />
-        {qcmStats.attempts === 0 ? (
+      <CardShell
+        title="QCM — Notion du jour"
+        emoji="🧠"
+        badge={stats.fragiles > 0 ? `${stats.fragiles} fragile${stats.fragiles > 1 ? 's' : ''}` : undefined}
+      >
+        <Stat label="Questions rencontrées" value={restantes === null ? num(stats.vues) : `${num(stats.vues)} / ${num(banque?.length ?? 0)}`} />
+        <Stat label="Réponses données" value={num(stats.reponses)} />
+        <Stat label="Taux de réussite" value={pct == null ? '—' : `${pct} %`} />
+        {/* Le nombre qui a du sens pour agir : combien de questions tu rates
+            plus d'une fois sur deux. Elles remontent d'elles-mêmes dans le
+            tirage de la Notion du jour — c'est là que le suivi sert à quelque
+            chose, plutôt qu'à afficher un pourcentage. */}
+        <Stat label="Ratées une fois sur deux ou plus" value={num(stats.fragiles)} />
+        {stats.reponses === 0 ? (
           <p className="mt-1 text-[11px] text-muted">Réponds à la Notion du jour sur l'accueil pour démarrer le suivi.</p>
         ) : (
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-line/60 pt-2 text-[11px]">
             {(Object.keys(QCM_KIND_LABELS) as (keyof typeof QCM_KIND_LABELS)[])
-              .filter((k) => qcmStats.byKind[k].attempts > 0)
+              .filter((k) => stats.parKind[k].reponses > 0)
               .map((k) => (
                 <div key={k} className="flex justify-between gap-2">
                   <span className="truncate text-muted">{QCM_KIND_LABELS[k]}</span>
                   <span className="shrink-0 font-semibold text-ink">
-                    {qcmStats.byKind[k].correct}/{qcmStats.byKind[k].attempts}
+                    {stats.parKind[k].bonnes}/{stats.parKind[k].reponses}
                   </span>
                 </div>
               ))}

@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
-import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES, cleExercice } from '../data/exercises'
+import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES, cleExercice, clefReference } from '../data/exercises'
 import type { Section } from './acces'
 import { partParDefaut, regionsForGroup, type MuscleRegion } from './muscles'
 import type { Courbature } from './soreness'
@@ -749,7 +749,11 @@ export function exerciseProgress(sessions: MuscuSession[]): ExerciseProgress[] {
 
   for (const s of [...sessions].sort((a, b) => a.date.localeCompare(b.date))) {
     for (const e of s.exercises) {
-      const key = e.name.trim().toLowerCase()
+      // Regroupé sur l'IDENTITÉ du mouvement, pas sur le libellé : sinon
+      // « Rowing barre » et « Tirage buste penché à la barre » donnaient deux
+      // courbes et deux records pour le même exercice, et celle des deux qui
+      // portait l'ancien nom cessait simplement de se remplir.
+      const key = clefReference(e.name)
       if (!key) continue
       const entry = byName.get(key) ?? { display: e.name.trim(), byDate: new Map<string, ProgressPoint>() }
       entry.display = e.name.trim() // le libellé le plus récent fait foi
@@ -968,10 +972,20 @@ const CATALOG_SEED_KEY = 'muscu_catalog_seeded'
 //       qu'en version « coude au corps », qui n'est pas le même exercice — la
 //       position de l'armé, bras à l'horizontale, est celle où l'épaule est
 //       vulnérable et celle où le sous-scapulaire doit tenir.
+// v39 : la nuque, et les treize orphelins du premier amorçage.
+//       Quatorze exercices déclaraient « Cou » — les FLÉCHISSEURS, le
+//       sterno-cléido-mastoïdien — là où c'est la nuque qui travaille : un
+//       soulevé de terre, une marche du fermier, un portage, une garde au
+//       bouclier sous heaume. La tête y est retenue en extension ; on peignait
+//       l'antagoniste. Les cinq autres entrées béhourd déclaraient déjà les
+//       deux, ce qui rendait l'oubli visible à l'intérieur d'une même famille.
+//       Et treize exercices du premier amorçage Basic Fit entrent enfin dans la
+//       bibliothèque (cf. EXERCISE_RENAMES) : « Dips poitrine » ne dira plus
+//       « Pectoraux » sans un gramme de triceps.
 // Exporté pour le banc d'essai du réalignement : il l'écrivait à la main, et il
 // est donc tombé au premier relèvement de version — en annonçant un défaut de
 // l'amorçage alors que le seul défaut était dans le banc.
-export const LIBRARY_SEED_KEY = 'muscu_library_v38'
+export const LIBRARY_SEED_KEY = 'muscu_library_v39'
 const RECUP_TEMPLATES_KEY = 'muscu_recup_templates_v2'
 const COMBAT_TEMPLATES_KEY = 'muscu_combat_templates_v1'
 const PROTOCOLE_TEMPLATES_KEY = 'muscu_protocole_cameleon_v1'
@@ -1043,8 +1057,28 @@ const EXO_COLS = 'id,name,muscle_group,sets,reps,weight_kg,notes,position'
  *
  *   • la ligne de RESSENTI, dont les zones sont déclarées séance par séance —
  *     c'est tout son objet, un béhourd ne tape pas au même endroit deux fois ;
- *   • un exercice absent du catalogue (renommé, supprimé, saisi à la volée) :
- *     on garde ce qui est écrit, faute de mieux.
+ *   • un exercice absent du catalogue (supprimé, saisi à la volée) : on garde
+ *     ce qui est écrit, faute de mieux.
+ *
+ * ── Le renvoi de nom ────────────────────────────────────────────────────────
+ *
+ * La correspondance se fait par NOM, et le nom du catalogue bouge : « Rowing
+ * barre » y est devenu « Tirage buste penché à la barre ». Les lignes de séance
+ * enregistrées avant ce renommage, elles, ont gardé l'ancien. La recherche
+ * échouait donc, on tombait dans la branche « faute de mieux », et l'étiquetage
+ * grossier du premier jour restait figé POUR TOUJOURS — c'est-à-dire que le
+ * mécanisme censé corriger rétroactivement était mis en échec par le renommage,
+ * qui est précisément l'occasion où on en a besoin.
+ *
+ * `ensureLibrary` reporte bien le renommage dans les séances (`renommerPartout`),
+ * mais seulement au moment où il renomme : les lignes déjà orphelines à ce
+ * moment-là — parce que le catalogue portait déjà le nom de référence — n'ont
+ * jamais été rattrapées, et ne l'auraient jamais été.
+ *
+ * On suit donc le renvoi ici aussi, à la lecture. C'est rétroactif sans
+ * migration : neuf lignes de séances réellement faites, dont un tirage
+ * horizontal étiqueté « Épaules » qui peignait les trois deltoïdes et pas un
+ * gramme de grand dorsal.
  *
  * ⚠️ Contrepartie assumée : un réglage fait à la main sur UNE séance pour un
  * exercice du catalogue est repris par le catalogue au rechargement. Pour dire
@@ -1052,10 +1086,15 @@ const EXO_COLS = 'id,name,muscle_group,sets,reps,weight_kg,notes,position'
  * le mannequin, qui est datée et ne prétend pas décrire le mouvement.
  */
 export function appliquerCatalogue(exos: MuscuExo[], catalog: CatalogExercise[]): MuscuExo[] {
-  const parNom = new Map(catalog.map((c) => [c.name.trim().toLowerCase(), c.muscle_group]))
+  // `cleExercice` et non `toLowerCase()` : l'apostrophe droite tapée au clavier
+  // et l'apostrophe courbe des noms de référence ne sont pas le même caractère,
+  // et « Tirage unilatéral à l'haltère » ne se retrouvait pas lui-même.
+  const parNom = new Map(catalog.map((c) => [cleExercice(c.name), c.muscle_group]))
   return exos.map((e) => {
     if (estRessenti(e.name)) return e
-    const groupes = parNom.get(e.name.trim().toLowerCase())
+    // Le nom exact d'abord — une ligne saisie à la main doit pouvoir désigner
+    // sa propre entrée de catalogue —, le renvoi ensuite.
+    const groupes = parNom.get(cleExercice(e.name)) ?? parNom.get(clefReference(e.name))
     if (groupes === undefined || groupes === e.muscle_group) return e
     return { ...e, muscle_group: groupes }
   })
