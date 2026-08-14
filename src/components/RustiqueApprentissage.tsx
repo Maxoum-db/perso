@@ -70,7 +70,7 @@ export function RustiqueApprentissage({
     let cards = themeCards.get(g.theme.id)
     if (!cards) {
       setLoadingTheme(g.theme.id)
-      const res = await listRustiqueThemeCards(g.theme.id, false)
+      const res = await listRustiqueThemeCards(g.theme.id, 'toutes')
       setLoadingTheme(null)
       if (res.status !== 'ok') {
         setError(res.message ?? 'Impossible de charger le contenu.')

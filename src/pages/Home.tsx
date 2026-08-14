@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import {
@@ -33,8 +33,9 @@ import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
-import { fetchNotionDuJourQcm, QCM_KIND_LABELS, type QcmItem } from '../lib/qcmBridge'
-import { recordQcmAnswer } from '../lib/qcmStats'
+import { fetchNotionDuJourQcm, paquetsDeLaQuestion, QCM_KIND_LABELS, type QcmItem } from '../lib/qcmBridge'
+import { chargerMemoire, enregistrerMemoire, memoireEnCache, noterReponse, type Memoire } from '../lib/qcmMemoire'
+import { listRustiqueDecks, type RustiqueDeck } from '../lib/rustique'
 
 export function Home() {
   const { user } = useAuth()
@@ -62,6 +63,16 @@ export function Home() {
   // Les notions déjà répondues depuis l'ouverture de l'accueil. Sert à ne pas
   // reposer la même question et à compter ce qu'on a fait aujourd'hui.
   const [notionsVues, setNotionsVues] = useState<Set<string>>(() => new Set())
+  // Ce qu'on sait de chaque question : c'est elle qui pondère le tirage.
+  // Le cache la rend tout de suite, le réseau la corrige juste après.
+  const [memoire, setMemoire] = useState<Memoire>(() => memoireEnCache())
+  // Cartes RÉELLEMENT échues, tous thèmes confondus. Le compteur ne vivait que
+  // dans Rustique : il fallait déjà être entré pour savoir qu'il y avait
+  // quelque chose à rattraper, et une carte est restée échue six semaines.
+  const [cartesDues, setCartesDues] = useState<number | null>(null)
+  // Les paquets du hub, gardés pour deux usages : le compteur d'échéances, et
+  // le renvoi « réviser cette fiche » quand une question est ratée.
+  const [paquets, setPaquets] = useState<RustiqueDeck[]>([])
 
   useEffect(() => {
     if (!user) return
@@ -84,8 +95,19 @@ export function Home() {
     loadFocus(user.id).then(setFocus).catch(() => {})
     loadBehourd(user.id).then(setBehourd).catch(() => {})
     loadDuree(user.id).then(setCreneau).catch(() => {})
-    fetchNotionDuJourQcm()
+    chargerMemoire(user.id)
+      .then((m) => {
+        setMemoire(m)
+        return fetchNotionDuJourQcm(m)
+      })
       .then(setNotion)
+      .catch(() => {})
+    listRustiqueDecks()
+      .then((r) => {
+        if (r.status !== 'ok') return setCartesDues(null)
+        setPaquets(r.decks)
+        setCartesDues(r.decks.reduce((n, d) => n + d.dueCount, 0))
+      })
       .catch(() => {})
     // Prochains événements du couple (espace partagé).
     getMySpace()
@@ -194,6 +216,30 @@ export function Home() {
         contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau }}
       />
 
+      {/* Les cartes ÉCHUES, et elles seules. Le compteur ne vivait que dans
+          Rustique, deux onglets plus loin — il fallait déjà être entré pour
+          savoir qu'il y avait quelque chose à rattraper. Une carte y est restée
+          échue six semaines sans que rien ne le dise.
+          Il n'apparaît qu'au-dessus de zéro : un bandeau permanent redevient du
+          décor, et c'est exactement le défaut qu'on répare. Les cartes jamais
+          vues ne comptent pas ici — elles ne sont pas en retard, elles
+          attendent, et les mélanger rendait le nombre ininterprétable. */}
+      {cartesDues !== null && cartesDues > 0 ? (
+        <Link
+          to="/rustique"
+          className="card flex items-center gap-3 p-3 transition hover:shadow-lift"
+        >
+          <span className="text-xl">🎯</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold text-ink">
+              {cartesDues} carte{cartesDues > 1 ? 's' : ''} à revoir
+            </div>
+            <p className="text-[11px] text-muted">Leur échéance est passée — c'est le moment où la révision paie.</p>
+          </div>
+          <span className="shrink-0 text-copper">›</span>
+        </Link>
+      ) : null}
+
       {/* La suivante arrive dès qu'on a répondu à celle-ci : `key` sur l'id de
           la question, sinon la carte suivante arriverait avec l'explication
           de la précédente encore affichée. */}
@@ -201,11 +247,19 @@ export function Home() {
         <NotionDuJourCard
           key={notion.id}
           notion={notion}
+          paquets={paquets}
           faites={notionsVues.size}
+          onRepondu={(correct) => {
+            // L'IDENTIFIANT, pas seulement la catégorie : c'est lui qui permet
+            // de reposer une question ratée sans attendre trois ans.
+            const suivante = noterReponse(memoire, notion.id, correct)
+            setMemoire(suivante)
+            if (user) enregistrerMemoire(user.id, suivante)
+          }}
           onSuivante={async () => {
             const vues = new Set(notionsVues).add(notion.id)
             setNotionsVues(vues)
-            setNotion(await fetchNotionDuJourQcm(vues))
+            setNotion(await fetchNotionDuJourQcm(memoire, vues))
           }}
         />
       ) : notionsVues.size > 0 ? (
@@ -655,16 +709,32 @@ function Pastille({ etat, delai = false }: { etat: EtatZone; delai?: boolean }) 
  */
 function NotionDuJourCard({
   notion,
+  paquets,
   faites = 0,
+  onRepondu,
   onSuivante,
 }: {
   notion: QcmItem
+  /** Paquets du hub, pour renvoyer vers la fiche quand la réponse est fausse. */
+  paquets: RustiqueDeck[]
   /** Notions déjà répondues depuis l'ouverture : sert à l'afficher, rien d'autre. */
   faites?: number
+  /** Enregistre le résultat de CETTE question, pour pondérer les tirages suivants. */
+  onRepondu: (correct: boolean) => void
   /** Amène la question suivante (en écartant celles déjà vues). */
   onSuivante: () => Promise<void>
 }) {
   const [picked, setPicked] = useState<number | null>(null)
+  // Résolu une fois, pas à chaque rendu : la liste des paquets ne bouge pas
+  // pendant qu'on répond.
+  const paquetsLies = useMemo(
+    () => {
+      const ids = new Set(paquets.map((d) => d.id))
+      const trouves = new Set(paquetsDeLaQuestion(notion, ids))
+      return paquets.filter((d) => trouves.has(d.id))
+    },
+    [notion, paquets],
+  )
 
   return (
     <div className="card overflow-hidden">
@@ -699,7 +769,7 @@ function NotionDuJourCard({
                 onClick={() => {
                   if (picked !== null) return
                   setPicked(idx)
-                  recordQcmAnswer(notion.kind, idx === notion.correct)
+                  onRepondu(idx === notion.correct)
                 }}
                 disabled={revealed}
                 className={`flex w-full items-start gap-2 rounded-xl2 border p-2.5 text-left text-xs transition ${
@@ -727,6 +797,20 @@ function NotionDuJourCard({
               </p>
               <p className="text-muted">{notion.explication}</p>
               {notion.source ? <p className="mt-1.5 text-[10px] italic text-muted">Source : {notion.source}</p> : null}
+              {/* Sur une erreur seulement, et vers le PAQUET, pas vers une
+                  carte : rien n'apparie les questions du QCM aux cartes une à
+                  une, et réviser la fiche entière est de toute façon ce qu'il
+                  faut faire. Rien n'est écrit dans le planning FSRS au passage —
+                  noter une carte reste un geste délibéré. */}
+              {picked !== notion.correct && paquetsLies.length > 0 ? (
+                <Link
+                  to="/rustique"
+                  state={{ openTheme: paquetsLies[0].theme.id }}
+                  className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-copper"
+                >
+                  🎓 Réviser « {paquetsLies[0].title.replace(/^Fiche · /, '')} » ({paquetsLies.reduce((n: number, d: RustiqueDeck) => n + d.cardCount, 0)} cartes) ›
+                </Link>
+              ) : null}
             </div>
             <SuivanteButton onSuivante={onSuivante} />
           </>

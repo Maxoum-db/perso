@@ -44,7 +44,16 @@ export interface RustiqueDeck {
   scope: string | null
   theme: RustiqueTheme
   cardCount: number
+  /**
+   * Cartes RÉELLEMENT échues — celles dont l'échéance FSRS est passée.
+   *
+   * Comptait auparavant les cartes jamais présentées avec les cartes échues, ce
+   * qui donnait 944 « à réviser » pour 5 vraies échéances. Un compteur qui ne
+   * peut pas descendre à zéro n'alerte de rien.
+   */
   dueCount: number
+  /** Cartes jamais présentées. Absent si l'Edge Function n'est pas à jour. */
+  newCount?: number
 }
 
 export interface RustiqueDecksResult {
@@ -58,16 +67,18 @@ export interface RustiqueThemeGroup {
   decks: RustiqueDeck[]
   cardCount: number
   dueCount: number
+  newCount: number
 }
 
 /** Regroupe les paquets par thème (utilisé par Apprentissage et Quiz). */
 export function groupDecksByTheme(decks: RustiqueDeck[]): RustiqueThemeGroup[] {
   const byId = new Map<string, RustiqueThemeGroup>()
   for (const d of decks) {
-    const g = byId.get(d.theme.id) ?? { theme: d.theme, decks: [], cardCount: 0, dueCount: 0 }
+    const g = byId.get(d.theme.id) ?? { theme: d.theme, decks: [], cardCount: 0, dueCount: 0, newCount: 0 }
     g.decks.push(d)
     g.cardCount += d.cardCount
     g.dueCount += d.dueCount
+    g.newCount += d.newCount ?? 0
     byId.set(d.theme.id, g)
   }
   return [...byId.values()].sort((a, b) => a.theme.order - b.theme.order)
@@ -116,15 +127,21 @@ export async function listRustiqueDecks(): Promise<RustiqueDecksResult> {
   return { status: 'ok', decks: res.data?.decks ?? [] }
 }
 
-export async function listRustiqueCards(deckId: string, dueOnly: boolean): Promise<RustiqueCardsResult> {
-  const res = await invokeQuiz<{ cards: RustiqueCard[] }>({ action: 'list_cards', deck_id: deckId, due_only: dueOnly })
+export type PorteeCartes = 'toutes' | 'dues' | 'nouvelles'
+
+function filtre(portee: PorteeCartes) {
+  return { due_only: portee === 'dues', new_only: portee === 'nouvelles' }
+}
+
+export async function listRustiqueCards(deckId: string, portee: PorteeCartes): Promise<RustiqueCardsResult> {
+  const res = await invokeQuiz<{ cards: RustiqueCard[] }>({ action: 'list_cards', deck_id: deckId, ...filtre(portee) })
   if (res.status !== 'ok') return { status: res.status, cards: [], message: res.message }
   return { status: 'ok', cards: res.data?.cards ?? [] }
 }
 
 /** Toutes les cartes de tous les paquets d'un thème, en une session. */
-export async function listRustiqueThemeCards(themeId: string, dueOnly: boolean): Promise<RustiqueCardsResult> {
-  const res = await invokeQuiz<{ cards: RustiqueCard[] }>({ action: 'list_cards', theme_id: themeId, due_only: dueOnly })
+export async function listRustiqueThemeCards(themeId: string, portee: PorteeCartes): Promise<RustiqueCardsResult> {
+  const res = await invokeQuiz<{ cards: RustiqueCard[] }>({ action: 'list_cards', theme_id: themeId, ...filtre(portee) })
   if (res.status !== 'ok') return { status: res.status, cards: [], message: res.message }
   return { status: 'ok', cards: res.data?.cards ?? [] }
 }
@@ -139,9 +156,25 @@ export const RUSTIQUE_RATING_BUTTONS: { rating: RustiqueRating; label: string; c
   { rating: 4, label: 'Facile', className: 'bg-copper text-white' },
 ]
 
-export async function submitRustiqueReview(cardId: string, rating: RustiqueRating): Promise<boolean> {
+/**
+ * Le résultat d'une notation.
+ *
+ * Il était réduit à un booléen, et l'appelant l'ignorait : une note perdue —
+ * réseau coupé, hub indisponible — faisait défiler la carte suivante comme si
+ * de rien n'était. Le planning ne bougeait pas, et rien ne le disait. Une note
+ * qu'on croit avoir posée est pire qu'une note qu'on sait avoir ratée.
+ */
+export type ResultatNotation =
+  | { ok: true }
+  | { ok: false; raison: 'non_cloisonne' | 'hub' | 'reseau'; message?: string }
+
+export async function submitRustiqueReview(cardId: string, rating: RustiqueRating): Promise<ResultatNotation> {
   const res = await invokeQuiz<{ ok: boolean }>({ action: 'submit_review', card_id: cardId, rating })
-  return res.status === 'ok'
+  if (res.status === 'ok') return { ok: true }
+  // Le planning n'est pas cloisonné par compte : l'Edge Function refuse
+  // l'écriture aux autres comptes plutôt que d'écraser celui du propriétaire.
+  if (res.message?.includes('review_non_cloisonnee')) return { ok: false, raison: 'non_cloisonne' }
+  return { ok: false, raison: res.status === 'not_configured' ? 'hub' : 'reseau', message: res.message }
 }
 
 // La Notion du jour de l'accueil ne vient plus d'ici — voir lib/qcmBridge.ts
