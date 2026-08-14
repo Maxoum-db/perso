@@ -6,7 +6,8 @@ import { fetchSettings, saveSettings, type Discipline, type PersoSettings } from
 import { applyTextSize, readTextSize, TEXT_SIZES, type TextSize } from '../lib/textSize'
 import { disablePush, enablePush, isStandalone, pushStatus, sendTestPush } from '../lib/push'
 import { exporterSport, type ContexteExport, type PorteeExport } from '../lib/exportSport'
-import { FENETRE_STATS, listSessions } from '../lib/muscu'
+import { FENETRE_STATS, listCatalog, listSessions } from '../lib/muscu'
+import { orphelins, resumeOrphelins, type Orphelin } from '../lib/orphelins'
 import { listWeighins } from '../lib/workouts'
 import { loadNuits } from '../lib/sommeil'
 import { loadObservations } from '../lib/observations'
@@ -79,6 +80,8 @@ export function Settings() {
       />
 
       <ExportSportSection userId={user?.id ?? ''} />
+
+      <OrphelinsSection userId={user?.id ?? ''} />
 
       <section className="card p-4">
         <h2 className="text-sm font-bold text-ink">Agendas affichés</h2>
@@ -217,6 +220,74 @@ function DisciplineSection({
  * puisqu'il faut d'abord aller chercher les séances sur le réseau. Le bloc
  * sélectionnable est donc le chemin de repli garanti, dans tous les cas.
  */
+/**
+ * Contrôle de rattachement du journal au catalogue.
+ *
+ * Volontairement à la demande, et pas au chargement de l'écran : le calcul
+ * demande tout le journal et tout le catalogue, pour une réponse qui est « rien
+ * à signaler » la plupart du temps. On ne paie pas deux requêtes à chaque
+ * ouverture des réglages pour ça.
+ */
+function OrphelinsSection({ userId }: { userId: string }) {
+  const [etat, setEtat] = useState<'repos' | 'chargement' | 'fait'>('repos')
+  const [liste, setListe] = useState<Orphelin[]>([])
+
+  async function verifier() {
+    if (!userId) return
+    setEtat('chargement')
+    try {
+      const [sessions, catalog] = await Promise.all([listSessions(userId), listCatalog(userId)])
+      setListe(orphelins(sessions, catalog))
+      setEtat('fait')
+    } catch {
+      setEtat('repos')
+    }
+  }
+
+  return (
+    <section className="card p-4">
+      <h2 className="text-sm font-bold text-ink">Cohérence du journal</h2>
+      <p className="mt-1 text-sm text-muted">
+        Vérifie que chaque exercice enregistré désigne encore un exercice du catalogue. Un exercice détaché
+        garde son nom et sa charge, mais perd son étiquetage musculaire et sa progression — sans rien
+        afficher d'anormal.
+      </p>
+
+      {etat === 'fait' ? (
+        <div className="mt-3">
+          <p className={`text-sm font-semibold ${liste.length === 0 ? 'text-sage-dark' : 'text-clay'}`}>
+            {liste.length === 0 ? '✔ ' : '⚠️ '}
+            {resumeOrphelins(liste)}
+          </p>
+          {liste.length > 0 ? (
+            <>
+              <ul className="mt-2 space-y-1">
+                {liste.map((o) => (
+                  <li key={o.nom} className="flex items-baseline justify-between gap-2 text-xs">
+                    <span className="min-w-0 truncate text-ink">{o.nom}</span>
+                    <span className="shrink-0 text-muted">
+                      {o.passages} passage{o.passages > 1 ? 's' : ''}
+                      {o.chargeMax !== null ? ` · jusqu'à ${o.chargeMax} kg` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-muted">
+                Pour rattacher : ouvre la séance et resaisis l'exercice depuis le catalogue, ou ajoute son
+                ancien nom à la table de renvois de la bibliothèque.
+              </p>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      <button onClick={verifier} disabled={etat === 'chargement' || !userId} className="btn-ghost mt-3 text-xs">
+        {etat === 'chargement' ? 'Vérification…' : etat === 'fait' ? 'Vérifier à nouveau' : 'Vérifier'}
+      </button>
+    </section>
+  )
+}
+
 function ExportSportSection({ userId }: { userId: string }) {
   const [texte, setTexte] = useState<string | null>(null)
   const [busy, setBusy] = useState<PorteeExport | null>(null)

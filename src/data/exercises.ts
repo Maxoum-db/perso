@@ -649,6 +649,31 @@ export function cleExercice(nom: string): string {
   return nom.trim().toLowerCase().replace(/[\u2018\u2019\u201a\u201b]/g, "'")
 }
 
+/**
+ * L'IDENTIT\u00c9 d'un exercice : sa cl\u00e9, une fois le renvoi de nom suivi.
+ *
+ * \u00ab Rowing barre \u00bb et \u00ab Tirage buste pench\u00e9 \u00e0 la barre \u00bb sont le m\u00eame mouvement
+ * sous deux noms \u2014 l'un d'avant le renommage du catalogue, l'autre d'apr\u00e8s.
+ * Trois fonctions les comparaient par `nom.trim().toLowerCase()` et les tenaient
+ * donc pour deux exercices distincts. Chacune y perdait quelque chose :
+ *
+ *   \u2022 `appliquerCatalogue` perdait l'\u00e9tiquetage musculaire \u2014 un tirage
+ *     horizontal restait sur \u00ab \u00c9paules \u00bb, les trois delto\u00efdes peints et pas un
+ *     gramme de grand dorsal ;
+ *   \u2022 `suggererCharge` perdait l'historique et annon\u00e7ait \u00ab jamais charg\u00e9 \u2014 cale
+ *     une s\u00e9rie d'essai \u00bb sur un mouvement fait deux fois \u00e0 60 kg ;
+ *   \u2022 `exerciseProgress` coupait la courbe en deux, avec deux records s\u00e9par\u00e9s.
+ *
+ * Une seule d\u00e9finition de \u00ab c'est le m\u00eame exercice \u00bb, et les trois s'en servent.
+ * Un nom sans renvoi se rend lui-m\u00eame : la cl\u00e9 de r\u00e9f\u00e9rence n'est jamais moins
+ * bonne que la cl\u00e9 brute, ce qui permet de l'employer partout sans condition.
+ */
+export function clefReference(nom: string): string {
+  const cle = cleExercice(nom)
+  const renvoi = EXERCISE_RENAMES[cle]
+  return renvoi ? cleExercice(renvoi) : cle
+}
+
 export const EXERCISE_RENAMES: Record<string, string> = {
   moto: 'Moto — grande balade (route)',
   'balade moto': 'Moto — grande balade (route)',

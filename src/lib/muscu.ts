@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { fetchKv, saveKv } from './kv'
 import { MUSCU_PROGRAM } from '../data/behourd'
-import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES, cleExercice } from '../data/exercises'
+import { EXERCISE_LIBRARY, EXERCISE_RENAMES, RECUPERATION_NAMES, cleExercice, clefReference } from '../data/exercises'
 import type { Section } from './acces'
 import { partParDefaut, regionsForGroup, type MuscleRegion } from './muscles'
 import type { Courbature } from './soreness'
@@ -749,7 +749,11 @@ export function exerciseProgress(sessions: MuscuSession[]): ExerciseProgress[] {
 
   for (const s of [...sessions].sort((a, b) => a.date.localeCompare(b.date))) {
     for (const e of s.exercises) {
-      const key = e.name.trim().toLowerCase()
+      // Regroupé sur l'IDENTITÉ du mouvement, pas sur le libellé : sinon
+      // « Rowing barre » et « Tirage buste penché à la barre » donnaient deux
+      // courbes et deux records pour le même exercice, et celle des deux qui
+      // portait l'ancien nom cessait simplement de se remplir.
+      const key = clefReference(e.name)
       if (!key) continue
       const entry = byName.get(key) ?? { display: e.name.trim(), byDate: new Map<string, ProgressPoint>() }
       entry.display = e.name.trim() // le libellé le plus récent fait foi
@@ -1088,9 +1092,9 @@ export function appliquerCatalogue(exos: MuscuExo[], catalog: CatalogExercise[])
   const parNom = new Map(catalog.map((c) => [cleExercice(c.name), c.muscle_group]))
   return exos.map((e) => {
     if (estRessenti(e.name)) return e
-    const cle = cleExercice(e.name)
-    const renvoi = EXERCISE_RENAMES[cle]
-    const groupes = parNom.get(cle) ?? (renvoi ? parNom.get(cleExercice(renvoi)) : undefined)
+    // Le nom exact d'abord — une ligne saisie à la main doit pouvoir désigner
+    // sa propre entrée de catalogue —, le renvoi ensuite.
+    const groupes = parNom.get(cleExercice(e.name)) ?? parNom.get(clefReference(e.name))
     if (groupes === undefined || groupes === e.muscle_group) return e
     return { ...e, muscle_group: groupes }
   })

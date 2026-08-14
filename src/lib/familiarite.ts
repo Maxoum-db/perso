@@ -1,4 +1,5 @@
 import { estRessenti, type MuscuSession } from './muscu'
+import { clefReference } from '../data/exercises'
 
 // Combien de fois tu as fait chaque exercice, et ce que le générateur en déduit.
 //
@@ -34,8 +35,22 @@ export const FENETRE_JOURS = 120
  */
 export const SEUIL_ROTATION = 10
 
-/** Bonus gagné par séance, tant qu'on est sous le seuil. */
-const MONTEE = 0.05
+/**
+ * Bonus au sommet, atteint à `SEUIL_ROTATION` séances.
+ *
+ * La montée n'est plus linéaire, et c'est le point : les premiers retours
+ * comptent bien plus que les derniers. À +0,05 par séance, un exercice fait UNE
+ * fois valait 1,05 — trois centièmes d'écart avec un mouvement jamais vu, soit
+ * rien du tout. Or c'est exactement là que le retour est le plus utile : la
+ * double progression de `lib/charge` a besoin de DEUX passages pour dire quoi
+ * que ce soit, et de trois pour détecter un palier. Un générateur qui met dix
+ * séances à préférer un mouvement connu ne produit jamais ces trois passages.
+ *
+ * En racine, le premier retour vaut +16 % au lieu de +5 % — trois fois plus de
+ * poids là où le catalogue est encore neuf, et le même sommet à l'arrivée, donc
+ * rien ne change pour un exercice déjà rodé.
+ */
+const SOMMET = 0.5
 
 /**
  * Perte par séance au-delà du seuil.
@@ -52,9 +67,16 @@ const PLANCHER = 0.6
 
 export type Familiarites = Map<string, number>
 
-/** Clé de comparaison d'un nom d'exercice — le catalogue n'est pas sensible à la casse. */
+/**
+ * Clé de comparaison d'un nom d'exercice.
+ *
+ * `clefReference` et non `toLowerCase()` : le compteur mesure « combien de fois
+ * ce MOUVEMENT », et un exercice renommé au catalogue en cours de route repartait
+ * de zéro — c'est-à-dire qu'il perdait précisément le crédit que ce module
+ * existe pour lui donner.
+ */
 export function clefExo(nom: string): string {
-  return nom.trim().toLowerCase()
+  return clefReference(nom)
 }
 
 /**
@@ -85,8 +107,11 @@ export function familiarites(sessions: MuscuSession[], now = Date.now()): Famili
  *
  * ```
  *  0 séance  → 1,00   jamais fait : neutre, on ne le favorise ni ne l'écarte
- *  1         → 1,05
- *  5         → 1,25   il a un historique de charge, il devient intéressant
+ *  1         → 1,16   le premier retour est le plus précieux : il ouvre la
+ *                     comparaison de charge, qui n'existe pas à un passage
+ *  2         → 1,22   la double progression a de quoi mordre
+ *  3         → 1,27   un palier devient détectable
+ *  5         → 1,35
  * 10         → 1,50   sommet : c'est là qu'on progresse le mieux
  * 12         → 1,32   la dérive commence
  * 16         → 0,96   il passe sous un mouvement neuf — la rotation a lieu
@@ -95,8 +120,11 @@ export function familiarites(sessions: MuscuSession[], now = Date.now()): Famili
  */
 export function poidsFamiliarite(n: number): number {
   if (n <= 0) return 1
-  if (n <= SEUIL_ROTATION) return 1 + MONTEE * n
-  const sommet = 1 + MONTEE * SEUIL_ROTATION
+  const sommet = 1 + SOMMET
+  // En racine : concave, donc le gain marginal décroît. Les trois premiers
+  // passages — ceux dont la progression de charge a besoin — pèsent plus de la
+  // moitié du bonus total.
+  if (n <= SEUIL_ROTATION) return 1 + SOMMET * Math.sqrt(n / SEUIL_ROTATION)
   return Math.max(PLANCHER, sommet - DESCENTE * (n - SEUIL_ROTATION))
 }
 

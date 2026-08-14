@@ -3,12 +3,28 @@ import { TON_STYLE } from '../lib/charge'
 import { fmtFamiliarite } from '../lib/familiarite'
 import { fmtDuree } from '../lib/duree'
 import { OUTILS, outilDe } from '../lib/materiel'
+import { SCORE_MAX, SCORE_MIN } from '../lib/scoreExercice'
 import { FormeCard } from './FormeCard'
 import type { Forme } from '../lib/forme'
+import type { CatalogExercise } from '../lib/muscu'
 import type { SuggestedSession } from '../lib/sessionBuilder'
 
 // Aperçu de la séance composée automatiquement : on montre POURQUOI chaque
 // exercice est là (muscle visé + son état de récupération) avant de la lancer.
+//
+// ── Et pourquoi on peut le noter d'ici ──────────────────────────────────────
+//
+// La note de priorité existe depuis le début et se modifiait dans le formulaire
+// d'édition du catalogue, à trois écrans d'ici. Résultat mesuré : 317 exercices
+// au catalogue, 317 sans note enregistrée. Le barème de `scoreParDefaut` tenait
+// donc seul la barre — et il est bon, mais il est THÉORIQUE : il compte les
+// muscles et les articulations, il ne sait rien d'une épaule qui coince ni d'une
+// machine que la salle n'a pas.
+//
+// L'avis se forme en lisant la séance proposée, pas en ouvrant un formulaire.
+// C'est donc là qu'on le recueille. Noter ne retire pas l'exercice du jour : la
+// note pèse sur les compositions SUIVANTES (cf. `poidsScore`), et une séance
+// qu'on est en train de lire n'a pas à se réécrire sous les yeux.
 
 function repos(jours: number): string {
   if (jours >= 99) return 'jamais travaillé'
@@ -31,6 +47,7 @@ export function SuggestedSessionCard({
   onManual,
   onRegenerate,
   onClose,
+  onNoter,
 }: {
   suggestion: SuggestedSession | null
   /** État de forme ayant dicté le volume et les charges de cette séance. */
@@ -39,6 +56,11 @@ export function SuggestedSessionCard({
   onManual: () => void
   onRegenerate: () => void
   onClose: () => void
+  /**
+   * Change la priorité d'un exercice au catalogue. Absent = pas de notation
+   * (l'aperçu reste lisible en lecture seule, par exemple depuis l'accueil).
+   */
+  onNoter?: (exo: CatalogExercise, score: number) => void
 }) {
   if (!suggestion) {
     return (
@@ -165,6 +187,44 @@ export function SuggestedSessionCard({
               {s.charge.raison ? (
                 <div className={`text-[11px] font-semibold ${TON_STYLE[s.charge.ton].classe}`}>
                   {TON_STYLE[s.charge.ton].icone} {s.charge.raison}
+                </div>
+              ) : null}
+              {/* « Le revoir » et non « noter » : ce qu'on règle est la
+                  FRÉQUENCE à laquelle le générateur reproposera ce mouvement,
+                  pas une opinion sur sa valeur. Un exercice excellent qu'on ne
+                  peut pas faire descend à 1, et c'est le bon usage. */}
+              {onNoter ? (
+                <div className="mt-1 flex items-center gap-1 text-[10px] text-muted">
+                  <span>Le revoir :</span>
+                  <button
+                    type="button"
+                    onClick={() => onNoter(s.exo, s.exo.score - 1)}
+                    disabled={s.exo.score <= SCORE_MIN}
+                    className="rounded-full border border-line px-1.5 py-0.5 font-semibold text-ink disabled:opacity-30"
+                    title={
+                      s.exo.score <= SCORE_MIN
+                        ? 'Déjà au minimum : le générateur ne le propose plus qu’en dernier recours'
+                        : 'Moins souvent — prend effet sur les prochaines compositions'
+                    }
+                  >
+                    moins
+                  </button>
+                  <span className="font-bold text-copper" title={`Priorité ${s.exo.score}/${SCORE_MAX}`}>
+                    {s.exo.score}/{SCORE_MAX}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onNoter(s.exo, s.exo.score + 1)}
+                    disabled={s.exo.score >= SCORE_MAX}
+                    className="rounded-full border border-line px-1.5 py-0.5 font-semibold text-ink disabled:opacity-30"
+                    title={
+                      s.exo.score >= SCORE_MAX
+                        ? 'Déjà au maximum'
+                        : 'Plus souvent — prend effet sur les prochaines compositions'
+                    }
+                  >
+                    plus
+                  </button>
                 </div>
               ) : null}
             </div>
