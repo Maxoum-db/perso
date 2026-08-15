@@ -30,6 +30,7 @@ import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
 import { etatParZone, fmtDelai, reposParMuscle, type EtatZone } from '../lib/recuperation'
 import { tronquerZones } from '../lib/muscles'
 import { loadCourbatures, type Courbatures } from '../lib/soreness'
+import { loadBlocages, nettoyerBlocages, regionsBloquees, type Blocages } from '../lib/blocage'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { recoveryColor } from '../components/MuscleBodyDiagram'
 import { loadLive } from './MusculationLive'
@@ -50,6 +51,10 @@ export function Home() {
   // Les mêmes corrections que dans le module Musculation : sans elles, l'accueil
   // annoncerait « prêt » sur un muscle que tu viens de déclarer courbaturé.
   const [courbatures, setCourbatures] = useState<Courbatures>({})
+  // Les mêmes blocages que dans Musculation : l'accueil compose la même séance,
+  // et un muscle au repos total ignoré ici proposerait sur cet écran exactement
+  // l'exercice que l'onglet Musculation refuse.
+  const [blocages, setBlocages] = useState<Blocages>({})
   const [nuits, setNuits] = useState<Nuits>({})
   // De quoi composer la MÊME séance que le module : sans ces réglages, l'accueil
   // en proposerait une autre, et on ne saurait pas laquelle croire.
@@ -89,6 +94,7 @@ export function Home() {
       .then(setSorties)
       .catch(() => {})
     loadCourbatures(user.id).then(setCourbatures).catch(() => {})
+    loadBlocages(user.id).then((b) => setBlocages(nettoyerBlocages(b))).catch(() => {})
     loadNuits(user.id).then(setNuits).catch(() => {})
     listCatalog(user.id).then(setCatalog).catch(() => {})
     listWeighins(user.id).then(setWeighins).catch(() => {})
@@ -213,7 +219,7 @@ export function Home() {
         courbatures={courbatures}
         nuits={nuits}
         agendaVisible={!needAuth}
-        contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau }}
+        contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau, bloquees: regionsBloquees(blocages) }}
       />
 
       {/* Les cartes ÉCHUES, et elles seules. Le compteur ne vivait que dans

@@ -29,6 +29,8 @@ export function RecuperationCard({
   onPret,
   onExercice,
   onSeance,
+  bloquees,
+  onBlocage,
 }: {
   /**
    * Les séances du JOURNAL, pour l'historique affiché dans la fiche d'un
@@ -49,6 +51,10 @@ export function RecuperationCard({
    */
   pourLaRecup: MuscuSession[]
   courbatures: Courbatures
+  /** Muscles au repos total : peints en noir, exclus des séances proposées. */
+  bloquees?: Set<MuscleRegion>
+  /** Pose ou lève un blocage. `heures` à 0 le lève. */
+  onBlocage?: (region: MuscleRegion, heures: number) => void
   nuits: Nuits
   /** La récup réelle, déjà calculée par la page — l'horizon « Auj. ». */
   loads: Record<string, GroupLoad>
@@ -155,6 +161,12 @@ export function RecuperationCard({
         // déclare — jamais les deux en même temps.
         onSoreness={projette ? undefined : onSoreness}
         onPret={projette ? undefined : onPret}
+        // Le blocage, lui, se déclare AUSSI depuis un corps projeté : il ne
+        // décrit pas l'état d'aujourd'hui mais une consigne datée qui vaut pour
+        // les jours à venir, exactement ce que la projection regarde. Le peindre
+        // sans pouvoir le poser aurait été une exclusion en lecture seule.
+        bloquees={bloquees}
+        onBlocage={onBlocage}
         onExercice={onExercice}
         onSeance={onSeance}
       />

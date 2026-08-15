@@ -4,6 +4,7 @@ import { type MuscleRegion } from './muscles'
 import { nommerSeance } from './nommage'
 import { grouperParOutil, outilDe } from './materiel'
 import { faisable, type MonMateriel } from './monMateriel'
+import { exerciceBloque } from './blocage'
 import { SCORE_NEUTRE, poidsScore } from './scoreExercice'
 import {
   MAX_PAR_SEGMENT,
@@ -121,6 +122,15 @@ export interface SuggestedSession {
   exercises: SuggestedExercise[]
   /** Muscles écartés parce qu'encore en récupération. */
   evites: MuscleRegion[]
+  /**
+   * Muscles mis au repos TOTAL, et ce que ça a coûté au vivier.
+   *
+   * Le compte est là pour être affiché. Un blocage retire des exercices sans
+   * rien dire — et sur un muscle profond qui stabilise beaucoup, il peut en
+   * retirer la moitié. Une séance de trois lignes passerait alors pour un
+   * générateur à court d'idées, alors qu'il a obéi.
+   */
+  bloques: { regions: MuscleRegion[]; ecartes: number }
   /** Vrai si tout était encore rouge et qu'on a dû assouplir la règle. */
   degrade: boolean
   /**
@@ -202,6 +212,12 @@ export interface BuildOptions {
    */
   dureeCible?: number
   /**
+   * Muscles mis au repos total. Les exercices qui les touchent — ne serait-ce
+   * qu'en stabilisation — sont ÉCARTÉS DU VIVIER, comme le matériel absent : un
+   * muscle qui fait mal ne se compense pas par un bon score.
+   */
+  bloquees?: Set<MuscleRegion>
+  /**
    * Le matériel dont on dispose. Liste vide (ou absente) : tout, c'est-à-dire
    * la salle.
    *
@@ -256,11 +272,21 @@ export function buildSession(
   const libre = !modeRecup && !special && groupesFocus.length === 0
   const correctifs = libre ? correctifEquilibre(sessions) : new Map<Segment, number>()
 
+  const bloquees = options.bloquees ?? new Set<MuscleRegion>()
+  let ecartesParBlocage = 0
+
   const candidats = catalog
     .filter((c) => {
       if (exclude.has(c.id) || estRessenti(c.name)) return false
       // Le matériel d'abord : ce qu'on ne peut pas faire n'entre pas au vivier.
       if (!faisable(c.name, options.outils ?? [])) return false
+      // Puis les muscles au repos total, et pour la même raison : un exercice
+      // qui réveille une douleur ne se rattrape pas par un bon score, une place
+      // réservée ou un muscle frais. On compte au passage, pour pouvoir le dire.
+      if (bloquees.size && exerciceBloque(musclesDeLExercice(c.muscle_group).keys(), bloquees)) {
+        ecartesParBlocage++
+        return false
+      }
       const clef = c.name.trim().toLowerCase()
       // En récupération on ne veut QUE des étirements ; sinon on les écarte.
       return modeRecup ? RECUPERATIONS.has(clef) || ADAPTABLES.has(clef) : !ACTIVITES.has(clef)
@@ -619,6 +645,7 @@ export function buildSession(
     recuperation: modeRecup,
     exercises: choisis,
     evites,
+    bloques: { regions: [...bloquees], ecartes: ecartesParBlocage },
     degrade,
   }
 }

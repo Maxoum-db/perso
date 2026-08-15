@@ -2,6 +2,7 @@ import { buildSession, type SuggestedSession } from './sessionBuilder'
 import { evaluerForme } from './forme'
 import { PLAFOND_EXOS } from './duree'
 import type { EtatZone } from './recuperation'
+import type { MuscleRegion } from './muscles'
 import type { FocusId } from './focus'
 import { seanceDuJour, type CatalogExercise, type GroupLoad, type MuscuSession } from './muscu'
 import type { Weighin } from './workouts'
@@ -25,6 +26,13 @@ export interface ContexteSeance {
   duree: number
   /** Récupération déjà calculée, corrections comprises. */
   loads: Record<string, GroupLoad>
+  /**
+   * Muscles mis au repos total. Ici et pas seulement dans la page : l'accueil
+   * pose la même question que Musculation, et un blocage respecté d'un côté
+   * mais pas de l'autre proposerait sur l'accueil l'exercice que l'onglet
+   * Musculation refuse — deux réponses au même écran d'écart.
+   */
+  bloquees?: Set<MuscleRegion>
   exclude?: Set<string>
 }
 
@@ -44,6 +52,7 @@ export function composerSeance(ctx: ContexteSeance): SuggestedSession | null {
     focus: ctx.focus,
     behourd: ctx.behourd,
     loads: ctx.loads,
+    bloquees: ctx.bloquees,
     count: PLAFOND_EXOS,
     dureeCible: Math.round(ctx.duree * (forme.exos / 6)),
     intensite: forme.intensite,
