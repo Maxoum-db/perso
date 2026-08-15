@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { fmtAnciennete, PAS_JOURS, type GroupLoad } from '../lib/muscu'
 import { AJUST_MAX, AJUST_MIN, AJUST_PAS, fmtAjust } from '../lib/soreness'
+import { DUREES_BLOCAGE, DUREE_BLOCAGE_DEFAUT } from '../lib/blocage'
 import { MUSCLE_LABELS, type MuscleRegion } from '../lib/muscles'
 import { VITESSE_RECUP, fmtDelai, reposParMuscle, resteAvantPret, type ReposMuscle } from '../lib/recuperation'
 import { exercicesPourMuscle } from '../lib/exercicesParMuscle'
@@ -173,6 +174,28 @@ function trameDuTrace(d: string): string {
   return 'mb-fibres-o'
 }
 
+/**
+ * Muscle mis au repos total : noir.
+ *
+ * Hors du spectre, et il le faut. Le dégradé va du vert au brun brûlant et dit
+ * « où en est la récupération » ; un blocage ne répond pas à cette question du
+ * tout — il dit « on n'y touche pas ». Lui donner un brun un peu plus foncé
+ * l'aurait rangé au bout de l'échelle, comme un muscle très cuit qui finira
+ * bien par revenir tout seul. Le noir se lit d'un coup d'œil comme une
+ * exclusion, ce qu'il est.
+ */
+export const COULEUR_BLOQUE = '#0d0b0a'
+
+/**
+ * Le cran de blocage, au bout de la barre des courbatures.
+ *
+ * Un demi-pas après le maximum, donc atteignable en poussant le curseur à fond
+ * et impossible à effleurer par accident depuis « +3 j ». Ce n'est pas une
+ * valeur d'ajustement : c'est un changement de registre, et le code qui lit la
+ * barre le traite comme tel.
+ */
+export const CRAN_BLOCAGE = AJUST_MAX + AJUST_PAS
+
 export function recoveryColor(effectiveDays: number | undefined, intensity = 1): string {
   // Jamais travaillé sur la période : le plus froid de l'échelle.
   if (effectiveDays === undefined) return couleurContinue(21)
@@ -285,6 +308,8 @@ export function MuscleBodyDiagram({
   onPret,
   onExercice,
   onSeance,
+  bloquees,
+  onBlocage,
 }: {
   loads: Record<string, GroupLoad>
   /** Journal, pour nommer ce qui a chargé ou soulagé chaque muscle. */
@@ -312,6 +337,10 @@ export function MuscleBodyDiagram({
   onExercice?: (name: string) => void
   /** Ramène au journal, sur une séance déjà enregistrée. */
   onSeance?: (sessionId: string) => void
+  /** Muscles au repos total : peints en noir, et exclus des séances. */
+  bloquees?: Set<MuscleRegion>
+  /** Pose ou lève un blocage. `heures` à 0 le lève. */
+  onBlocage?: (region: MuscleRegion, heures: number) => void
 }) {
   const [selected, setSelected] = useState<MuscleRegion | null>(null)
   // Corps affiché en plein écran, ou null pour la vue à deux vignettes.
@@ -323,8 +352,15 @@ export function MuscleBodyDiagram({
   // Ce qui a chargé et ce qui a soulagé chaque muscle, nommément.
   const histo = historiqueParMuscle(sessions, maintenant)
 
+  // Le blocage passe AVANT la récupération : un muscle bloqué peut être frais
+  // au barème, et le peindre en vert dirait exactement le contraire de ce qu'on
+  // vient de déclarer.
   const fill = (r: MuscleRegion | 'neutral') =>
-    r === 'neutral' ? NEUTRAL : recoveryColor(byRegion[r]?.jours, byRegion[r]?.intensite)
+    r === 'neutral'
+      ? NEUTRAL
+      : bloquees?.has(r)
+        ? COULEUR_BLOQUE
+        : recoveryColor(byRegion[r]?.jours, byRegion[r]?.intensite)
 
   return (
     <div className="space-y-2">
@@ -406,6 +442,8 @@ export function MuscleBodyDiagram({
           histo={histo[selected]}
           onSoreness={onSoreness}
           onPret={onPret}
+          bloque={bloquees?.has(selected) ?? false}
+          onBlocage={onBlocage}
           onSeance={
             onSeance
               ? (id) => {
@@ -683,6 +721,8 @@ function MuscleSheet({
   onSeance,
   onSoreness,
   onPret,
+  bloque = false,
+  onBlocage,
   onClose,
 }: {
   region: MuscleRegion
@@ -697,6 +737,10 @@ function MuscleSheet({
   onSoreness?: (region: MuscleRegion, extra: number) => void
   /** Déclare le muscle totalement remis. */
   onPret?: (region: MuscleRegion, pret: boolean) => void
+  /** Vrai quand le muscle est au repos total. */
+  bloque?: boolean
+  /** Pose ou lève un blocage. `heures` à 0 le lève. */
+  onBlocage?: (region: MuscleRegion, heures: number) => void
   onClose: () => void
 }) {
   const [courbOuvert, setCourbOuvert] = useState(false)
@@ -707,7 +751,11 @@ function MuscleSheet({
   const totalementBon = info?.sorePret === true
   // Rien à prolonger sur un muscle jamais travaillé : sans séance d'origine, il
   // n'y a pas de groupe auquel rattacher la déclaration.
-  const declarable = Boolean(onSoreness && info)
+  const ajustable = Boolean(onSoreness && info)
+  // Le blocage, LUI, ne demande rien de tel : une épaule peut faire mal sans
+  // avoir été travaillée, et c'est même le cas le plus courant. Le panneau
+  // s'ouvre donc dès que l'un des deux gestes est possible.
+  const declarable = ajustable || Boolean(onBlocage)
   // Les cinq états sont ceux de la légende du spectre, dans le même ordre.
   const etat = !info
     ? 'Froid — jamais travaillé sur les séances chargées'
@@ -747,7 +795,12 @@ function MuscleSheet({
                   d'affiché tant que rien n'est déclaré — un visage grimaçant sur
                   un muscle au barème automatique raconterait n'importe quoi. */}
               <span className="text-[10px] text-muted">
-                {totalementBon ? (
+                {/* Le blocage passe avant tout le reste : sur un muscle exclu
+                    des séances, « toucher pour ajuster le ressenti » décrit un
+                    geste qui n'est plus la question. */}
+                {bloque ? (
+                  <span className="font-bold" style={{ color: 'rgb(var(--ink))' }}>⛔ au repos total</span>
+                ) : totalementBon ? (
                   <span style={{ color: 'rgb(var(--sage-dark))' }}>✅ déclaré totalement bon</span>
                 ) : actuel !== 0 ? (
                   <span style={{ color: actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))' }}>
@@ -775,7 +828,12 @@ function MuscleSheet({
             {/* Le texte suit l'état : « corrige-le » au-dessus d'une barre
                 neutralisée se lirait comme une invitation qui ne marche pas. */}
             <div className="mb-2 text-[11px] text-muted">
-              {totalementBon ? (
+              {bloque ? (
+                <>
+                  <b className="text-ink">{MUSCLE_LABELS[region]}</b> est au repos total. Ramène le curseur vers la
+                  gauche pour lever le blocage.
+                </>
+              ) : totalementBon ? (
                 <>
                   Déclaré remis sur <b className="text-ink">{MUSCLE_LABELS[region]}</b>. Annule ci-dessous pour revenir
                   à la barre.
@@ -799,36 +857,94 @@ function MuscleSheet({
             <input
               type="range"
               min={AJUST_MIN}
-              max={AJUST_MAX}
+              max={CRAN_BLOCAGE}
               step={AJUST_PAS}
-              value={actuel}
-              disabled={totalementBon}
-              onChange={(e) => onSoreness!(region, Number(e.target.value))}
+              // Bloqué, le pouce se pose au bout : la barre montre l'état, elle
+              // ne peut pas dire « barème automatique » sur un muscle exclu.
+              value={bloque ? CRAN_BLOCAGE : actuel}
+              disabled={totalementBon || (!ajustable && !bloque)}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                // Le dernier cran n'est pas une valeur d'ajustement : il change
+                // de registre. Poser un blocage par défaut plutôt que d'ouvrir
+                // un choix vide — la durée se règle juste en dessous.
+                if (v >= CRAN_BLOCAGE) onBlocage?.(region, DUREE_BLOCAGE_DEFAUT)
+                else {
+                  if (bloque) onBlocage?.(region, 0)
+                  if (ajustable) onSoreness!(region, v)
+                }
+              }}
               className={`h-1.5 w-full appearance-none rounded-full ${
                 totalementBon ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
               }`}
               style={{
-                // Vert du côté « ça va mieux », argile du côté « ça tire » : le
-                // curseur dit dans quel sens on va avant même de lire le chiffre.
+                // Vert du côté « ça va mieux », argile du côté « ça tire », noir
+                // tout au bout : le curseur dit dans quel sens on va avant même
+                // de lire le chiffre, blocage compris.
                 background: `linear-gradient(to right, rgb(var(--sage)) 0%, rgb(var(--line)) ${
-                  (100 * -AJUST_MIN) / (AJUST_MAX - AJUST_MIN)
-                }%, rgb(var(--clay)) 100%)`,
+                  (100 * -AJUST_MIN) / (CRAN_BLOCAGE - AJUST_MIN)
+                }%, rgb(var(--clay)) ${
+                  (100 * (AJUST_MAX - AJUST_MIN)) / (CRAN_BLOCAGE - AJUST_MIN)
+                }%, ${COULEUR_BLOQUE} 100%)`,
                 // Neutre pile au milieu : un pouce couleur argile sur un muscle
                 // au barème automatique annoncerait des courbatures déclarées.
-                accentColor:
-                  actuel === 0 ? 'rgb(var(--muted))' : actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))',
+                accentColor: bloque
+                  ? COULEUR_BLOQUE
+                  : actuel === 0
+                    ? 'rgb(var(--muted))'
+                    : actuel < 0
+                      ? 'rgb(var(--sage))'
+                      : 'rgb(var(--clay))',
               }}
             />
-            <div className="mt-1 flex items-baseline justify-between text-[10px] text-muted">
+            <div className="mt-1 flex items-baseline justify-between gap-1 text-[10px] text-muted">
               <span>{fmtAjust(AJUST_MIN)} · va mieux</span>
               <span
-                className="text-xs font-bold"
-                style={{ color: actuel === 0 ? 'rgb(var(--muted))' : actuel < 0 ? 'rgb(var(--sage))' : 'rgb(var(--clay))' }}
+                className="shrink-0 text-xs font-bold"
+                style={{
+                  color: bloque
+                    ? 'rgb(var(--ink))'
+                    : actuel === 0
+                      ? 'rgb(var(--muted))'
+                      : actuel < 0
+                        ? 'rgb(var(--sage))'
+                        : 'rgb(var(--clay))',
+                }}
               >
-                {totalementBon ? '—' : actuel === 0 ? 'barème automatique' : fmtAjust(actuel)}
+                {bloque ? '⛔ bloqué' : totalementBon ? '—' : actuel === 0 ? 'barème automatique' : fmtAjust(actuel)}
               </span>
-              <span>{fmtAjust(AJUST_MAX)} · ça tire</span>
+              <span className="text-right">blocage</span>
             </div>
+
+            {/* La durée, sous la barre et seulement quand le blocage est posé :
+                un choix de durées visible en permanence donnerait à croire qu'il
+                faut le régler avant de bloquer, alors que c'est l'inverse — on
+                bloque, puis on dit pour combien de temps. */}
+            {bloque && onBlocage ? (
+              <div className="mt-2 rounded-xl2 border p-2" style={{ borderColor: 'rgb(var(--ink) / .3)' }}>
+                <div className="mb-1.5 text-[11px] text-ink">
+                  <b>{MUSCLE_LABELS[region]}</b> au repos total — tout exercice qui le sollicite, même en
+                  stabilisation, est retiré des séances proposées.
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {DUREES_BLOCAGE.map((d) => (
+                    <button
+                      key={d.heures}
+                      onClick={() => onBlocage(region, d.heures)}
+                      className="rounded-lg bg-bg px-2 py-1 text-[11px] font-semibold text-muted transition hover:text-ink"
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => onBlocage(region, 0)}
+                  className="mt-1.5 w-full rounded-xl2 border border-line py-1.5 text-[11px] font-bold text-muted transition hover:text-ink"
+                >
+                  Lever le blocage
+                </button>
+              </div>
+            ) : null}
 
             {/* « Totalement bon » n'est pas un cran de plus à gauche de la barre :
                 −1 j ne suffit pas toujours à dire qu'un muscle est prêt, et te

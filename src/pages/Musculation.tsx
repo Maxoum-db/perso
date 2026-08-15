@@ -28,6 +28,14 @@ import {
   saveCourbatures,
   type Courbatures,
 } from '../lib/soreness'
+import {
+  declarerBlocage,
+  loadBlocages,
+  nettoyerBlocages,
+  regionsBloquees,
+  saveBlocages,
+  type Blocages,
+} from '../lib/blocage'
 import { evaluerForme } from '../lib/forme'
 import { chargesCourantes } from '../lib/charges'
 import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
@@ -295,6 +303,10 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [duree, setDuree] = useState(DUREE_PAR_DEFAUT)
   // Courbatures déclarées à la main, en plus du calcul automatique.
   const [courbatures, setCourbatures] = useState<Courbatures>({})
+  // Muscles mis au repos TOTAL, avec leur date de fin. Rien à voir avec les
+  // courbatures : une courbature s'efface quand le muscle est retravaillé, un
+  // blocage doit justement empêcher qu'il le soit.
+  const [blocages, setBlocages] = useState<Blocages>({})
   // Profil morphologique : seul le sexe sert ici, pour la silhouette du mannequin.
   const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
   // Intensités déclarées à la main, indexées par séance.
@@ -325,7 +337,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, pr, it, nu, ob, bh, du, dx, al, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -333,6 +345,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         listWeighins(user.id).catch(() => []),
         loadFocus(user.id).catch(() => [FOCUS_PAR_DEFAUT]),
         loadCourbatures(user.id).catch(() => ({})),
+        loadBlocages(user.id).catch(() => ({}) as Blocages),
         loadProfil(user.id).catch(() => PROFIL_DEFAUT),
         loadIntensites(user.id).catch(() => ({}) as Intensites),
         loadNuits(user.id).catch(() => ({}) as Nuits),
@@ -353,6 +366,9 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       setWeighins(w)
       setFocus(f)
       setCourbatures(cb)
+      // Purgés à la lecture : un blocage expiré n'a plus rien à dire, et le
+      // garder ferait grossir le KV d'un historique que personne ne lit.
+      setBlocages(nettoyerBlocages(bl))
       setProfil(pr)
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
@@ -455,6 +471,11 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
             setCourbatures(next)
             if (user) saveCourbatures(user.id, next).catch(() => {})
           }}
+          blocages={blocages}
+          onBlocages={(next) => {
+            setBlocages(next)
+            if (user) saveBlocages(user.id, next).catch(() => {})
+          }}
           onFocus={(ids) => {
             setFocus(ids)
             if (user) saveFocus(user.id, ids).catch(() => {})
@@ -519,6 +540,8 @@ export function Journal({
   observations,
   onObservations,
   onCourbatures,
+  blocages,
+  onBlocages,
   intensites,
   onIntensite,
   douceurs,
@@ -554,6 +577,8 @@ export function Journal({
   observations: Observations
   onObservations: (o: Observations) => void
   onCourbatures: (c: Courbatures) => void
+  blocages: Blocages
+  onBlocages: (b: Blocages) => void
   /** Intensités déclarées, indexées par séance. */
   intensites: Intensites
   onIntensite: (i: Intensites) => void
@@ -697,6 +722,19 @@ export function Journal({
     onCourbatures(declarerAjustement(courbatures, region, extra, info.dateSeance))
   }
 
+  /**
+   * Met un muscle au repos total pour `heures`, ou lève le blocage à 0.
+   *
+   * Aucune séance d'origine n'est nécessaire, contrairement aux deux
+   * déclarations au-dessus : une épaule peut faire mal sans avoir été
+   * travaillée, et c'est même le cas le plus courant. Et ce n'est pas un
+   * ressenti — rien n'est noté dans la base d'observations : celle-là décrit
+   * comment le corps a réagi à une séance, pas une consigne qu'on lui donne.
+   */
+  function declarerBlocageMuscle(region: MuscleRegion, heures: number) {
+    onBlocages(declarerBlocage(blocages, region, heures))
+  }
+
   /** Déclare le muscle totalement remis, ou annule cette déclaration. */
   function declarerTotalementBon(region: MuscleRegion, pret: boolean) {
     const info = reposParMuscle(loads)[region]
@@ -756,7 +794,11 @@ export function Journal({
   // Le réglage du générateur vit dans `composerSeance` : l'accueil compose la
   // même séance, et deux appels réglés à la main auraient fini par en proposer
   // deux différentes selon l'écran.
-  const contexte = { catalog, sessions, weighins, bodyWeight, focus, behourd, duree, loads }
+  // Les muscles au repos total, recalculés à chaque rendu : un blocage a une
+  // date de fin, et la garder figée dans un état ferait survivre l'exclusion
+  // au-delà de son terme tant que la page n'est pas rechargée.
+  const bloquees = regionsBloquees(blocages)
+  const contexte = { catalog, sessions, weighins, bodyWeight, focus, behourd, duree, loads, bloquees }
 
   function suggerer(exclude = new Set<string>()) {
     setPicking(null)
@@ -1193,6 +1235,8 @@ export function Journal({
         sexe={sexe}
         onSoreness={declarerCourbatures}
         onPret={declarerTotalementBon}
+        bloquees={bloquees}
+        onBlocage={declarerBlocageMuscle}
         onExercice={ouvrirSurExercice}
         onSeance={ouvrirSeance}
       />

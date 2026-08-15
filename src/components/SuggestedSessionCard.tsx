@@ -1,3 +1,4 @@
+import { libellesBloques } from '../lib/blocage'
 import { MUSCLE_LABELS } from '../lib/muscles'
 import { TON_STYLE } from '../lib/charge'
 import { fmtFamiliarite } from '../lib/familiarite'
@@ -293,6 +294,26 @@ export function SuggestedSessionCard({
           </p>
         ) : null
       })()}
+
+      {/* Le blocage AVANT les muscles en récup, et sur fond appuyé : ce n'est
+          pas le générateur qui a jugé, c'est une consigne qu'on lui a donnée.
+          Et il faut la voir, parce qu'elle a un coût — sur un muscle qui
+          stabilise beaucoup, elle peut retirer la moitié du catalogue et rendre
+          une séance de trois lignes qui passerait sinon pour un générateur à
+          court d'idées. */}
+      {suggestion.bloques.regions.length > 0 ? (
+        <p
+          className="rounded-xl2 px-2.5 py-1.5 text-[11px] leading-snug"
+          style={{ background: 'rgb(var(--ink) / .08)', color: 'rgb(var(--ink))' }}
+        >
+          ⛔ Au repos total : <b>{libellesBloques(new Set(suggestion.bloques.regions))}</b>.{' '}
+          {suggestion.bloques.ecartes > 0
+            ? `${suggestion.bloques.ecartes} exercice${suggestion.bloques.ecartes > 1 ? 's' : ''} écarté${
+                suggestion.bloques.ecartes > 1 ? 's' : ''
+              } du choix.`
+            : 'Aucun exercice du catalogue ne les sollicitait.'}
+        </p>
+      ) : null}
 
       {suggestion.evites.length > 0 ? (
         <p className="text-[11px] text-muted">
