@@ -29,6 +29,7 @@ import { chargesCourantes } from '../lib/charges'
 import { listSorties, sortiesEnSeances, type Sortie } from '../lib/course'
 import { etatParZone, fmtDelai, reposParMuscle, type EtatZone } from '../lib/recuperation'
 import { tronquerZones } from '../lib/muscles'
+import type { Section } from '../lib/acces'
 import { loadCourbatures, type Courbatures } from '../lib/soreness'
 import { loadBlocages, nettoyerBlocages, regionsBloquees, type Blocages } from '../lib/blocage'
 import { loadNuits, type Nuits } from '../lib/sommeil'
@@ -38,8 +39,22 @@ import { fetchNotionDuJourQcm, paquetsDeLaQuestion, QCM_KIND_LABELS, type QcmIte
 import { chargerMemoire, enregistrerMemoire, memoireEnCache, noterReponse, type Memoire } from '../lib/qcmMemoire'
 import { listRustiqueDecks, type RustiqueDeck } from '../lib/rustique'
 
-export function Home() {
+export function Home({ sections = [] }: { sections?: Section[] }) {
   const { user } = useAuth()
+  // Rustique accordé ? Tout ce que l'accueil affiche du Hub en dépend — et pas
+  // seulement à l'affichage : on ne DEMANDE rien non plus. Cacher une carte
+  // qu'on est allé chercher laisse la requête partir avec le jeton du compte,
+  // pour une donnée qu'il n'a pas le droit de voir. La règle de lib/acces est
+  // que la navigation cache, la route refuse et la base refuse ; ici le plus
+  // simple et le plus sûr est de ne pas poser la question.
+  const rustique = sections.includes('rustique')
+  // Et la même règle pour tout le reste de l'accueil. Le défaut signalé sur la
+  // Notion du jour n'était pas isolé : l'accueil affichait ses cartes sans
+  // regarder les accès, et les liens menaient donc à des écrans de refus. Un
+  // compte à qui on n'a pas ouvert le brassage voyait la carte Brassage, la
+  // touchait, et tombait sur « accès refusé ».
+  const aSection = (id: Section) => sections.includes(id)
+  const cle = [...sections].sort().join(',')
   const [events, setEvents] = useState<GEvent[] | null>(null)
   const [birthdays, setBirthdays] = useState<Birthday[]>([])
   const [tasks, setTasks] = useState<DueTask[]>([])
@@ -81,49 +96,55 @@ export function Home() {
 
   useEffect(() => {
     if (!user) return
-    listBrews(user.id)
-      .then(setBrews)
-      .catch(() => {})
-    listSessions(user.id, 40)
-      .then(setMuscu)
-      .catch(() => {})
+    if (aSection('brassage')) listBrews(user.id).then(setBrews).catch(() => {})
+    if (aSection('musculation')) listSessions(user.id, 40).then(setMuscu).catch(() => {})
     // Les sorties de course, à part. Elles pèsent sur la RÉCUPÉRATION — courir
     // travaille des muscles — mais ne sont ni la dernière séance de l'accueil,
     // ni du tonnage : elles ont leur propre écran (voir lib/course).
-    listSorties(user.id)
-      .then(setSorties)
-      .catch(() => {})
-    loadCourbatures(user.id).then(setCourbatures).catch(() => {})
-    loadBlocages(user.id).then((b) => setBlocages(nettoyerBlocages(b))).catch(() => {})
-    loadNuits(user.id).then(setNuits).catch(() => {})
-    listCatalog(user.id).then(setCatalog).catch(() => {})
-    listWeighins(user.id).then(setWeighins).catch(() => {})
-    loadFocus(user.id).then(setFocus).catch(() => {})
-    loadBehourd(user.id).then(setBehourd).catch(() => {})
-    loadDuree(user.id).then(setCreneau).catch(() => {})
-    chargerMemoire(user.id)
-      .then((m) => {
-        setMemoire(m)
-        return fetchNotionDuJourQcm(m)
-      })
-      .then(setNotion)
-      .catch(() => {})
-    listRustiqueDecks()
-      .then((r) => {
-        if (r.status !== 'ok') return setCartesDues(null)
-        setPaquets(r.decks)
-        setCartesDues(r.decks.reduce((n, d) => n + d.dueCount, 0))
-      })
-      .catch(() => {})
+    if (aSection('course')) listSorties(user.id).then(setSorties).catch(() => {})
+    if (aSection('musculation')) {
+      loadCourbatures(user.id).then(setCourbatures).catch(() => {})
+      loadBlocages(user.id).then((b) => setBlocages(nettoyerBlocages(b))).catch(() => {})
+      loadNuits(user.id).then(setNuits).catch(() => {})
+      listCatalog(user.id).then(setCatalog).catch(() => {})
+      listWeighins(user.id).then(setWeighins).catch(() => {})
+      loadFocus(user.id).then(setFocus).catch(() => {})
+      loadBehourd(user.id).then(setBehourd).catch(() => {})
+      loadDuree(user.id).then(setCreneau).catch(() => {})
+    }
+    if (rustique) {
+      chargerMemoire(user.id)
+        .then((m) => {
+          setMemoire(m)
+          return fetchNotionDuJourQcm(m)
+        })
+        .then(setNotion)
+        .catch(() => {})
+      listRustiqueDecks()
+        .then((r) => {
+          if (r.status !== 'ok') return setCartesDues(null)
+          setPaquets(r.decks)
+          setCartesDues(r.decks.reduce((n, d) => n + d.dueCount, 0))
+        })
+        .catch(() => {})
+    }
     // Prochains événements du couple (espace partagé).
-    getMySpace()
-      .then((s) => (s ? listSharedEvents(s.spaceId) : []))
+    if (aSection('partage'))
+      getMySpace()
+        .then((s) => (s ? listSharedEvents(s.spaceId) : []))
       .then((evs) => {
         const todayStr = new Date().toLocaleDateString('en-CA')
         setCoupleEvents(evs.filter((e) => e.date >= todayStr).slice(0, 3))
       })
       .catch(() => {})
-  }, [user])
+    // `cle` et pas `user` seul : les accès arrivent APRÈS le premier rendu —
+    // App les lit du cache puis de la base. Sans cette dépendance, l'effet
+    // partait sur une liste vide, ne demandait rien, et ne repassait jamais :
+    // un accueil désert sur toute première ouverture, avant même que le cache
+    // existe. Une chaîne plutôt que le tableau, dont la référence change à
+    // chaque rendu du parent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, cle])
 
   useEffect(() => {
     if (!hasFreshGoogleToken()) {
@@ -218,7 +239,8 @@ export function Home() {
         sorties={sorties}
         courbatures={courbatures}
         nuits={nuits}
-        agendaVisible={!needAuth}
+        agendaVisible={!needAuth && aSection('agenda')}
+        muscuVisible={aSection('musculation')}
         contexte={{ catalog, sessions: muscu, weighins, bodyWeight: weighins[0]?.weight_kg ?? null, focus, behourd, duree: creneau, bloquees: regionsBloquees(blocages) }}
       />
 
@@ -230,7 +252,7 @@ export function Home() {
           décor, et c'est exactement le défaut qu'on répare. Les cartes jamais
           vues ne comptent pas ici — elles ne sont pas en retard, elles
           attendent, et les mélanger rendait le nombre ininterprétable. */}
-      {cartesDues !== null && cartesDues > 0 ? (
+      {rustique && cartesDues !== null && cartesDues > 0 ? (
         <Link
           to="/rustique"
           className="card flex items-center gap-3 p-3 transition hover:shadow-lift"
@@ -249,7 +271,7 @@ export function Home() {
       {/* La suivante arrive dès qu'on a répondu à celle-ci : `key` sur l'id de
           la question, sinon la carte suivante arriverait avec l'explication
           de la précédente encore affichée. */}
-      {notion ? (
+      {rustique && notion ? (
         <NotionDuJourCard
           key={notion.id}
           notion={notion}
@@ -268,7 +290,7 @@ export function Home() {
             setNotion(await fetchNotionDuJourQcm(memoire, vues))
           }}
         />
-      ) : notionsVues.size > 0 ? (
+      ) : rustique && notionsVues.size > 0 ? (
         <div className="card p-4 text-center">
           <div className="text-sm font-bold text-ink">
             🧠 {notionsVues.size} notion{notionsVues.size > 1 ? 's' : ''} répondue{notionsVues.size > 1 ? 's' : ''}
@@ -340,7 +362,7 @@ export function Home() {
         </div>
       ) : null}
 
-      {coupleEvents.length > 0 ? (
+      {aSection('partage') && coupleEvents.length > 0 ? (
         <Link to="/partage" className="card block p-4 transition hover:shadow-lift">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted">💕 À deux — à venir</div>
           <ul className="mt-2 space-y-1.5">
@@ -357,7 +379,7 @@ export function Home() {
         </Link>
       ) : null}
 
-      <BrassageCard brews={brews} />
+      {aSection('brassage') ? <BrassageCard brews={brews} /> : null}
 
       {/* La grille de raccourcis a disparu. Elle menait exactement où mènent déjà
           la barre du bas et le menu « Plus » : trois chemins pour les mêmes
@@ -382,6 +404,7 @@ export function AujourdhuiCard({
   courbatures,
   nuits,
   agendaVisible,
+  muscuVisible,
   contexte,
   sorties,
 }: {
@@ -394,11 +417,13 @@ export function AujourdhuiCard({
   contexte: Omit<ContexteSeance, 'loads'>
   /** Sorties de course, converties pour la seule récupération. */
   sorties: Sortie[]
+  /** La musculation est-elle accordée à ce compte ? */
+  muscuVisible: boolean
 }) {
   // Un élément JSX n'est JAMAIS null : tester `<MuscuMoitie/> === null` aurait
   // toujours été faux et la carte se serait affichée vide. On interroge donc les
   // données, comme le fait la moitié elle-même.
-  const aDuMuscu = loadLive() !== null || sessions.length > 0
+  const aDuMuscu = muscuVisible && (loadLive() !== null || sessions.length > 0)
   if (!agendaVisible && !aDuMuscu) return null
 
   return (
@@ -415,7 +440,9 @@ export function AujourdhuiCard({
           )}
         </Link>
       ) : null}
-      <MuscuMoitie sessions={sessions} sorties={sorties} courbatures={courbatures} nuits={nuits} contexte={contexte} events={events} />
+      {muscuVisible ? (
+        <MuscuMoitie sessions={sessions} sorties={sorties} courbatures={courbatures} nuits={nuits} contexte={contexte} events={events} />
+      ) : null}
     </div>
   )
 }

@@ -71,7 +71,7 @@ export default function App() {
   return (
     <Layout sections={sections}>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Home sections={sections} />} />
         <Route path="/agenda" element={garde('/agenda', <Agenda />)} />
         <Route path="/notes" element={garde('/notes', <Notes />)} />
         <Route path="/listes" element={garde('/notes', <Notes initial="listes" />)} />
