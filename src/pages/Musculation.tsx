@@ -58,7 +58,6 @@ import {
   type Observations,
 } from '../lib/observations'
 import { reposParMuscle } from '../lib/recuperation'
-import { etatProtocole } from '../lib/protocole'
 import type { MuscleRegion } from '../lib/muscles'
 import { loadNuits, type Nuits } from '../lib/sommeil'
 import { Sommeil } from './Sommeil'
@@ -1778,39 +1777,6 @@ function ExoListEditor({
   )
 }
 
-/**
- * Où on en est du bloc de préparation, en tête des séances types.
- *
- * En tête et non dans les notes de chaque modèle : la phase est une propriété
- * de la DATE, pas des séances. Répétée sur six modèles, elle aurait dû être
- * corrigée six fois le jour où l'échéance bouge — et elle aurait quand même
- * manqué là où on la cherche, c'est-à-dire en arrivant sur l'écran.
- */
-function PhaseProtocole() {
-  const etat = etatProtocole()
-  if (etat.phase === 'apres') return null
-  const couleur =
-    etat.phase === 'taper' ? 'var(--plum)' : etat.phase === 'bloc' ? 'var(--copper)' : 'var(--sage-dark)'
-  return (
-    <div
-      className="rounded-xl2 border-l-4 bg-card p-3"
-      style={{ borderColor: `rgb(${couleur})` }}
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-bold text-ink">{etat.titre}</span>
-        <span className="shrink-0 text-[11px] text-muted">
-          {etat.joursAvantJourJ > 0 ? `${etat.joursAvantJourJ} j avant l’échéance` : 'jour J'}
-        </span>
-      </div>
-      <p className="mt-1 text-xs leading-snug text-muted">{etat.consigne}</p>
-      {/* Le matériel du jour, à part : c'est lui qui dit quelles séances types
-          sont réellement faisables maintenant, et il change de salle en salle
-          sans que la phase bouge. */}
-      <p className="mt-1 text-[11px] leading-snug text-muted/80">🏋️ {etat.salle.materiel}</p>
-    </div>
-  )
-}
-
 // ── Séances types (modèles éditables) ────────────────────────────────────────
 
 interface TplDraft {
@@ -1872,8 +1838,6 @@ function TypesTab({
 
   return (
     <div className="space-y-3">
-      <PhaseProtocole />
-
       <p className="text-xs text-muted">
         Tes modèles de séance : modifie-les librement, ils servent de base quand tu démarres une séance dans le
         journal.
