@@ -379,6 +379,8 @@ export function Home({ sections = [] }: { sections?: Section[] }) {
         </Link>
       ) : null}
 
+      {aSection('flatterie') ? <FlatterieCard /> : null}
+
       {aSection('brassage') ? <BrassageCard brews={brews} /> : null}
 
       {/* La grille de raccourcis a disparu. Elle menait exactement où mènent déjà
@@ -875,6 +877,20 @@ function SuivanteButton({ onSuivante }: { onSuivante: () => Promise<void> }) {
 }
 
 // Dashboard brassage : brassins en cours (fermentation / maturation / embouteillé).
+/**
+ * La carte de flatterie. Aucune donnée, aucune requête, aucun lien : c'est le
+ * cas le plus simple qu'une section puisse produire, et c'est ce qui en fait un
+ * bon garde-fou — si elle apparaît sans que la section soit accordée, c'est que
+ * la règle des accès de l'accueil a lâché quelque part.
+ */
+function FlatterieCard() {
+  return (
+    <section className="card p-4 text-center">
+      <div className="text-lg font-extrabold text-copper">✨ Maximilien est le plus beau</div>
+    </section>
+  )
+}
+
 function BrassageCard({ brews }: { brews: Brew[] }) {
   const active = brews.filter((b) => ['fermentation', 'maturation', 'embouteille'].includes(b.status))
   if (active.length === 0) return null

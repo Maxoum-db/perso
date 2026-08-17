@@ -41,8 +41,20 @@ export type Section =
   | 'brassage'
   | 'mails'
   | 'rustique'
+  | 'flatterie'
 
-export const SECTIONS: Array<{ id: Section; label: string; icone: string; route: string; aide: string }> = [
+/**
+ * Une section a un identifiant, un libellé, et parfois UNE PAGE.
+ *
+ * `route` est facultative, et c'est nouveau : toutes les sections menaient
+ * jusqu'ici quelque part. Certaines n'ajoutent qu'une carte à l'accueil et n'ont
+ * aucun écran à elles. Leur donner une route bidon aurait mis dans le menu une
+ * entrée qui ne mène nulle part ; les exclure de la table les aurait rendues
+ * impossibles à accorder depuis les réglages, qui lisent cette table-là. Sans
+ * route, `routeAutorisee` ne les rencontre jamais et le menu ne les affiche pas
+ * — les deux comportements qu'on veut, sans cas particulier nulle part.
+ */
+export const SECTIONS: Array<{ id: Section; label: string; icone: string; route?: string; aide: string }> = [
   { id: 'agenda', label: 'Agenda', icone: '📅', route: '/agenda', aide: 'Rendez-vous et journée.' },
   { id: 'notes', label: 'Notes', icone: '📝', route: '/notes', aide: 'Notes, listes et tâches.' },
   { id: 'partage', label: 'À deux', icone: '💛', route: '/partage', aide: 'Ce qui est partagé entre vous.' },
@@ -52,6 +64,8 @@ export const SECTIONS: Array<{ id: Section; label: string; icone: string; route:
   { id: 'brassage', label: 'Brassage', icone: '🍺', route: '/brassage', aide: 'Brassins et fermentations.' },
   { id: 'mails', label: 'Mails', icone: '✉️', route: '/mails', aide: 'Boîte de réception (hors navigation).' },
   { id: 'rustique', label: 'Rustique', icone: '🧠', route: '/rustique', aide: 'Recettes, apiculture, distillation et BPREA du Hub Prométhée.' },
+  // Sans route : elle n'ajoute qu'une carte à l'accueil.
+  { id: 'flatterie', label: 'Flatterie', icone: '✨', aide: 'Une carte d’accueil qui rappelle une vérité première.' },
 ]
 
 /**
@@ -170,7 +184,13 @@ export function disciplineAffichee(
 /** La route est-elle ouverte à ces sections ? */
 export function routeAutorisee(route: string, sections: Section[]): boolean {
   if (TOUJOURS.includes(route)) return true
-  const s = SECTIONS.find((x) => x.route === route)
+  // `x.route &&` en tête : sans ce garde, appeler la fonction avec `undefined`
+  // — ce que fait n'importe quel appelant mal typé, et ce que faisait le banc —
+  // retrouvait la première section SANS page et lui faisait garder une route
+  // fantôme. Aucun appel réel ne passe `undefined`, mais le jour où deux
+  // sections sans page coexistent, c'est la première qui aurait répondu pour
+  // l'autre.
+  const s = SECTIONS.find((x) => x.route && x.route === route)
   // Une route inconnue de la table (une redirection, un rattrapage) n'est pas
   // gardée : elle ne montre rien par elle-même.
   return s ? sections.includes(s.id) : true
