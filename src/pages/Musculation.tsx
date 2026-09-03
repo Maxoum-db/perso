@@ -606,6 +606,11 @@ export function Journal({
   pourLaRecup: MuscuSession[]
 }) {
   const [draft, setDraft] = useState<SessionDraft | null>(null)
+  // Un brouillon peut exister sans que l'éditeur soit affiché : c'est le cas
+  // pendant une composition depuis le mannequin, qui ajoute des exercices sans
+  // jamais quitter le corps à l'écran. L'éditeur ne s'ouvre que sur un geste
+  // explicite — ce booléen fait la différence entre les deux.
+  const [editeurOuvert, setEditeurOuvert] = useState(false)
   // Plus qu'un seul mode d'ouverture manuelle. « En direct » était le second,
   // et il partait d'une page blanche : c'est le compositeur qui ouvre désormais
   // les séances chronométrées, à partir de ce que le mannequin sait.
@@ -648,21 +653,47 @@ export function Journal({
   const forme = evaluerForme(sessions, weighins)
 
   /**
-   * Ouvre une séance vierge sur un exercice choisi depuis la fiche d'un muscle.
-   * Le catalogue fait foi : c'est lui qui porte le format et les groupes de
-   * l'utilisateur, éventuellement modifiés.
+   * Ajoute un exercice choisi depuis la fiche d'un muscle à la séance en cours
+   * de composition, SANS ouvrir l'éditeur : le mannequin reste à l'écran, pour
+   * enchaîner sur un autre muscle. Le catalogue fait foi : c'est lui qui porte
+   * le format et les groupes de l'utilisateur, éventuellement modifiés.
    */
   function ouvrirSurExercice(name: string) {
     const c = catalog.find((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase())
-    setDraft({
-      date: today(),
-      name: 'Séance',
-      duration: '',
-      intensite: null,
-      notes: '',
-      template_id: null,
-      exos: [c ? rappelDraft(c) : { ...emptyExo(), name }],
-    })
+    const exo = c ? rappelDraft(c) : { ...emptyExo(), name }
+    setDraft((prev) =>
+      prev
+        ? { ...prev, exos: [...prev.exos, exo] }
+        : { date: today(), name: 'Séance', duration: '', intensite: null, notes: '', template_id: null, exos: [exo] },
+    )
+  }
+
+  /**
+   * Ouvre l'éditeur sur un brouillon neuf — le point d'entrée de « séance
+   * vierge », d'un modèle, d'une suggestion ou d'une modification.
+   *
+   * Si une séance s'accumulait en silence depuis le mannequin (composée sans
+   * jamais ouvrir l'éditeur), on prévient avant de l'écraser : sinon elle
+   * disparaîtrait sans un mot au premier bouton du dessus.
+   */
+  function ouvrirNeuf(next: SessionDraft) {
+    if (
+      draft &&
+      !editeurOuvert &&
+      draft.exos.length > 0 &&
+      !confirm(
+        `Une séance de ${draft.exos.length} exercice${draft.exos.length > 1 ? 's' : ''} est en cours de composition depuis le mannequin. L'abandonner ?`,
+      )
+    )
+      return
+    setDraft(next)
+    setEditeurOuvert(true)
+  }
+
+  /** Referme l'éditeur — et le brouillon qui allait avec. */
+  function fermerEditeur() {
+    setDraft(null)
+    setEditeurOuvert(false)
   }
 
   /** Charge et reps conseillées pour un exercice du catalogue. */
@@ -759,12 +790,12 @@ export function Journal({
     // que « 🔍 Chercher un exercice », qui est la première chose qu'on fait.
     // Rien à filtrer au passage : l'enregistrement écartait déjà les lignes sans
     // nom, la ligne vide ne servait donc qu'à occuper l'écran.
-    setDraft({ date: today(), name: 'Séance', duration: '', intensite: null, notes: '', template_id: null, exos: [] })
+    ouvrirNeuf({ date: today(), name: 'Séance', duration: '', intensite: null, notes: '', template_id: null, exos: [] })
   }
 
   function startFromTemplate(tpl: MuscuTemplate) {
     setPicking(null)
-    setDraft({
+    ouvrirNeuf({
       date: today(),
       name: tpl.name,
       duration: tpl.duration_min ? String(tpl.duration_min) : '',
@@ -886,7 +917,7 @@ export function Journal({
     })
     setSuggest(null)
     if (!live) {
-      setDraft({
+      ouvrirNeuf({
         date: today(),
         name: s.name,
         // La durée estimée est pré-remplie : sans elle, la séance s'enregistre
@@ -922,7 +953,7 @@ export function Journal({
   }
 
   function startEdit(s: MuscuSession) {
-    setDraft({
+    ouvrirNeuf({
       id: s.id,
       date: s.date,
       name: s.name,
@@ -956,7 +987,7 @@ export function Journal({
     )
   }
 
-  if (draft) {
+  if (draft && editeurOuvert) {
     return (
       <SessionEditor
         draft={draft}
@@ -964,7 +995,7 @@ export function Journal({
         catalog={catalog}
         sessions={sessions}
         bodyWeight={bodyWeight}
-        onCancel={() => setDraft(null)}
+        onCancel={fermerEditeur}
         onSave={async (d) => {
           // Même règle qu'à « Terminé » : une séance dont le nom n'a pas été
           // écrit à la main prend celui de ses muscles. La saisie après coup part
@@ -1014,7 +1045,7 @@ export function Journal({
               allures,
             ),
           )
-          setDraft(null)
+          fermerEditeur()
           onChange()
         }}
       />
@@ -1139,6 +1170,23 @@ export function Journal({
             setLiveReduit(false)
           }}
         />
+      ) : null}
+
+      {/* Une séance composée muscle par muscle depuis le mannequin, pas encore
+          ouverte à l'écran — le geste vit là-bas, ce bandeau dit juste qu'il n'a
+          pas été perdu et permet d'y revenir. */}
+      {draft && !editeurOuvert ? (
+        <button
+          onClick={() => setEditeurOuvert(true)}
+          className="sticky top-0 z-30 -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-2 border-b border-sage/40 bg-card/95 px-3 py-2 text-left backdrop-blur"
+          title="Ouvrir la séance composée depuis le mannequin"
+        >
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-sage" />
+          <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">
+            🏋️ Séance en cours — {draft.exos.length} exercice{draft.exos.length > 1 ? 's' : ''}
+          </span>
+          <span className="shrink-0 text-xs text-copper">Ouvrir ▸</span>
+        </button>
       ) : null}
 
       <div className="grid grid-cols-3 gap-2">
