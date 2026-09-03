@@ -452,14 +452,10 @@ export function MuscleBodyDiagram({
                 }
               : undefined
           }
-          onExercice={
-            onExercice
-              ? (name) => {
-                  setZoom(null) // ouvrir une séance sort du plein écran
-                  onExercice(name)
-                }
-              : undefined
-          }
+          // Contrairement à `onSeance`, ajouter un exercice NE sort PAS du plein
+          // écran : composer une séance muscle par muscle veut justement dire
+          // rester sur le mannequin pour enchaîner sur un autre muscle.
+          onExercice={onExercice}
           onClose={() => setSelected(null)}
         />
       ) : null}
@@ -729,7 +725,7 @@ function MuscleSheet({
   info?: ReposMuscle
   /** Dernier travail et dernière récup — ce que la couleur seule ne dit pas. */
   histo?: HistoriqueMuscle
-  /** Ouvre une séance sur cet exercice, quand la page sait le faire. */
+  /** Ajoute cet exercice à la séance en cours de composition, quand la page sait le faire. */
   onExercice?: (name: string) => void
   /** Renvoie vers une séance déjà enregistrée du journal. */
   onSeance?: (sessionId: string) => void
@@ -744,6 +740,10 @@ function MuscleSheet({
   onClose: () => void
 }) {
   const [courbOuvert, setCourbOuvert] = useState(false)
+  // Exercices déjà ajoutés à la séance en cours depuis CETTE fiche — un
+  // repère visuel, pas une limite : rien n'empêche d'ajouter deux fois le même
+  // exercice (une superset, par exemple).
+  const [ajoutes, setAjoutes] = useState<Set<string>>(new Set())
   const propositions = exercicesPourMuscle(region, 8)
   const color = recoveryColor(info?.jours, info?.intensite)
   const reste = info ? resteAvantPret(info.jours, region) : 0
@@ -1095,16 +1095,22 @@ function MuscleSheet({
                     </span>
                   </>
                 )
+                const ajoute = ajoutes.has(e.name)
                 return (
                   <li key={e.name}>
                     {onExercice ? (
                       <button
                         onClick={() => {
                           onExercice(e.name)
-                          onClose()
+                          setAjoutes((prev) => new Set(prev).add(e.name))
                         }}
-                        className="flex w-full items-baseline gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-copper/10"
+                        className={`flex w-full items-baseline gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-copper/10 ${
+                          ajoute ? 'bg-sage/10' : ''
+                        }`}
                       >
+                        {/* Pas de limite au nombre d'ajouts : la coche dit juste
+                            « déjà pris », pas « indisponible ». */}
+                        {ajoute ? <span className="shrink-0 text-sage-dark">✓</span> : null}
                         {ligne}
                       </button>
                     ) : (
@@ -1115,7 +1121,10 @@ function MuscleSheet({
               })}
             </ul>
             {onExercice ? (
-              <p className="mt-1 text-[10px] text-muted">Touche un exercice pour ouvrir une séance dessus.</p>
+              <p className="mt-1 text-[10px] text-muted">
+                Touche un exercice pour l'ajouter à la séance en cours — le mannequin reste ouvert, ✕ pour choisir un
+                autre muscle.
+              </p>
             ) : null}
           </div>
         ) : null}
