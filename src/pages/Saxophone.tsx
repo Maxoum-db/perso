@@ -8,13 +8,17 @@ import { PorteeNote } from '../components/PorteeNote'
 // transposition change le son, jamais le mécanisme des clés. Une seule page
 // sert donc à tout le monde, sans réglage d'instrument.
 //
-// Trois volets repliables plutôt qu'une longue page : portée et saxophone
-// mis bout à bout dépassent l'écran d'un téléphone, et c'est justement ensemble
-// qu'ils servent — on lit la note, on pose les doigts. Chacun se replie, et le
-// bouton du haut les replie tous d'un coup.
+// Tout est replié ou dépliable, et rien n'est empilé sans raison : sur un
+// téléphone, la place perdue se paie en défilement.
+//
+// La portée est posée À CÔTÉ du saxophone et non au-dessus : le saxophone est
+// haut et étroit, il laissait une colonne vide sur toute sa hauteur pendant
+// que la portée occupait une carte à elle. Côte à côte, les deux tiennent dans
+// la hauteur du seul saxophone — et c'est ensemble qu'ils servent, on lit la
+// note et on pose les doigts.
 
-type IdVolet = 'notes' | 'portee' | 'doigte'
-const VOLETS: IdVolet[] = ['notes', 'portee', 'doigte']
+type IdVolet = 'notes' | 'doigte'
+const VOLETS: IdVolet[] = ['notes', 'doigte']
 
 /**
  * Les deux façons de ranger les mêmes trente-deux notes.
@@ -30,12 +34,25 @@ interface Etat {
   note: string
   classement: Classement
   ouverts: Record<IdVolet, boolean>
+  /**
+   * Les paquets de notes repliés, par leur clé.
+   *
+   * Repliés et non dépliés : c'est la liste des exceptions, et elle est vide
+   * au départ. L'inverse aurait demandé d'y inscrire chaque paquet existant,
+   * et un paquet ajouté plus tard serait né fermé sans que personne l'ait
+   * demandé.
+   *
+   * Les clés des deux classements ne se confondent pas — des mots d'un côté,
+   * des chiffres de l'autre — donc une seule liste suffit pour les deux.
+   */
+  groupesReplies: string[]
 }
 
 const DEFAUT: Etat = {
   note: SAX_NOTES[0].id,
   classement: 'registre',
-  ouverts: { notes: true, portee: true, doigte: true },
+  ouverts: { notes: true, doigte: true },
+  groupesReplies: [],
 }
 
 interface Groupe {
@@ -75,7 +92,14 @@ function etatInitial(): Etat {
   return {
     note: SAX_NOTES.some((n) => n.id === brut.note) ? (brut.note as string) : DEFAUT.note,
     classement: brut.classement === 'niveau' ? 'niveau' : 'registre',
-    ouverts: { ...DEFAUT.ouverts, ...(brut.ouverts ?? {}) },
+    // Champ par champ et non par étalement : une version antérieure de la page
+    // avait un volet « portée » qui n'existe plus, et l'étaler ici le
+    // ressusciterait dans l'état sous forme de clé morte.
+    ouverts: {
+      notes: brut.ouverts?.notes ?? DEFAUT.ouverts.notes,
+      doigte: brut.ouverts?.doigte ?? DEFAUT.ouverts.doigte,
+    },
+    groupesReplies: Array.isArray(brut.groupesReplies) ? brut.groupesReplies : [],
   }
 }
 
@@ -96,6 +120,13 @@ export function Saxophone() {
     if (suivante) choisir(suivante.id)
   }
   const basculer = (v: IdVolet) => setEtat((e) => ({ ...e, ouverts: { ...e.ouverts, [v]: !e.ouverts[v] } }))
+  const basculerGroupe = (cle: string) =>
+    setEtat((e) => ({
+      ...e,
+      groupesReplies: e.groupesReplies.includes(cle)
+        ? e.groupesReplies.filter((c) => c !== cle)
+        : [...e.groupesReplies, cle],
+    }))
 
   // Le bouton se règle sur « reste-t-il quelque chose d'ouvert ? » et non sur
   // « tout est-il ouvert ? » : avec la seconde règle, replier un seul volet
@@ -105,7 +136,7 @@ export function Saxophone() {
   const toutBasculer = () =>
     setEtat((e) => ({
       ...e,
-      ouverts: { notes: !auMoinsUnOuvert, portee: !auMoinsUnOuvert, doigte: !auMoinsUnOuvert },
+      ouverts: { notes: !auMoinsUnOuvert, doigte: !auMoinsUnOuvert },
     }))
 
   return (
@@ -156,58 +187,85 @@ export function Saxophone() {
               ))}
             </div>
 
-            {groupes.map((g) => (
-              <div key={g.cle} className="space-y-1">
-                <div className="text-[10px] font-bold text-muted">
-                  {g.label} <span className="font-normal opacity-70">— {g.aide}</span>
+            {groupes.map((g) => {
+              const replie = etat.groupesReplies.includes(g.cle)
+              const contientLaNote = g.notes.some((n) => n.id === note.id)
+              return (
+                <div key={g.cle} className="space-y-1">
+                  <button
+                    onClick={() => basculerGroupe(g.cle)}
+                    aria-expanded={!replie}
+                    className="flex w-full items-baseline gap-1 text-left"
+                  >
+                    <span className="shrink-0 text-[10px] text-copper">{replie ? '▸' : '▾'}</span>
+                    <span className="shrink-0 text-[10px] font-bold text-ink">{g.label}</span>
+                    <span className="min-w-0 flex-1 truncate text-[10px] text-muted">
+                      {replie ? `— ${g.notes.length} notes` : `— ${g.aide}`}
+                    </span>
+                    {/* Un paquet replié qui contient la note choisie le dit :
+                        sinon elle disparaît de l'écran sans laisser de trace de
+                        l'endroit où la retrouver. */}
+                    {replie && contientLaNote ? (
+                      <span className="shrink-0 text-[10px] font-bold text-copper">• {note.label}</span>
+                    ) : null}
+                  </button>
+                  {replie ? null : (
+                    <div className="flex flex-wrap gap-1">
+                      {g.notes.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => choisir(n.id)}
+                          aria-pressed={n.id === note.id}
+                          className={`chip text-[11px] font-semibold transition ${
+                            n.id === note.id ? 'bg-copper text-white' : 'bg-white/5 text-muted hover:text-ink'
+                          }`}
+                        >
+                          {n.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {g.notes.map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => choisir(n.id)}
-                      aria-pressed={n.id === note.id}
-                      className={`chip text-[11px] font-semibold transition ${
-                        n.id === note.id ? 'bg-copper text-white' : 'bg-white/5 text-muted hover:text-ink'
-                      }`}
-                    >
-                      {n.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : null}
       </section>
 
-      <Volet titre="🎼 Sur la partition" ouvert={etat.ouverts.portee} onToggle={() => basculer('portee')}>
-        <PorteeNote note={note} />
-      </Volet>
-
-      <Volet titre="🎷 Doigté" ouvert={etat.ouverts.doigte} onToggle={() => basculer('doigte')}>
-        <SaxophoneDiagram keys={note.keys} />
-        {note.keys.length === 0 ? (
-          <p className="mt-2 text-center text-xs text-muted">Aucune clé : le saxophone reste entièrement ouvert.</p>
-        ) : (
-          <div className="mt-2 flex flex-wrap justify-center gap-1">
-            {note.keys.map((k) => (
-              <span
-                key={k}
-                title={saxKey(k).aide}
-                className="rounded-lg px-2 py-0.5 text-[11px] font-semibold"
-                style={{ background: `${CLE_ACTIVE}22`, color: CLE_ACTIVE }}
-              >
-                {saxKey(k).nom}
-              </span>
-            ))}
+      <Volet titre="🎼 Partition et doigté" ouvert={etat.ouverts.doigte} onToggle={() => basculer('doigte')}>
+        {/* Deux colonnes : le saxophone est haut et étroit, la portée est basse
+            et large. L'une remplit exactement le vide laissé par l'autre. */}
+        <div className="flex items-start gap-2">
+          <div className="w-[46%] shrink-0">
+            <SaxophoneDiagram keys={note.keys} />
           </div>
-        )}
+          <div className="min-w-0 flex-1 space-y-2">
+            <PorteeNote note={note} />
+            {note.keys.length === 0 ? (
+              <p className="text-center text-[11px] leading-snug text-muted">
+                Aucune clé : le saxophone reste entièrement ouvert.
+              </p>
+            ) : (
+              <div className="flex flex-wrap justify-center gap-1">
+                {note.keys.map((k) => (
+                  <span
+                    key={k}
+                    title={saxKey(k).aide}
+                    className="rounded-lg px-1.5 py-0.5 text-[10px] font-semibold"
+                    style={{ background: `${CLE_ACTIVE}22`, color: CLE_ACTIVE }}
+                  >
+                    {saxKey(k).nom}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </Volet>
 
       <p className="px-2 text-center text-[10px] leading-snug text-muted">
-        Registre standard, du Si♭ grave au Fa aigu. Doigtés courants — à recouper avec ta méthode pour les cas
-        particuliers.
+        Note écrite en clé de sol — mêmes doigtés sur tous les saxophones. Registre standard, du Si♭ grave au Fa aigu ;
+        doigtés courants, à recouper avec ta méthode.
       </p>
     </div>
   )

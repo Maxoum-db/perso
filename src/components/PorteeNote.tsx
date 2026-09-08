@@ -82,51 +82,48 @@ function Alteration({ type, cy }: { type: 'diese' | 'bemol'; cy: number }) {
 export function PorteeNote({ note }: { note: SaxNote }) {
   const cy = y(note.degre)
   return (
-    <div className="space-y-1">
-      <svg
-        viewBox="0 0 150 100"
-        className="mx-auto w-full max-w-[11rem]"
-        role="img"
-        aria-label={`${note.label} sur la portée, en clé de sol`}
-      >
-        <g stroke="rgb(var(--ink))" strokeWidth="1" opacity="0.5">
-          {[0, 2, 4, 6, 8].map((d) => (
-            <line key={d} x1="6" y1={y(d)} x2="144" y2={y(d)} />
-          ))}
-        </g>
+    <svg
+      viewBox="0 0 150 100"
+      className="mx-auto w-full max-w-[11rem]"
+      role="img"
+      aria-label={`${note.label} sur la portée, en clé de sol`}
+    >
+      <g stroke="rgb(var(--ink))" strokeWidth="1" opacity="0.5">
+        {[0, 2, 4, 6, 8].map((d) => (
+          <line key={d} x1="6" y1={y(d)} x2="144" y2={y(d)} />
+        ))}
+      </g>
 
-        <path
-          d={CLE_SOL}
-          fill="none"
-          stroke="rgb(var(--ink))"
-          strokeWidth="2.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.85"
-        />
+      <path
+        d={CLE_SOL}
+        fill="none"
+        stroke="rgb(var(--ink))"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.85"
+      />
 
-        <g stroke="rgb(var(--copper))" strokeWidth="1.2" strokeLinecap="round">
-          {lignesSupplementaires(note.degre).map((d) => (
-            <line key={d} x1={X_NOTE - 11} y1={y(d)} x2={X_NOTE + 11} y2={y(d)} />
-          ))}
-        </g>
+      <g stroke="rgb(var(--copper))" strokeWidth="1.2" strokeLinecap="round">
+        {lignesSupplementaires(note.degre).map((d) => (
+          <line key={d} x1={X_NOTE - 11} y1={y(d)} x2={X_NOTE + 11} y2={y(d)} />
+        ))}
+      </g>
 
-        {note.alteration ? <Alteration type={note.alteration} cy={cy} /> : null}
+      {note.alteration ? <Alteration type={note.alteration} cy={cy} /> : null}
 
-        {/* Une ronde : sans queue ni durée, elle ne dit qu'une hauteur — c'est
-            exactement ce qu'on lui demande ici. */}
-        <ellipse
-          cx={X_NOTE}
-          cy={cy}
-          rx="6"
-          ry="4.2"
-          transform={`rotate(-18 ${X_NOTE} ${cy})`}
-          fill="none"
-          stroke="rgb(var(--copper))"
-          strokeWidth="2.6"
-        />
-      </svg>
-      <p className="text-center text-[10px] text-muted">Note écrite, en clé de sol — la même sur tous les saxophones.</p>
-    </div>
+      {/* Une ronde : sans queue ni durée, elle ne dit qu'une hauteur — c'est
+          exactement ce qu'on lui demande ici. */}
+      <ellipse
+        cx={X_NOTE}
+        cy={cy}
+        rx="6"
+        ry="4.2"
+        transform={`rotate(-18 ${X_NOTE} ${cy})`}
+        fill="none"
+        stroke="rgb(var(--copper))"
+        strokeWidth="2.6"
+      />
+    </svg>
   )
 }
