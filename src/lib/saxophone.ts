@@ -153,13 +153,13 @@ export function saxKey(id: SaxKey) {
  * autres : on ne cherche pas la même chose selon qu'on lit une partition,
  * qu'on prépare son travail, ou qu'on compare les doigtés d'une même note.
  */
-export type Classement = 'registre' | 'niveau' | 'note'
+export type Classement = 'simple' | 'niveau' | 'note'
 
 export const CLASSEMENTS: Array<{ id: Classement; label: string; aide: string }> = [
   {
-    id: 'registre',
-    label: 'Par registre',
-    aide: 'Les hauteurs, du Si♭ grave au Fa aigu — pour retrouver une note lue sur une partition.',
+    id: 'simple',
+    label: 'Sans altération',
+    aide: 'Les sept notes naturelles, registre par registre — ni dièse ni bémol, pour commencer.',
   },
   {
     id: 'niveau',
@@ -198,11 +198,21 @@ export function nomDeNote(n: SaxNote): string {
 /** Les douze noms, dans l'ordre chromatique habituel — celui qui part du Do. */
 const ORDRE_NOMS = ['Do', 'Do#', 'Ré', 'Mib', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'Sib', 'Si']
 
-const PAR_REGISTRE: GroupeNotes[] = [
-  { id: 'grave' as Registre, label: 'Grave', aide: 'Du Si♭ grave au La, sans clé d’octave.' },
-  { id: 'médium' as Registre, label: 'Médium', aide: 'L’octave au-dessus, clé d’octave au pouce.' },
-  { id: 'aigu' as Registre, label: 'Aigu', aide: 'Le haut du registre standard, jusqu’au Fa.' },
-].map((r) => ({ cle: r.id, label: r.label, aide: r.aide, notes: SAX_NOTES.filter((n) => n.registre === r.id) }))
+// Les naturelles seules, registre par registre : sept notes en bas, sept au
+// milieu, cinq en haut — dix-neuf au lieu de trente-deux. Les treize altérées
+// ne disparaissent pas de l'application, elles restent dans les deux autres
+// classements et sous les flèches ; elles quittent seulement la liste par
+// laquelle on commence.
+const PAR_SIMPLE: GroupeNotes[] = [
+  { id: 'grave' as Registre, label: 'Graves', aide: 'Les naturelles du bas, sans clé d’octave.' },
+  { id: 'médium' as Registre, label: 'Médiums', aide: 'Les mêmes une octave au-dessus, clé d’octave au pouce.' },
+  { id: 'aigu' as Registre, label: 'Aigus', aide: 'Le haut du registre standard, jusqu’au Fa.' },
+].map((r) => ({
+  cle: r.id,
+  label: r.label,
+  aide: r.aide,
+  notes: SAX_NOTES.filter((n) => n.registre === r.id && n.alteration === null),
+}))
 
 const PAR_NIVEAU: GroupeNotes[] = NIVEAUX.map((nv) => ({
   cle: String(nv.id),
@@ -221,7 +231,25 @@ const PAR_NOTE: GroupeNotes[] = ORDRE_NOMS.map((nom) => {
 export function groupesDeNotes(classement: Classement): GroupeNotes[] {
   if (classement === 'niveau') return PAR_NIVEAU
   if (classement === 'note') return PAR_NOTE
-  return PAR_REGISTRE
+  return PAR_SIMPLE
+}
+
+/**
+ * La note voisine ATTEINTE PAR LES FLÈCHES, dans le classement courant.
+ *
+ * On avance toujours dans l'ordre chromatique de la table — c'est ce que les
+ * flèches ont toujours fait —, mais on saute ce que le classement ne montre
+ * pas : sans altération, ▶ mène du Mi au Fa et non à un Fa♯ introuvable dans
+ * la liste sous les yeux. Les deux autres classements montrant tout, rien n'y
+ * change.
+ */
+export function noteVoisine(id: string, pas: number, classement: Classement): SaxNote | null {
+  const visibles = new Set(groupesDeNotes(classement).flatMap((g) => g.notes.map((n) => n.id)))
+  const depart = SAX_NOTES.findIndex((n) => n.id === id)
+  for (let i = depart + pas; i >= 0 && i < SAX_NOTES.length; i += pas) {
+    if (visibles.has(SAX_NOTES[i].id)) return SAX_NOTES[i]
+  }
+  return null
 }
 
 // ── L'état de la page, gardé en local ───────────────────────────────────────
@@ -271,8 +299,11 @@ export interface EtatSax {
 export const ETAT_SAX_DEFAUT: EtatSax = {
   onglet: 'doigtes',
   lecon: null,
-  note: SAX_NOTES[0].id,
-  classement: 'registre',
+  // La première NATURELLE et non la première note de la table : celle-là est
+  // un Si♭, et le classement d'ouverture ne montre pas les altérées — on
+  // arrivait sur une note absente de la liste juste en dessous.
+  note: SAX_NOTES.find((n) => n.alteration === null)!.id,
+  classement: 'simple',
   ouverts: { notes: true, doigte: true },
   groupesReplies: [],
   doigtsVisibles: true,

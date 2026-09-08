@@ -3,6 +3,7 @@ import {
   ecrireEtatSax,
   groupesDeNotes,
   lireEtatSax,
+  noteVoisine,
   SAX_NOTES,
   saxKey,
   VOLETS,
@@ -31,18 +32,14 @@ export function Saxophone() {
   const [etat, setEtat] = useState<EtatSax>(lireEtatSax)
   useEffect(() => ecrireEtatSax(etat), [etat])
 
-  const index = Math.max(
-    0,
-    SAX_NOTES.findIndex((n) => n.id === etat.note),
-  )
-  const note = SAX_NOTES[index]
+  const note = SAX_NOTES.find((n) => n.id === etat.note) ?? SAX_NOTES[0]
   const groupes = groupesDeNotes(etat.classement)
 
   const choisir = (id: string) => setEtat((e) => ({ ...e, note: id }))
-  const decaler = (pas: number) => {
-    const suivante = SAX_NOTES[index + pas]
-    if (suivante) choisir(suivante.id)
-  }
+  // Les flèches ne mènent qu'à ce que la liste montre : sans altération, ▶ va
+  // du Mi au Fa plutôt qu'à un Fa♯ qu'on ne trouverait nulle part en dessous.
+  const precedente = noteVoisine(note.id, -1, etat.classement)
+  const suivante = noteVoisine(note.id, 1, etat.classement)
   const basculer = (v: IdVolet) => setEtat((e) => ({ ...e, ouverts: { ...e.ouverts, [v]: !e.ouverts[v] } }))
   const basculerGroupe = (cle: string) =>
     setEtat((e) => ({
@@ -91,7 +88,12 @@ export function Saxophone() {
           replier ne doit pas coûter la navigation. */}
       <section className="card p-2">
         <div className="flex items-center gap-1">
-          <Fleche sens="◀" onClick={() => decaler(-1)} inactive={index === 0} aide="Note précédente" />
+          <Fleche
+            sens="◀"
+            onClick={() => precedente && choisir(precedente.id)}
+            inactive={!precedente}
+            aide="Note précédente"
+          />
           <button
             onClick={() => basculer('notes')}
             aria-expanded={etat.ouverts.notes}
@@ -100,7 +102,7 @@ export function Saxophone() {
             <span className="truncate text-sm font-bold text-ink">{note.label}</span>
             <span className="shrink-0 text-[10px] text-copper">{etat.ouverts.notes ? '▴' : '▾'}</span>
           </button>
-          <Fleche sens="▶" onClick={() => decaler(1)} inactive={index === SAX_NOTES.length - 1} aide="Note suivante" />
+          <Fleche sens="▶" onClick={() => suivante && choisir(suivante.id)} inactive={!suivante} aide="Note suivante" />
         </div>
 
         {etat.ouverts.notes ? (
