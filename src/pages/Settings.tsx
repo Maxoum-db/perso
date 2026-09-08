@@ -14,6 +14,7 @@ import { loadObservations } from '../lib/observations'
 import { loadCourbatures } from '../lib/soreness'
 import { loadProfil } from '../lib/profil'
 import { loadBehourd, loadFocus } from '../lib/focus'
+import { CLASSEMENTS, lireEtatSax, majEtatSax, type EtatSax } from '../lib/saxophone'
 import {
   DEFAUT_NOUVEAU_COMPTE,
   enregistrerAcces,
@@ -25,7 +26,7 @@ import {
   type Section,
 } from '../lib/acces'
 
-export function Settings() {
+export function Settings({ sections }: { sections: Section[] }) {
   const { user, signInWithGoogle, signOut } = useAuth()
   const [settings, setSettings] = useState<PersoSettings | null>(null)
   const connected = hasFreshGoogleToken()
@@ -78,6 +79,10 @@ export function Settings() {
         valeur={settings?.discipline ?? 'behourd'}
         onChange={(d) => setSettings((s) => (s ? { ...s, discipline: d } : s))}
       />
+
+      {/* Réservé aux comptes à qui la section est accordée : un réglage visible
+          annoncerait l'existence de la page à qui n'y a pas droit. */}
+      {sections.includes('saxophone') ? <SaxophoneSection /> : null}
 
       <ExportSportSection userId={user?.id ?? ''} />
 
@@ -228,6 +233,65 @@ function DisciplineSection({
  * à signaler » la plupart du temps. On ne paie pas deux requêtes à chaque
  * ouverture des réglages pour ça.
  */
+/**
+ * La présentation de la page des doigtés.
+ *
+ * Ces deux réglages vivaient sur la page elle-même — le classement en tête de
+ * la grille, la liste des doigts en pied. Ils y prenaient la place de ce qu'on
+ * consulte vraiment, alors qu'on les pose une fois et qu'on n'y revient
+ * jamais. L'état est celui de la page, relu et réécrit champ par champ pour ne
+ * pas effacer au passage la note en cours ni les paquets repliés.
+ */
+function SaxophoneSection() {
+  const [etat, setEtat] = useState<EtatSax>(lireEtatSax)
+  const poser = (patch: Partial<EtatSax>) => setEtat(majEtatSax(patch))
+
+  return (
+    <section className="card p-4">
+      <h2 className="text-sm font-bold text-ink">🎷 Saxophone</h2>
+      <p className="mt-1 text-sm text-muted">Comment la page des doigtés se présente.</p>
+
+      <h3 className="mt-3 text-xs font-bold text-ink">Classement des notes</h3>
+      <div className="mt-2 space-y-2">
+        {CLASSEMENTS.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => poser({ classement: c.id })}
+            aria-pressed={etat.classement === c.id}
+            className={`w-full rounded-xl2 border p-3 text-left transition ${
+              etat.classement === c.id ? 'border-copper bg-copper/10' : 'border-line bg-white/5 hover:border-copper/50'
+            }`}
+          >
+            <div className="text-sm font-bold text-ink">
+              {c.label}
+              {etat.classement === c.id ? <span className="ml-1 text-copper">✓</span> : null}
+            </div>
+            <div className="mt-0.5 text-xs leading-snug text-muted">{c.aide}</div>
+          </button>
+        ))}
+      </div>
+
+      <h3 className="mt-4 text-xs font-bold text-ink">Liste des doigts</h3>
+      <button
+        onClick={() => poser({ doigtsVisibles: !etat.doigtsVisibles })}
+        aria-pressed={etat.doigtsVisibles}
+        className={`mt-2 w-full rounded-xl2 border p-3 text-left transition ${
+          etat.doigtsVisibles ? 'border-copper bg-copper/10' : 'border-line bg-white/5 hover:border-copper/50'
+        }`}
+      >
+        <div className="text-sm font-bold text-ink">
+          {etat.doigtsVisibles ? 'Affichée' : 'Effacée'}
+          <span className="ml-1 text-copper">{etat.doigtsVisibles ? '✓' : ''}</span>
+        </div>
+        <div className="mt-0.5 text-xs leading-snug text-muted">
+          Les noms des clés sous la portée — « index gauche », « Mi♭ grave »… Utiles tant qu’on apprend quel doigt porte
+          quel nom, inutiles après : le schéma le dit déjà en vert.
+        </div>
+      </button>
+    </section>
+  )
+}
+
 function OrphelinsSection({ userId }: { userId: string }) {
   const [etat, setEtat] = useState<'repos' | 'chargement' | 'fait'>('repos')
   const [liste, setListe] = useState<Orphelin[]>([])

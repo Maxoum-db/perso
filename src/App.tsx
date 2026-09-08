@@ -85,7 +85,7 @@ export default function App() {
         <Route path="/brassage" element={garde('/brassage', <Brassage />)} />
         <Route path="/rustique" element={garde('/rustique', <Rustique />)} />
         <Route path="/saxophone" element={garde('/saxophone', <Saxophone />)} />
-        <Route path="/reglages" element={<Settings />} />
+        <Route path="/reglages" element={<Settings sections={sections} />} />
         {/* Mails en veille : la route reste accessible en direct, mais la
             section a quitté la navigation. */}
         {/* Anciennes routes désormais regroupées dans des hubs */}

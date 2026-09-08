@@ -1,3 +1,5 @@
+import { ecrireCache, lireCache } from './cache'
+
 // Doigtés du saxophone.
 //
 // Le doigté d'une note écrite est LE MÊME sur tous les saxophones (alto,
@@ -139,4 +141,173 @@ export const SAX_NOTES: SaxNote[] = [
 
 export function saxKey(id: SaxKey) {
   return SAX_KEYS.find((k) => k.id === id)!
+}
+
+// ── Ranger les notes ────────────────────────────────────────────────────────
+
+/**
+ * Les trois façons de ranger les mêmes trente-deux notes.
+ *
+ * Elles ne se déduisent pas les unes des autres et aucune ne remplace les
+ * autres : on ne cherche pas la même chose selon qu'on lit une partition,
+ * qu'on prépare son travail, ou qu'on compare les doigtés d'une même note.
+ */
+export type Classement = 'registre' | 'niveau' | 'note'
+
+export const CLASSEMENTS: Array<{ id: Classement; label: string; aide: string }> = [
+  {
+    id: 'registre',
+    label: 'Par registre',
+    aide: 'Les hauteurs, du Si♭ grave au Fa aigu — pour retrouver une note lue sur une partition.',
+  },
+  {
+    id: 'niveau',
+    label: 'Par niveau',
+    aide: 'L’ordre où on les apprend — pour savoir quoi travailler ensuite.',
+  },
+  {
+    id: 'note',
+    label: 'Par note',
+    aide: 'Toutes les octaves d’une même note ensemble — pour voir d’un coup tous les doigtés du Ré, ou du Fa.',
+  },
+]
+
+export interface GroupeNotes {
+  cle: string
+  label: string
+  aide: string
+  notes: SaxNote[]
+}
+
+/** Les degrés de la portée, en partant du Mi de la ligne du bas. */
+const DEGRES = ['Mi', 'Fa', 'Sol', 'La', 'Si', 'Do', 'Ré']
+
+/**
+ * Le nom d'une note, sans son registre.
+ *
+ * DÉDUIT de sa place sur la portée plutôt que recopié dans la table : c'est
+ * la même information dite deux fois, et deux copies finissent toujours par
+ * diverger d'une correction. Le degré donne le nom, l'altération le signe.
+ */
+export function nomDeNote(n: SaxNote): string {
+  const base = DEGRES[((n.degre % 7) + 7) % 7]
+  return base + (n.alteration === 'diese' ? '#' : n.alteration === 'bemol' ? 'b' : '')
+}
+
+/** Les douze noms, dans l'ordre chromatique habituel — celui qui part du Do. */
+const ORDRE_NOMS = ['Do', 'Do#', 'Ré', 'Mib', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'Sib', 'Si']
+
+const PAR_REGISTRE: GroupeNotes[] = [
+  { id: 'grave' as Registre, label: 'Grave', aide: 'Du Si♭ grave au La, sans clé d’octave.' },
+  { id: 'médium' as Registre, label: 'Médium', aide: 'L’octave au-dessus, clé d’octave au pouce.' },
+  { id: 'aigu' as Registre, label: 'Aigu', aide: 'Le haut du registre standard, jusqu’au Fa.' },
+].map((r) => ({ cle: r.id, label: r.label, aide: r.aide, notes: SAX_NOTES.filter((n) => n.registre === r.id) }))
+
+const PAR_NIVEAU: GroupeNotes[] = NIVEAUX.map((nv) => ({
+  cle: String(nv.id),
+  label: nv.label,
+  aide: nv.aide,
+  notes: SAX_NOTES.filter((n) => n.niveau === nv.id),
+}))
+
+// Deux ou trois octaves par nom : l'aide les énumère plutôt que de répéter
+// douze fois la même phrase, qui n'apprendrait rien à la douzième.
+const PAR_NOTE: GroupeNotes[] = ORDRE_NOMS.map((nom) => {
+  const notes = SAX_NOTES.filter((n) => nomDeNote(n) === nom)
+  return { cle: nom, label: nom, aide: notes.map((n) => n.registre).join(' · '), notes }
+}).filter((g) => g.notes.length > 0)
+
+export function groupesDeNotes(classement: Classement): GroupeNotes[] {
+  if (classement === 'niveau') return PAR_NIVEAU
+  if (classement === 'note') return PAR_NOTE
+  return PAR_REGISTRE
+}
+
+// ── L'état de la page, gardé en local ───────────────────────────────────────
+//
+// Il vit ICI et non dans la page parce que deux écrans y touchent : la page
+// des doigtés s'en sert pour s'afficher, l'écran des réglages en change le
+// classement et l'affichage des doigts. Une seule définition de la forme
+// rangée, une seule lecture, une seule écriture — sinon les deux écrans
+// finissent par ne plus s'entendre sur ce qu'il y a dans le cache.
+
+/** Les deux volets repliables de la page. */
+export type IdVolet = 'notes' | 'doigte'
+export const VOLETS: IdVolet[] = ['notes', 'doigte']
+
+export interface EtatSax {
+  note: string
+  classement: Classement
+  ouverts: Record<IdVolet, boolean>
+  /**
+   * Les paquets de notes repliés, par leur clé.
+   *
+   * Repliés et non dépliés : c'est la liste des exceptions, et elle est vide
+   * au départ. L'inverse aurait demandé d'y inscrire chaque paquet existant,
+   * et un paquet ajouté plus tard serait né fermé sans que personne l'ait
+   * demandé.
+   *
+   * Les clés des trois classements ne se confondent pas — des mots, des
+   * chiffres, des noms de notes — donc une seule liste suffit pour les trois.
+   */
+  groupesReplies: string[]
+  /**
+   * Les noms des clés sous la portée, affichés ou non.
+   *
+   * Ils servent tant qu'on apprend quel doigt porte quel nom ; passé ce moment,
+   * ils répètent en mots ce que le schéma dit déjà en vert. Les effacer ne
+   * RACCOURCIT PAS la page — c'est le saxophone qui en fixe la hauteur, et il
+   * ne bouge pas — ça la calme, ce qui n'est pas la même chose et ne doit pas
+   * être vendu pour telle.
+   */
+  doigtsVisibles: boolean
+}
+
+export const ETAT_SAX_DEFAUT: EtatSax = {
+  note: SAX_NOTES[0].id,
+  classement: 'registre',
+  ouverts: { notes: true, doigte: true },
+  groupesReplies: [],
+  doigtsVisibles: true,
+}
+
+/**
+ * L'état relu du cache, remis d'aplomb champ par champ.
+ *
+ * Champ par champ et non par étalement : ce qui est en mémoire vient d'une
+ * version antérieure de la page — une note retirée du répertoire, un volet qui
+ * n'existe plus — et l'étaler tel quel ouvrirait l'écran sur un doigté
+ * introuvable ou ressusciterait une clé morte.
+ */
+export function lireEtatSax(): EtatSax {
+  const brut = lireCache<Partial<EtatSax>>('saxophone', ETAT_SAX_DEFAUT)
+  return {
+    note: SAX_NOTES.some((n) => n.id === brut.note) ? (brut.note as string) : ETAT_SAX_DEFAUT.note,
+    classement: CLASSEMENTS.some((c) => c.id === brut.classement)
+      ? (brut.classement as Classement)
+      : ETAT_SAX_DEFAUT.classement,
+    ouverts: {
+      notes: brut.ouverts?.notes ?? ETAT_SAX_DEFAUT.ouverts.notes,
+      doigte: brut.ouverts?.doigte ?? ETAT_SAX_DEFAUT.ouverts.doigte,
+    },
+    groupesReplies: Array.isArray(brut.groupesReplies) ? brut.groupesReplies : [],
+    doigtsVisibles: brut.doigtsVisibles ?? ETAT_SAX_DEFAUT.doigtsVisibles,
+  }
+}
+
+export function ecrireEtatSax(etat: EtatSax): void {
+  ecrireCache('saxophone', etat)
+}
+
+/**
+ * Change quelques champs sans toucher aux autres.
+ *
+ * Pour l'écran des réglages, qui ne connaît que le classement et l'affichage
+ * des doigts : écrire son seul couple de valeurs effacerait la note en cours
+ * et les paquets repliés de l'autre écran.
+ */
+export function majEtatSax(patch: Partial<EtatSax>): EtatSax {
+  const etat = { ...lireEtatSax(), ...patch }
+  ecrireEtatSax(etat)
+  return etat
 }

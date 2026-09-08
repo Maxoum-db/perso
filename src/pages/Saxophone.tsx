@@ -1,6 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ecrireCache, lireCache } from '../lib/cache'
-import { NIVEAUX, SAX_NOTES, saxKey, type SaxNote } from '../lib/saxophone'
+import {
+  ecrireEtatSax,
+  groupesDeNotes,
+  lireEtatSax,
+  SAX_NOTES,
+  saxKey,
+  VOLETS,
+  type EtatSax,
+  type IdVolet,
+} from '../lib/saxophone'
 import { CLE_ACTIVE, SaxophoneDiagram } from '../components/SaxophoneDiagram'
 import { PorteeNote } from '../components/PorteeNote'
 
@@ -17,118 +25,16 @@ import { PorteeNote } from '../components/PorteeNote'
 // la hauteur du seul saxophone — et c'est ensemble qu'ils servent, on lit la
 // note et on pose les doigts.
 
-type IdVolet = 'notes' | 'doigte'
-const VOLETS: IdVolet[] = ['notes', 'doigte']
-
-/**
- * Les deux façons de ranger les mêmes trente-deux notes.
- *
- * Par REGISTRE, elles suivent les hauteurs : c'est la liste où l'on cherche
- * une note qu'on a sous les yeux sur une partition. Par NIVEAU, elles suivent
- * l'ordre où on les apprend : c'est la liste où l'on cherche quoi travailler
- * ensuite. Aucune des deux ne remplace l'autre, d'où le va-et-vient.
- */
-type Classement = 'registre' | 'niveau'
-
-interface Etat {
-  note: string
-  classement: Classement
-  ouverts: Record<IdVolet, boolean>
-  /**
-   * Les paquets de notes repliés, par leur clé.
-   *
-   * Repliés et non dépliés : c'est la liste des exceptions, et elle est vide
-   * au départ. L'inverse aurait demandé d'y inscrire chaque paquet existant,
-   * et un paquet ajouté plus tard serait né fermé sans que personne l'ait
-   * demandé.
-   *
-   * Les clés des deux classements ne se confondent pas — des mots d'un côté,
-   * des chiffres de l'autre — donc une seule liste suffit pour les deux.
-   */
-  groupesReplies: string[]
-  /**
-   * Les noms des clés sous la portée, affichés ou non.
-   *
-   * Ils servent tant qu'on apprend quel doigt porte quel nom ; passé ce moment,
-   * ils répètent en mots ce que le schéma dit déjà en vert. Les effacer ne
-   * RACCOURCIT PAS la page — c'est le saxophone qui en fixe la hauteur, et il
-   * ne bouge pas — ça la calme, ce qui n'est pas la même chose et ne doit pas
-   * être vendu pour telle.
-   *
-   * L'interrupteur est en pied de page parce que c'est un réglage qu'on pose
-   * une fois, pas un geste qu'on refait à chaque note : en haut, il aurait
-   * disputé la place aux commandes dont on se sert vraiment.
-   */
-  doigtsVisibles: boolean
-}
-
-const DEFAUT: Etat = {
-  note: SAX_NOTES[0].id,
-  classement: 'registre',
-  ouverts: { notes: true, doigte: true },
-  groupesReplies: [],
-  doigtsVisibles: true,
-}
-
-interface Groupe {
-  cle: string
-  label: string
-  aide: string
-  notes: SaxNote[]
-}
-
-const PAR_REGISTRE: Groupe[] = [
-  { id: 'grave', label: 'Grave', aide: 'Du Si♭ grave au La, sans clé d’octave.' },
-  { id: 'médium', label: 'Médium', aide: 'L’octave au-dessus, clé d’octave au pouce.' },
-  { id: 'aigu', label: 'Aigu', aide: 'Le haut du registre standard, jusqu’au Fa.' },
-].map((r) => ({
-  cle: r.id,
-  label: r.label,
-  aide: r.aide,
-  notes: SAX_NOTES.filter((n) => n.registre === r.id),
-}))
-
-const PAR_NIVEAU: Groupe[] = NIVEAUX.map((nv) => ({
-  cle: String(nv.id),
-  label: nv.label,
-  aide: nv.aide,
-  notes: SAX_NOTES.filter((n) => n.niveau === nv.id),
-}))
-
-/**
- * L'état relu du cache local, remis d'aplomb.
- *
- * Repris champ par champ et pas tel quel : ce qui est en mémoire vient d'une
- * version antérieure de la page, et une note supprimée du répertoire y
- * survivrait — l'écran s'ouvrirait alors sur un doigté introuvable.
- */
-function etatInitial(): Etat {
-  const brut = lireCache<Partial<Etat>>('saxophone', DEFAUT)
-  return {
-    note: SAX_NOTES.some((n) => n.id === brut.note) ? (brut.note as string) : DEFAUT.note,
-    classement: brut.classement === 'niveau' ? 'niveau' : 'registre',
-    // Champ par champ et non par étalement : une version antérieure de la page
-    // avait un volet « portée » qui n'existe plus, et l'étaler ici le
-    // ressusciterait dans l'état sous forme de clé morte.
-    ouverts: {
-      notes: brut.ouverts?.notes ?? DEFAUT.ouverts.notes,
-      doigte: brut.ouverts?.doigte ?? DEFAUT.ouverts.doigte,
-    },
-    groupesReplies: Array.isArray(brut.groupesReplies) ? brut.groupesReplies : [],
-    doigtsVisibles: brut.doigtsVisibles ?? DEFAUT.doigtsVisibles,
-  }
-}
-
 export function Saxophone() {
-  const [etat, setEtat] = useState<Etat>(etatInitial)
-  useEffect(() => ecrireCache('saxophone', etat), [etat])
+  const [etat, setEtat] = useState<EtatSax>(lireEtatSax)
+  useEffect(() => ecrireEtatSax(etat), [etat])
 
   const index = Math.max(
     0,
     SAX_NOTES.findIndex((n) => n.id === etat.note),
   )
   const note = SAX_NOTES[index]
-  const groupes = etat.classement === 'niveau' ? PAR_NIVEAU : PAR_REGISTRE
+  const groupes = groupesDeNotes(etat.classement)
 
   const choisir = (id: string) => setEtat((e) => ({ ...e, note: id }))
   const decaler = (pas: number) => {
@@ -183,26 +89,6 @@ export function Saxophone() {
 
         {etat.ouverts.notes ? (
           <div className="mt-2 space-y-2 border-t border-line/60 pt-2">
-            <div className="flex rounded-xl2 border border-line p-0.5 text-[11px] font-semibold">
-              {(
-                [
-                  ['registre', 'Par registre'],
-                  ['niveau', 'Par niveau'],
-                ] as Array<[Classement, string]>
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  onClick={() => setEtat((e) => ({ ...e, classement: id }))}
-                  aria-pressed={etat.classement === id}
-                  className={`flex-1 rounded-[9px] px-2 py-1 transition ${
-                    etat.classement === id ? 'bg-copper text-white' : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
             {groupes.map((g) => {
               const replie = etat.groupesReplies.includes(g.cle)
               const contientLaNote = g.notes.some((n) => n.id === note.id)
@@ -281,21 +167,15 @@ export function Saxophone() {
         </div>
       </Volet>
 
-      <div className="space-y-1.5 pt-0.5">
-        <div className="flex justify-center">
-          <button
-            onClick={() => setEtat((e) => ({ ...e, doigtsVisibles: !e.doigtsVisibles }))}
-            aria-pressed={!etat.doigtsVisibles}
-            className="btn-ghost px-2.5 py-1 text-[11px]"
-          >
-            {etat.doigtsVisibles ? '✕ Effacer la liste des doigts' : '＋ Remettre la liste des doigts'}
-          </button>
-        </div>
-        <p className="px-2 text-center text-[10px] leading-snug text-muted">
-          Note écrite en clé de sol — mêmes doigtés sur tous les saxophones. Registre standard, du Si♭ grave au Fa aigu ;
-          doigtés courants, à recouper avec ta méthode.
-        </p>
-      </div>
+      {/* Les deux réglages de présentation vivent dans l'écran des réglages, à
+          l'écrou de l'en-tête. On le dit ici : déplacer une commande sans
+          laisser d'adresse, c'est la supprimer pour qui s'en servait. */}
+      <p className="px-2 text-center text-[10px] leading-snug text-muted">
+        Classement des notes et liste des doigts : à l’écrou, en haut à droite.
+        <br />
+        Note écrite en clé de sol — mêmes doigtés sur tous les saxophones. Registre standard, du Si♭ grave au Fa aigu ;
+        doigtés courants, à recouper avec ta méthode.
+      </p>
     </div>
   )
 }
