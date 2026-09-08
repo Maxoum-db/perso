@@ -30,25 +30,30 @@ export type SaxKey =
   | 'lowB'
   | 'lowBb'
 
-export const SAX_KEYS: Array<{ id: SaxKey; label: string; aide: string }> = [
-  { id: 'octave', label: '8ve', aide: "Clé d'octave — pouce gauche, au dos du saxophone." },
-  { id: 'palmD', label: 'Ré', aide: 'Clé de paume Ré — main gauche, près du col.' },
-  { id: 'palmEb', label: 'Mib', aide: 'Clé de paume Mib — main gauche, près du col.' },
-  { id: 'palmF', label: 'Fa', aide: 'Clé de paume Fa — main gauche, près du col.' },
-  { id: 'sideE', label: 'Mi lat.', aide: 'Clé latérale Mi — main droite, pour le registre aigu.' },
-  { id: 'bis', label: 'Bis', aide: 'Clé de Sib « bis » — près de la clé 1 de la main gauche.' },
-  { id: 'gauche1', label: '1', aide: 'Main gauche, index (clé « Si »).' },
-  { id: 'gauche2', label: '2', aide: 'Main gauche, majeur (clé « La »).' },
-  { id: 'gauche3', label: '3', aide: 'Main gauche, annulaire (clé « Sol »).' },
-  { id: 'gsharp', label: 'Sol#', aide: 'Clé de Sol# — auriculaire gauche.' },
-  { id: 'droite1', label: '1', aide: 'Main droite, index (clé « Fa »).' },
-  { id: 'droite2', label: '2', aide: 'Main droite, majeur (clé « Mi »).' },
-  { id: 'droite3', label: '3', aide: 'Main droite, annulaire (clé « Ré »).' },
-  { id: 'lowC', label: 'Do', aide: 'Clé de Do grave — auriculaire droit.' },
-  { id: 'lowEb', label: 'Mib', aide: 'Clé de Mib grave — auriculaire droit.' },
-  { id: 'lowCsharp', label: 'Do#', aide: 'Clé de Do# grave — auriculaire gauche.' },
-  { id: 'lowB', label: 'Si', aide: 'Clé de Si grave — auriculaire gauche.' },
-  { id: 'lowBb', label: 'Sib', aide: 'Clé de Sib grave — auriculaire gauche.' },
+// Rangées de haut en bas de l'instrument : c'est l'ordre dans lequel le schéma
+// les dessine, et celui dans lequel on les lit sur le saxophone.
+export const SAX_KEYS: Array<{ id: SaxKey; nom: string; aide: string }> = [
+  { id: 'palmF', nom: 'Palme Fa', aide: 'Clé de paume Fa : paume gauche, la plus haute des trois.' },
+  { id: 'palmEb', nom: 'Palme Mi♭', aide: 'Clé de paume Mi♭ : paume gauche, celle du milieu.' },
+  { id: 'palmD', nom: 'Palme Ré', aide: 'Clé de paume Ré : paume gauche, la plus basse des trois.' },
+  { id: 'octave', nom: 'Octave (pouce)', aide: "Clé d'octave : pouce gauche, au dos du saxophone." },
+  // La « bis » est dessinée avant les deux nacres qui l'encadrent : sur
+  // l'instrument elle est nichée entre elles, donc ce sont elles qui la
+  // chevauchent, et pas l'inverse.
+  { id: 'bis', nom: 'Bis (Si♭)', aide: 'Clé « bis » : la petite nacre collée sous l’index gauche.' },
+  { id: 'gauche1', nom: 'Index gauche', aide: 'Première nacre de la main gauche (clé de Si).' },
+  { id: 'gauche2', nom: 'Majeur gauche', aide: 'Deuxième nacre de la main gauche (clé de La).' },
+  { id: 'gauche3', nom: 'Annulaire gauche', aide: 'Troisième nacre de la main gauche (clé de Sol).' },
+  { id: 'gsharp', nom: 'Sol♯', aide: 'Spatule de Sol♯ : auriculaire gauche, au-dessus des trois autres.' },
+  { id: 'lowB', nom: 'Si grave', aide: 'Spatule de Si grave : auriculaire gauche.' },
+  { id: 'lowCsharp', nom: 'Do♯ grave', aide: 'Spatule de Do♯ grave : auriculaire gauche.' },
+  { id: 'lowBb', nom: 'Si♭ grave', aide: 'Spatule de Si♭ grave : auriculaire gauche.' },
+  { id: 'sideE', nom: 'Latérale Mi', aide: 'Clé latérale de Mi : tranche de l’index droit.' },
+  { id: 'droite1', nom: 'Index droit', aide: 'Première nacre de la main droite (clé de Fa).' },
+  { id: 'droite2', nom: 'Majeur droit', aide: 'Deuxième nacre de la main droite (clé de Mi).' },
+  { id: 'droite3', nom: 'Annulaire droit', aide: 'Troisième nacre de la main droite (clé de Ré).' },
+  { id: 'lowC', nom: 'Do grave', aide: 'Spatule de Do grave : auriculaire droit.' },
+  { id: 'lowEb', nom: 'Mi♭ grave', aide: 'Spatule de Mi♭ grave : auriculaire droit.' },
 ]
 
 export type Registre = 'grave' | 'médium' | 'aigu'
