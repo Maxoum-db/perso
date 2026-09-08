@@ -46,6 +46,20 @@ interface Etat {
    * des chiffres de l'autre — donc une seule liste suffit pour les deux.
    */
   groupesReplies: string[]
+  /**
+   * Les noms des clés sous la portée, affichés ou non.
+   *
+   * Ils servent tant qu'on apprend quel doigt porte quel nom ; passé ce moment,
+   * ils répètent en mots ce que le schéma dit déjà en vert. Les effacer ne
+   * RACCOURCIT PAS la page — c'est le saxophone qui en fixe la hauteur, et il
+   * ne bouge pas — ça la calme, ce qui n'est pas la même chose et ne doit pas
+   * être vendu pour telle.
+   *
+   * L'interrupteur est en pied de page parce que c'est un réglage qu'on pose
+   * une fois, pas un geste qu'on refait à chaque note : en haut, il aurait
+   * disputé la place aux commandes dont on se sert vraiment.
+   */
+  doigtsVisibles: boolean
 }
 
 const DEFAUT: Etat = {
@@ -53,6 +67,7 @@ const DEFAUT: Etat = {
   classement: 'registre',
   ouverts: { notes: true, doigte: true },
   groupesReplies: [],
+  doigtsVisibles: true,
 }
 
 interface Groupe {
@@ -100,6 +115,7 @@ function etatInitial(): Etat {
       doigte: brut.ouverts?.doigte ?? DEFAUT.ouverts.doigte,
     },
     groupesReplies: Array.isArray(brut.groupesReplies) ? brut.groupesReplies : [],
+    doigtsVisibles: brut.doigtsVisibles ?? DEFAUT.doigtsVisibles,
   }
 }
 
@@ -234,14 +250,16 @@ export function Saxophone() {
 
       <Volet titre="🎼 Partition et doigté" ouvert={etat.ouverts.doigte} onToggle={() => basculer('doigte')}>
         {/* Deux colonnes : le saxophone est haut et étroit, la portée est basse
-            et large. L'une remplit exactement le vide laissé par l'autre. */}
-        <div className="flex items-start gap-2">
+            et large. L'une remplit exactement le vide laissé par l'autre.
+            Sans les noms des clés, la colonne de droite se vide : on y centre
+            alors la portée plutôt que de la laisser en haut d'un trou. */}
+        <div className={`flex gap-2 ${etat.doigtsVisibles ? 'items-start' : 'items-center'}`}>
           <div className="w-[46%] shrink-0">
             <SaxophoneDiagram keys={note.keys} />
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <PorteeNote note={note} />
-            {note.keys.length === 0 ? (
+            {!etat.doigtsVisibles ? null : note.keys.length === 0 ? (
               <p className="text-center text-[11px] leading-snug text-muted">
                 Aucune clé : le saxophone reste entièrement ouvert.
               </p>
@@ -263,10 +281,21 @@ export function Saxophone() {
         </div>
       </Volet>
 
-      <p className="px-2 text-center text-[10px] leading-snug text-muted">
-        Note écrite en clé de sol — mêmes doigtés sur tous les saxophones. Registre standard, du Si♭ grave au Fa aigu ;
-        doigtés courants, à recouper avec ta méthode.
-      </p>
+      <div className="space-y-1.5 pt-0.5">
+        <div className="flex justify-center">
+          <button
+            onClick={() => setEtat((e) => ({ ...e, doigtsVisibles: !e.doigtsVisibles }))}
+            aria-pressed={!etat.doigtsVisibles}
+            className="btn-ghost px-2.5 py-1 text-[11px]"
+          >
+            {etat.doigtsVisibles ? '✕ Effacer la liste des doigts' : '＋ Remettre la liste des doigts'}
+          </button>
+        </div>
+        <p className="px-2 text-center text-[10px] leading-snug text-muted">
+          Note écrite en clé de sol — mêmes doigtés sur tous les saxophones. Registre standard, du Si♭ grave au Fa aigu ;
+          doigtés courants, à recouper avec ta méthode.
+        </p>
+      </div>
     </div>
   )
 }
