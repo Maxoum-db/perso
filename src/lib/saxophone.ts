@@ -63,6 +63,15 @@ export interface SaxNote {
   label: string
   registre: Registre
   keys: SaxKey[]
+  /**
+   * Place sur la portée, en degrés depuis la ligne du bas de la clé de sol
+   * (le Mi = 0). Un degré = un demi-interligne, et deux degrés = une ligne.
+   *
+   * C'est un degré DIATONIQUE et non un demi-ton : le Mi♭ et le Mi partagent
+   * la même place (0), c'est le bémol qui les distingue — comme sur le papier.
+   */
+  degre: number
+  alteration: 'diese' | 'bemol' | null
 }
 
 /**
@@ -71,38 +80,38 @@ export interface SaxNote {
  * largement recoupée ; à vérifier avec ton prof pour les cas particuliers.
  */
 export const SAX_NOTES: SaxNote[] = [
-  { id: 'sib1', label: 'Sib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb', 'lowBb'] },
-  { id: 'si1', label: 'Si grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowB', 'lowC'] },
-  { id: 'do1', label: 'Do grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowC'] },
-  { id: 'do1d', label: 'Do# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowC', 'lowCsharp'] },
-  { id: 're1', label: 'Ré grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3'] },
-  { id: 'mib1', label: 'Mib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb'] },
-  { id: 'mi1', label: 'Mi grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2'] },
-  { id: 'fa1', label: 'Fa grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1'] },
-  { id: 'fa1d', label: 'Fa# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite2'] },
-  { id: 'sol1', label: 'Sol grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3'] },
-  { id: 'sol1d', label: 'Sol# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'gsharp'] },
-  { id: 'la1', label: 'La grave', registre: 'grave', keys: ['gauche1', 'gauche2'] },
-  { id: 'sib2', label: 'Sib médium (bis)', registre: 'médium', keys: ['gauche1', 'bis'] },
-  { id: 'si2', label: 'Si médium', registre: 'médium', keys: ['gauche1'] },
-  { id: 'do2', label: 'Do médium', registre: 'médium', keys: ['gauche2'] },
-  { id: 'do2d', label: 'Do# médium', registre: 'médium', keys: [] },
-  { id: 're2', label: 'Ré médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3'] },
-  { id: 'mib2', label: 'Mib médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb'] },
-  { id: 'mi2', label: 'Mi médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2'] },
-  { id: 'fa2', label: 'Fa médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1'] },
-  { id: 'fa2d', label: 'Fa# médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite2'] },
-  { id: 'sol2', label: 'Sol médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3'] },
-  { id: 'sol2d', label: 'Sol# médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'gsharp'] },
-  { id: 'la2', label: 'La médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2'] },
-  { id: 'sib3', label: 'Sib aigu (bis)', registre: 'aigu', keys: ['octave', 'gauche1', 'bis'] },
-  { id: 'si3', label: 'Si aigu', registre: 'aigu', keys: ['octave', 'gauche1'] },
-  { id: 'do3', label: 'Do aigu', registre: 'aigu', keys: ['octave', 'gauche2'] },
-  { id: 'do3d', label: 'Do# aigu', registre: 'aigu', keys: ['octave'] },
-  { id: 're3', label: 'Ré aigu', registre: 'aigu', keys: ['octave', 'palmD'] },
-  { id: 'mib3', label: 'Mib aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb'] },
-  { id: 'mi3', label: 'Mi aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'sideE'] },
-  { id: 'fa3', label: 'Fa aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'palmF', 'sideE'] },
+  { id: 'sib1', label: 'Sib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb', 'lowBb'], degre: -3, alteration: 'bemol' },
+  { id: 'si1', label: 'Si grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowB', 'lowC'], degre: -3, alteration: null },
+  { id: 'do1', label: 'Do grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowC'], degre: -2, alteration: null },
+  { id: 'do1d', label: 'Do# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowC', 'lowCsharp'], degre: -2, alteration: 'diese' },
+  { id: 're1', label: 'Ré grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3'], degre: -1, alteration: null },
+  { id: 'mib1', label: 'Mib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb'], degre: 0, alteration: 'bemol' },
+  { id: 'mi1', label: 'Mi grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2'], degre: 0, alteration: null },
+  { id: 'fa1', label: 'Fa grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1'], degre: 1, alteration: null },
+  { id: 'fa1d', label: 'Fa# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite2'], degre: 1, alteration: 'diese' },
+  { id: 'sol1', label: 'Sol grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3'], degre: 2, alteration: null },
+  { id: 'sol1d', label: 'Sol# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'gsharp'], degre: 2, alteration: 'diese' },
+  { id: 'la1', label: 'La grave', registre: 'grave', keys: ['gauche1', 'gauche2'], degre: 3, alteration: null },
+  { id: 'sib2', label: 'Sib médium (bis)', registre: 'médium', keys: ['gauche1', 'bis'], degre: 4, alteration: 'bemol' },
+  { id: 'si2', label: 'Si médium', registre: 'médium', keys: ['gauche1'], degre: 4, alteration: null },
+  { id: 'do2', label: 'Do médium', registre: 'médium', keys: ['gauche2'], degre: 5, alteration: null },
+  { id: 'do2d', label: 'Do# médium', registre: 'médium', keys: [], degre: 5, alteration: 'diese' },
+  { id: 're2', label: 'Ré médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3'], degre: 6, alteration: null },
+  { id: 'mib2', label: 'Mib médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb'], degre: 7, alteration: 'bemol' },
+  { id: 'mi2', label: 'Mi médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2'], degre: 7, alteration: null },
+  { id: 'fa2', label: 'Fa médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite1'], degre: 8, alteration: null },
+  { id: 'fa2d', label: 'Fa# médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'droite2'], degre: 8, alteration: 'diese' },
+  { id: 'sol2', label: 'Sol médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3'], degre: 9, alteration: null },
+  { id: 'sol2d', label: 'Sol# médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2', 'gauche3', 'gsharp'], degre: 9, alteration: 'diese' },
+  { id: 'la2', label: 'La médium', registre: 'médium', keys: ['octave', 'gauche1', 'gauche2'], degre: 10, alteration: null },
+  { id: 'sib3', label: 'Sib aigu (bis)', registre: 'aigu', keys: ['octave', 'gauche1', 'bis'], degre: 11, alteration: 'bemol' },
+  { id: 'si3', label: 'Si aigu', registre: 'aigu', keys: ['octave', 'gauche1'], degre: 11, alteration: null },
+  { id: 'do3', label: 'Do aigu', registre: 'aigu', keys: ['octave', 'gauche2'], degre: 12, alteration: null },
+  { id: 'do3d', label: 'Do# aigu', registre: 'aigu', keys: ['octave'], degre: 12, alteration: 'diese' },
+  { id: 're3', label: 'Ré aigu', registre: 'aigu', keys: ['octave', 'palmD'], degre: 13, alteration: null },
+  { id: 'mib3', label: 'Mib aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb'], degre: 14, alteration: 'bemol' },
+  { id: 'mi3', label: 'Mi aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'sideE'], degre: 14, alteration: null },
+  { id: 'fa3', label: 'Fa aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'palmF', 'sideE'], degre: 15, alteration: null },
 ]
 
 export function saxKey(id: SaxKey) {

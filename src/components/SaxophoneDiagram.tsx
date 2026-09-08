@@ -271,7 +271,7 @@ export function SaxophoneDiagram({ keys }: { keys: SaxKey[] }) {
   return (
     <svg
       viewBox="10 16 230 416"
-      className="mx-auto w-full max-w-[15rem]"
+      className="mx-auto w-full max-w-[12rem]"
       role="img"
       aria-label={keys.length ? `Clés à presser : ${nommees}.` : 'Aucune clé à presser.'}
     >
