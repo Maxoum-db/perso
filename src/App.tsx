@@ -12,6 +12,7 @@ import { Course } from './pages/Course'
 import { Musculation } from './pages/Musculation'
 import { Brassage } from './pages/Brassage'
 import { Rustique } from './pages/Rustique'
+import { Saxophone } from './pages/Saxophone'
 import { Notes } from './pages/Notes'
 import { Partage } from './pages/Partage'
 import { Mails } from './pages/Mails'
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/musculation" element={garde('/musculation', <Musculation sections={sections} />)} />
         <Route path="/brassage" element={garde('/brassage', <Brassage />)} />
         <Route path="/rustique" element={garde('/rustique', <Rustique />)} />
+        <Route path="/saxophone" element={garde('/saxophone', <Saxophone />)} />
         <Route path="/reglages" element={<Settings />} />
         {/* Mails en veille : la route reste accessible en direct, mais la
             section a quitté la navigation. */}
