@@ -39,6 +39,7 @@ const moreTabs = (onglet: Tab | null): Tab[] => [
   { to: '/musculation', label: 'Muscu', icon: IconDumbbell },
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
   { to: '/rustique', label: 'Rustique', icon: IconBrain },
+  { to: '/saxophone', label: 'Saxophone', icon: IconSax },
 ]
 
 export function Layout({ children, sections }: { children: ReactNode; sections: Section[] }) {
@@ -291,6 +292,18 @@ function IconHeart({ active }: IconProps) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20s-7-4.5-9.5-9C1 8 2.5 4.5 6 4.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.5 6.5C19 15.5 12 20 12 20Z" />
+    </svg>
+  )
+}
+function IconSax({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 3l2 2" />
+      <path d="M11 5c2 1 3 2.5 3 4.5V16" />
+      <path d="M14 9.5c3 0 4.5 1.7 4.5 4a4 4 0 1 1-4-4Z" />
+      <circle cx="12.3" cy="7" r="0.9" fill={stroke(active)} stroke="none" />
+      <circle cx="13.3" cy="9.5" r="0.9" fill={stroke(active)} stroke="none" />
+      <circle cx="13.3" cy="12" r="0.9" fill={stroke(active)} stroke="none" />
     </svg>
   )
 }
