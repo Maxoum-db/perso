@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { ecrireCache, lireCache } from '../lib/cache'
-import { SAX_NOTES, saxKey, type Registre } from '../lib/saxophone'
+import { NIVEAUX, SAX_NOTES, saxKey, type SaxNote } from '../lib/saxophone'
 import { CLE_ACTIVE, SaxophoneDiagram } from '../components/SaxophoneDiagram'
 import { PorteeNote } from '../components/PorteeNote'
 
@@ -16,18 +16,52 @@ import { PorteeNote } from '../components/PorteeNote'
 type IdVolet = 'notes' | 'portee' | 'doigte'
 const VOLETS: IdVolet[] = ['notes', 'portee', 'doigte']
 
+/**
+ * Les deux façons de ranger les mêmes trente-deux notes.
+ *
+ * Par REGISTRE, elles suivent les hauteurs : c'est la liste où l'on cherche
+ * une note qu'on a sous les yeux sur une partition. Par NIVEAU, elles suivent
+ * l'ordre où on les apprend : c'est la liste où l'on cherche quoi travailler
+ * ensuite. Aucune des deux ne remplace l'autre, d'où le va-et-vient.
+ */
+type Classement = 'registre' | 'niveau'
+
 interface Etat {
   note: string
+  classement: Classement
   ouverts: Record<IdVolet, boolean>
 }
 
-const DEFAUT: Etat = { note: SAX_NOTES[0].id, ouverts: { notes: true, portee: true, doigte: true } }
+const DEFAUT: Etat = {
+  note: SAX_NOTES[0].id,
+  classement: 'registre',
+  ouverts: { notes: true, portee: true, doigte: true },
+}
 
-const REGISTRES: Array<{ id: Registre; label: string }> = [
-  { id: 'grave', label: 'Grave' },
-  { id: 'médium', label: 'Médium' },
-  { id: 'aigu', label: 'Aigu' },
-]
+interface Groupe {
+  cle: string
+  label: string
+  aide: string
+  notes: SaxNote[]
+}
+
+const PAR_REGISTRE: Groupe[] = [
+  { id: 'grave', label: 'Grave', aide: 'Du Si♭ grave au La, sans clé d’octave.' },
+  { id: 'médium', label: 'Médium', aide: 'L’octave au-dessus, clé d’octave au pouce.' },
+  { id: 'aigu', label: 'Aigu', aide: 'Le haut du registre standard, jusqu’au Fa.' },
+].map((r) => ({
+  cle: r.id,
+  label: r.label,
+  aide: r.aide,
+  notes: SAX_NOTES.filter((n) => n.registre === r.id),
+}))
+
+const PAR_NIVEAU: Groupe[] = NIVEAUX.map((nv) => ({
+  cle: String(nv.id),
+  label: nv.label,
+  aide: nv.aide,
+  notes: SAX_NOTES.filter((n) => n.niveau === nv.id),
+}))
 
 /**
  * L'état relu du cache local, remis d'aplomb.
@@ -40,6 +74,7 @@ function etatInitial(): Etat {
   const brut = lireCache<Partial<Etat>>('saxophone', DEFAUT)
   return {
     note: SAX_NOTES.some((n) => n.id === brut.note) ? (brut.note as string) : DEFAUT.note,
+    classement: brut.classement === 'niveau' ? 'niveau' : 'registre',
     ouverts: { ...DEFAUT.ouverts, ...(brut.ouverts ?? {}) },
   }
 }
@@ -53,6 +88,7 @@ export function Saxophone() {
     SAX_NOTES.findIndex((n) => n.id === etat.note),
   )
   const note = SAX_NOTES[index]
+  const groupes = etat.classement === 'niveau' ? PAR_NIVEAU : PAR_REGISTRE
 
   const choisir = (id: string) => setEtat((e) => ({ ...e, note: id }))
   const decaler = (pas: number) => {
@@ -99,12 +135,34 @@ export function Saxophone() {
         </div>
 
         {etat.ouverts.notes ? (
-          <div className="mt-2 space-y-1.5 border-t border-line/60 pt-2">
-            {REGISTRES.map((r) => (
-              <div key={r.id} className="space-y-1">
-                <div className="text-[10px] font-bold text-muted">{r.label}</div>
+          <div className="mt-2 space-y-2 border-t border-line/60 pt-2">
+            <div className="flex rounded-xl2 border border-line p-0.5 text-[11px] font-semibold">
+              {(
+                [
+                  ['registre', 'Par registre'],
+                  ['niveau', 'Par niveau'],
+                ] as Array<[Classement, string]>
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setEtat((e) => ({ ...e, classement: id }))}
+                  aria-pressed={etat.classement === id}
+                  className={`flex-1 rounded-[9px] px-2 py-1 transition ${
+                    etat.classement === id ? 'bg-copper text-white' : 'text-muted hover:text-ink'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {groupes.map((g) => (
+              <div key={g.cle} className="space-y-1">
+                <div className="text-[10px] font-bold text-muted">
+                  {g.label} <span className="font-normal opacity-70">— {g.aide}</span>
+                </div>
                 <div className="flex flex-wrap gap-1">
-                  {SAX_NOTES.filter((n) => n.registre === r.id).map((n) => (
+                  {g.notes.map((n) => (
                     <button
                       key={n.id}
                       onClick={() => choisir(n.id)}
