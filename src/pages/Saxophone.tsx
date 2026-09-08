@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { SAX_NOTES, saxKey, type Registre } from '../lib/saxophone'
-import { SaxophoneDiagram } from '../components/SaxophoneDiagram'
+import { CLE_ACTIVE, SaxophoneDiagram } from '../components/SaxophoneDiagram'
 
 const REGISTRES: Array<{ id: Registre; label: string }> = [
   { id: 'grave', label: 'Grave' },
@@ -50,11 +50,22 @@ export function Saxophone() {
       <div className="card space-y-3 p-3">
         <div className="text-center text-sm font-bold text-ink">{note.label}</div>
         <SaxophoneDiagram keys={note.keys} />
-        <p className="text-center text-xs text-muted">
-          {note.keys.length === 0
-            ? 'Aucune clé : le saxophone entièrement ouvert.'
-            : note.keys.map((k) => saxKey(k).aide.split(' — ')[0]).join(', ')}
-        </p>
+        {note.keys.length === 0 ? (
+          <p className="text-center text-xs text-muted">Aucune clé : le saxophone reste entièrement ouvert.</p>
+        ) : (
+          <div className="flex flex-wrap justify-center gap-1">
+            {note.keys.map((k) => (
+              <span
+                key={k}
+                title={saxKey(k).aide}
+                className="rounded-lg px-2 py-0.5 text-[11px] font-semibold"
+                style={{ background: `${CLE_ACTIVE}22`, color: CLE_ACTIVE }}
+              >
+                {saxKey(k).nom}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
