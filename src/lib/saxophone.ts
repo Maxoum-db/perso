@@ -1,4 +1,5 @@
 import { ecrireCache, lireCache } from './cache'
+import { LECONS } from './solfege'
 
 // Doigtés du saxophone.
 //
@@ -236,6 +237,10 @@ export type IdVolet = 'notes' | 'doigte'
 export const VOLETS: IdVolet[] = ['notes', 'doigte']
 
 export interface EtatSax {
+  /** Doigtés ou cours : deux usages, deux écrans, un seul onglet à retenir. */
+  onglet: 'doigtes' | 'solfege'
+  /** La leçon ouverte, ou aucune — l'accordéon n'en montre qu'une à la fois. */
+  lecon: string | null
   note: string
   classement: Classement
   ouverts: Record<IdVolet, boolean>
@@ -264,6 +269,8 @@ export interface EtatSax {
 }
 
 export const ETAT_SAX_DEFAUT: EtatSax = {
+  onglet: 'doigtes',
+  lecon: null,
   note: SAX_NOTES[0].id,
   classement: 'registre',
   ouverts: { notes: true, doigte: true },
@@ -282,6 +289,8 @@ export const ETAT_SAX_DEFAUT: EtatSax = {
 export function lireEtatSax(): EtatSax {
   const brut = lireCache<Partial<EtatSax>>('saxophone', ETAT_SAX_DEFAUT)
   return {
+    onglet: brut.onglet === 'solfege' ? 'solfege' : 'doigtes',
+    lecon: LECONS.some((l) => l.id === brut.lecon) ? (brut.lecon as string) : null,
     note: SAX_NOTES.some((n) => n.id === brut.note) ? (brut.note as string) : ETAT_SAX_DEFAUT.note,
     classement: CLASSEMENTS.some((c) => c.id === brut.classement)
       ? (brut.classement as Classement)

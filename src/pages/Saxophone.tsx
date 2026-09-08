@@ -11,6 +11,8 @@ import {
 } from '../lib/saxophone'
 import { CLE_ACTIVE, SaxophoneDiagram } from '../components/SaxophoneDiagram'
 import { PorteeNote } from '../components/PorteeNote'
+import { CoursSolfege } from '../components/CoursSolfege'
+import { SubTabs } from '../components/SubTabs'
 
 // Le doigté est le même sur tous les saxophones (alto, ténor, soprano…) : la
 // transposition change le son, jamais le mécanisme des clés. Une seule page
@@ -61,11 +63,25 @@ export function Saxophone() {
       ouverts: { notes: !auMoinsUnOuvert, doigte: !auMoinsUnOuvert },
     }))
 
+  if (etat.onglet === 'solfege') {
+    return (
+      <div className="space-y-2">
+        <Entete onglet={etat.onglet} onOnglet={(onglet) => setEtat((e) => ({ ...e, onglet }))} />
+        <p className="px-2 text-[11px] leading-snug text-muted">
+          Dix leçons, dans l’ordre où elles s’appuient les unes sur les autres. Chacune finit par ce que la règle donne
+          sur un saxophone — c’est la moitié qui manque partout ailleurs.
+        </p>
+        <CoursSolfege ouverte={etat.lecon} onOuvrir={(lecon) => setEtat((e) => ({ ...e, lecon }))} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-sm font-extrabold text-ink">🎷 Clés du saxophone</h1>
-        <button onClick={toutBasculer} className="btn-ghost shrink-0 px-2 py-1 text-[11px]">
+      <Entete onglet={etat.onglet} onOnglet={(onglet) => setEtat((e) => ({ ...e, onglet }))} />
+
+      <div className="flex justify-end">
+        <button onClick={toutBasculer} className="btn-ghost px-2 py-1 text-[11px]">
           {auMoinsUnOuvert ? 'Tout replier ▴' : 'Tout déplier ▾'}
         </button>
       </div>
@@ -177,6 +193,25 @@ export function Saxophone() {
         doigtés courants, à recouper avec ta méthode.
       </p>
     </div>
+  )
+}
+
+function Entete({
+  onglet,
+  onOnglet,
+}: {
+  onglet: EtatSax['onglet']
+  onOnglet: (o: EtatSax['onglet']) => void
+}) {
+  return (
+    <SubTabs
+      tabs={[
+        { id: 'doigtes', label: '🎷 Doigtés' },
+        { id: 'solfege', label: '🎼 Solfège' },
+      ]}
+      active={onglet}
+      onChange={(id) => onOnglet(id as EtatSax['onglet'])}
+    />
   )
 }
 
