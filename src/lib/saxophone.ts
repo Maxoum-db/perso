@@ -12,13 +12,17 @@ import { LECONS } from './solfege'
 // de la quasi-totalité du répertoire. Au-delà (suraigu), les doigtés sont
 // des alternatives selon la méthode et le modèle d'instrument, pas un
 // standard unique.
+//
+// Le YDS-150 va un peu plus loin que cette table : il a une clé de La grave
+// (héritée du baryton) et monte au Fa# suraigu. Les deux manquent ici parce
+// qu'ils demanderaient deux clés de plus sur le dessin ; ils ne manquent à
+// rien du répertoire de départ.
 
 export type SaxKey =
   | 'octave'
   | 'palmD'
   | 'palmEb'
   | 'palmF'
-  | 'sideE'
   | 'bis'
   | 'gauche1'
   | 'gauche2'
@@ -51,7 +55,6 @@ export const SAX_KEYS: Array<{ id: SaxKey; nom: string; aide: string }> = [
   { id: 'lowB', nom: 'Si grave', aide: 'Spatule de Si grave : auriculaire gauche.' },
   { id: 'lowCsharp', nom: 'Do♯ grave', aide: 'Spatule de Do♯ grave : auriculaire gauche.' },
   { id: 'lowBb', nom: 'Si♭ grave', aide: 'Spatule de Si♭ grave : auriculaire gauche.' },
-  { id: 'sideE', nom: 'Latérale Mi', aide: 'Clé latérale de Mi : tranche de l’index droit.' },
   { id: 'droite1', nom: 'Index droit', aide: 'Première nacre de la main droite (clé de Fa).' },
   { id: 'droite2', nom: 'Majeur droit', aide: 'Deuxième nacre de la main droite (clé de Mi).' },
   { id: 'droite3', nom: 'Annulaire droit', aide: 'Troisième nacre de la main droite (clé de Ré).' },
@@ -80,7 +83,7 @@ export type Niveau = 1 | 2 | 3
 export const NIVEAUX: Array<{ id: Niveau; label: string; aide: string }> = [
   { id: 1, label: 'Premières notes', aide: 'Le milieu de la portée, deux ou trois doigts, aucune spatule.' },
   { id: 2, label: 'Ensuite', aide: 'Les auriculaires, la clé « bis », les dièses et les bémols.' },
-  { id: 3, label: 'Pour finir', aide: 'Le haut du registre : clés de paume et clé latérale.' },
+  { id: 3, label: 'Pour finir', aide: 'Le haut du registre : les trois clés de paume, main gauche.' },
 ]
 
 export interface SaxNote {
@@ -102,14 +105,21 @@ export interface SaxNote {
 
 /**
  * Doigtés standards, du Sib grave au Fa aigu — la référence la plus courante
- * (pas les alternatives). Établie à partir d'une table de doigtés open-source
- * largement recoupée ; à vérifier avec ton prof pour les cas particuliers.
+ * (pas les alternatives). Recoupée avec la partie 7 du manuel « SOLFÈGE &
+ * SAXOPHONE — YDS-150 », qui a servi à corriger cinq doigtés faux ici : Sib
+ * et Do# graves pressaient une clé qui contredisait la note, Si grave en
+ * pressait deux, Mi et Fa aigus passaient par une clé latérale au lieu des
+ * clés de paume.
+ *
+ * Une note = un seul doigté ici. L'instrument en offre souvent plusieurs
+ * (le Sib en a trois) ; en choisir un et s'y tenir vaut mieux, au début,
+ * qu'un catalogue où l'on ne sait pas lequel travailler.
  */
 export const SAX_NOTES: SaxNote[] = [
-  { id: 'sib1', label: 'Sib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb', 'lowBb'], degre: -3, alteration: 'bemol', niveau: 2 },
-  { id: 'si1', label: 'Si grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowB', 'lowC'], degre: -3, alteration: null, niveau: 2 },
+  { id: 'sib1', label: 'Sib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowBb'], degre: -3, alteration: 'bemol', niveau: 2 },
+  { id: 'si1', label: 'Si grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowB'], degre: -3, alteration: null, niveau: 2 },
   { id: 'do1', label: 'Do grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowC'], degre: -2, alteration: null, niveau: 2 },
-  { id: 'do1d', label: 'Do# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowC', 'lowCsharp'], degre: -2, alteration: 'diese', niveau: 2 },
+  { id: 'do1d', label: 'Do# grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowCsharp'], degre: -2, alteration: 'diese', niveau: 2 },
   { id: 're1', label: 'Ré grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3'], degre: -1, alteration: null, niveau: 1 },
   { id: 'mib1', label: 'Mib grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2', 'droite3', 'lowEb'], degre: 0, alteration: 'bemol', niveau: 2 },
   { id: 'mi1', label: 'Mi grave', registre: 'grave', keys: ['gauche1', 'gauche2', 'gauche3', 'droite1', 'droite2'], degre: 0, alteration: null, niveau: 1 },
@@ -136,8 +146,8 @@ export const SAX_NOTES: SaxNote[] = [
   { id: 'do3d', label: 'Do# aigu', registre: 'aigu', keys: ['octave'], degre: 12, alteration: 'diese', niveau: 3 },
   { id: 're3', label: 'Ré aigu', registre: 'aigu', keys: ['octave', 'palmD'], degre: 13, alteration: null, niveau: 3 },
   { id: 'mib3', label: 'Mib aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb'], degre: 14, alteration: 'bemol', niveau: 3 },
-  { id: 'mi3', label: 'Mi aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'sideE'], degre: 14, alteration: null, niveau: 3 },
-  { id: 'fa3', label: 'Fa aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'palmF', 'sideE'], degre: 15, alteration: null, niveau: 3 },
+  { id: 'mi3', label: 'Mi aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'palmF'], degre: 14, alteration: null, niveau: 3 },
+  { id: 'fa3', label: 'Fa aigu', registre: 'aigu', keys: ['octave', 'palmD', 'palmEb', 'palmF', 'gauche1'], degre: 15, alteration: null, niveau: 3 },
 ]
 
 export function saxKey(id: SaxKey) {
