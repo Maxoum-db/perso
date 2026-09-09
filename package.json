@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "verifier-etiquetage": "node tools/verifier-etiquetage.mjs",
-    "prebuild": "node tools/verifier-etiquetage.mjs",
+    "verifier-saxophone": "node tools/verifier-saxophone.mjs",
+    "prebuild": "node tools/verifier-etiquetage.mjs && node tools/verifier-saxophone.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"

@@ -13,6 +13,7 @@ import {
 import { CLE_ACTIVE, SaxophoneDiagram } from '../components/SaxophoneDiagram'
 import { PorteeNote } from '../components/PorteeNote'
 import { CoursSolfege } from '../components/CoursSolfege'
+import { LECONS } from '../lib/solfege'
 import { SubTabs } from '../components/SubTabs'
 
 // Le doigté est le même sur tous les saxophones (alto, ténor, soprano…) : la
@@ -65,8 +66,9 @@ export function Saxophone() {
       <div className="space-y-2">
         <Entete onglet={etat.onglet} onOnglet={(onglet) => setEtat((e) => ({ ...e, onglet }))} />
         <p className="px-2 text-[11px] leading-snug text-muted">
-          Dix leçons, dans l’ordre où elles s’appuient les unes sur les autres. Chacune finit par ce que la règle donne
-          sur un saxophone — c’est la moitié qui manque partout ailleurs.
+          {LECONS.length} leçons, dans l’ordre où elles s’appuient les unes sur les autres. Chacune finit par ce que la
+          règle donne sur un saxophone — c’est la moitié qui manque partout ailleurs. Le contenu suit ton manuel
+          YDS-150 ; chaque leçon dit à quelle section y retourner.
         </p>
         <CoursSolfege ouverte={etat.lecon} onOuvrir={(lecon) => setEtat((e) => ({ ...e, lecon }))} />
       </div>

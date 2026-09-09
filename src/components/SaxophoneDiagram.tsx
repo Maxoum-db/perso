@@ -19,7 +19,7 @@ const BORD_INACTIF = '#79491a'
 const CUVETTE = '#a97620'
 const CUVETTE_BORD = '#6b3c10'
 
-type Forme = 'nacre' | 'bis' | 'palme' | 'spatule' | 'laterale' | 'pouce'
+type Forme = 'nacre' | 'bis' | 'palme' | 'spatule' | 'pouce'
 
 interface Place {
   x: number
@@ -42,7 +42,6 @@ const PLACES: Record<SaxKey, Place> = {
   lowB: { x: 84, y: 230, forme: 'spatule', rot: 16 },
   lowCsharp: { x: 103, y: 242, forme: 'spatule', rot: -8 },
   lowBb: { x: 84, y: 251, forme: 'spatule', rot: 16 },
-  sideE: { x: 147, y: 223, forme: 'laterale' },
   droite1: { x: 117, y: 262, forme: 'nacre' },
   droite2: { x: 118, y: 286, forme: 'nacre' },
   droite3: { x: 119, y: 310, forme: 'nacre' },
@@ -56,7 +55,6 @@ const HALO: Record<Forme, [number, number]> = {
   bis: [11, 11],
   palme: [15, 11],
   spatule: [15, 12],
-  laterale: [11, 17],
   pouce: [14, 11],
 }
 
@@ -174,6 +172,7 @@ function Instrument() {
       <g fill="#b07d27" stroke="#7a4a13" strokeWidth="1.1">
         <rect x="139" y="182" width="10" height="13" rx="5" />
         <rect x="139" y="199" width="10" height="13" rx="5" />
+        <rect x="139" y="216" width="10" height="13" rx="5" />
       </g>
       {/* Plateau des spatules d'auriculaire gauche : sur l'instrument, les
           quatre leviers sont montés sur une même platine. */}
@@ -248,8 +247,6 @@ function Cle({ id, actif }: { id: SaxKey; actif: boolean }) {
         return <rect x={p.x - 9} y={p.y - 5} width="18" height="10" rx="5" fill={face} stroke={bord} strokeWidth="1.3" />
       case 'spatule':
         return <rect x={p.x - 8.5} y={p.y - 6} width="17" height="12" rx="6" fill={face} stroke={bord} strokeWidth="1.3" />
-      case 'laterale':
-        return <rect x={p.x - 5.5} y={p.y - 11} width="11" height="22" rx="5.5" fill={face} stroke={bord} strokeWidth="1.3" />
       case 'pouce':
         return <rect x={p.x - 8} y={p.y - 6} width="16" height="12" rx="6" fill={face} stroke={bord} strokeWidth="1.3" />
     }
