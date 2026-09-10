@@ -952,6 +952,51 @@ export function Journal({
     setLive(state)
   }
 
+  /**
+   * Fait basculer en séance EN DIRECT ce qu'on était en train de saisir.
+   *
+   * Troisième issue de l'éditeur, à côté d'« Annuler » et d'« Enregistrer ».
+   * Elle existe parce que le chemin est fréquent : on ouvre « Saisir une séance
+   * après coup », on choisit un modèle pour retrouver ses charges — et on se
+   * rend compte qu'on va la faire maintenant. Sans ce bouton il fallait
+   * abandonner la saisie, revenir en arrière et tout reprendre depuis le
+   * générateur, qui ne compose pas le modèle qu'on venait de choisir.
+   *
+   * La date et l'intensité du brouillon ne sont pas reprises : en direct, la
+   * séance se date toute seule à la fin, et l'intensité se déclare une fois
+   * qu'on l'a vécue. Le reste passe tel quel, cases de séries comprises — une
+   * ligne à 4 séries arrive avec quatre cases à cocher.
+   */
+  function lancerBrouillon(d: SessionDraft) {
+    const lignes = d.exos.filter((e) => e.name.trim() && !estRessenti(e.name))
+    if (!lignes.length) return
+    // Une séance tourne déjà : la remplacer effacerait des séries cochées, donc
+    // du travail réellement fait. On demande — et par défaut on ne fait rien.
+    if (live && !confirm(`Une séance est déjà en cours (${live.name}). La remplacer ?`)) return
+    const state: LiveState = {
+      startedAt: Date.now(),
+      name: d.name,
+      template_id: d.template_id,
+      restSec: 90,
+      notes: d.notes,
+      ressenti: d.exos.find((e) => estRessenti(e.name))?.muscle_group || undefined,
+      exos: lignes.map((e) => ({
+        name: e.name,
+        muscle_group: e.muscle_group,
+        reps: e.reps,
+        weight: e.weight,
+        hint: e.hint,
+        notes: e.notes,
+        allure: e.allure,
+        done: Array(Math.max(1, parseInt(e.sets, 10) || 1)).fill(false),
+      })),
+    }
+    storeLive(state)
+    fermerEditeur()
+    setLiveReduit(false)
+    setLive(state)
+  }
+
   function startEdit(s: MuscuSession) {
     ouvrirNeuf({
       id: s.id,
@@ -996,6 +1041,7 @@ export function Journal({
         sessions={sessions}
         bodyWeight={bodyWeight}
         onCancel={fermerEditeur}
+        onLive={lancerBrouillon}
         onSave={async (d) => {
           // Même règle qu'à « Terminé » : une séance dont le nom n'a pas été
           // écrit à la main prend celui de ses muscles. La saisie après coup part
@@ -1397,6 +1443,7 @@ export function SessionEditor({
   sessions,
   bodyWeight,
   onCancel,
+  onLive,
   onSave,
 }: {
   draft: SessionDraft
@@ -1405,6 +1452,8 @@ export function SessionEditor({
   sessions: MuscuSession[]
   bodyWeight: number | null
   onCancel: () => void
+  /** Bascule en séance en direct. L'éditeur décide seul quand la proposer. */
+  onLive?: (d: SessionDraft) => void
   onSave: (d: SessionDraft) => Promise<void>
 }) {
   const [d, setD] = useState(draft)
@@ -1511,6 +1560,23 @@ export function SessionEditor({
           </p>
         ) : null
       })()}
+
+      {/* La troisième issue, entre « Annuler » (en haut de l'écran) et
+          « Enregistrer ». En second rôle volontairement : depuis cet écran,
+          neuf fois sur dix on note ce qui est déjà fait, et c'est
+          « Enregistrer » qui doit rester le bouton plein.
+          Deux conditions, et elles se lisent sur le brouillon lui-même plutôt
+          que chez l'appelant — c'est ici qu'on saurait dire pourquoi :
+            · une séance DÉJÀ enregistrée (`d.id`) n'est pas à lancer, on la
+              dupliquerait — deux lignes au journal pour un entraînement fait
+              une fois ;
+            · sans un seul exercice, la séance en direct n'aurait rien à
+              afficher, pas une case à cocher. */}
+      {onLive && !d.id && d.exos.some((e) => e.name.trim() && !estRessenti(e.name)) ? (
+        <button onClick={() => onLive(d)} disabled={busy} className="btn-ghost w-full py-2 text-sm">
+          ▶️ La faire maintenant, en direct
+        </button>
+      ) : null}
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance'}
@@ -1911,8 +1977,15 @@ function TypesTab({
                 <div className="truncate font-bold text-ink">{t.name}</div>
                 <div className="text-xs text-muted">
                   {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
-                  {t.exercises.length ? ` · ${summary(t.exercises)}` : ''}
                 </div>
+                {/* Les exercices, nommés, et pas les muscles qu'ils sollicitent.
+                    « Pectoraux, Triceps, Épaules » décrit une dizaine de séances
+                    différentes ; « Développé couché · Dips · Élévations » n'en
+                    décrit qu'une — et c'est celle-là qu'on cherche à
+                    reconnaître dans une liste de modèles. */}
+                {summary(t.exercises) ? (
+                  <div className="mt-0.5 text-[11px] leading-snug text-muted/80">{summary(t.exercises)}</div>
+                ) : null}
               </div>
             </div>
             <div className="mt-2 flex justify-end gap-3 text-xs">
@@ -1942,9 +2015,21 @@ function TypesTab({
   )
 }
 
+/**
+ * La liste des exercices du modèle, dans l'ordre où il les enchaîne.
+ *
+ * Les lignes de ressenti sont écartées : « Zones sollicitées » n'est pas un
+ * exercice, c'est la case par laquelle on déclare ce qui a travaillé quand on
+ * n'a rien chiffré. Elle n'a rien à faire dans la description d'un modèle.
+ *
+ * Peut donc rendre une chaîne vide sur un modèle qui n'aurait que ça : c'est
+ * elle, et non `exercises.length`, qui décide si la ligne s'affiche.
+ */
 function summary(exos: MuscuExo[]): string {
-  const gs = [...new Set(exos.map((e) => e.muscle_group).filter(Boolean))]
-  return gs.slice(0, 3).join(', ') + (gs.length > 3 ? '…' : '')
+  return exos
+    .map((e) => e.name.trim())
+    .filter((n) => n && !estRessenti(n))
+    .join(' · ')
 }
 
 export function TemplateEditor({
