@@ -5,7 +5,7 @@ import type { MuscleRegion } from './muscles'
 // générateur de séance (score et place réservée) et dans l'alerte des muscles
 // négligés, qui devient plus impatiente sur ces muscles-là.
 
-export type FocusId = 'core' | 'prehension' | 'cou' | 'dos' | 'jambes' | 'haut' | 'recup'
+export type FocusId = 'core' | 'prehension' | 'cou' | 'dos' | 'jambes' | 'bras' | 'recup'
 
 export interface Focus {
   label: string
@@ -45,10 +45,23 @@ export const FOCUS: Record<FocusId, Focus> = {
     emoji: '🦵',
     regions: ['gluteMax', 'gluteMed', 'hipRotators', 'vastusLat', 'vastusMed', 'rectusFemoris', 'bicepsFemoris', 'hamsInner', 'adductors', 'gracilis', 'tfl', 'hipFlexors', 'gastroc', 'soleus', 'tibialis', 'tibPost', 'fibularis'],
   },
-  haut: {
-    label: 'Haut du corps',
+  /**
+   * Les fléchisseurs et les extenseurs du coude, et rien d'autre.
+   *
+   * Remplace « Haut du corps », qui visait vingt-et-une régions — pectoraux,
+   * dos, épaules, coiffe, bras. Un point faible qui désigne la moitié du corps
+   * n'en est pas un : le générateur avait tant de candidats pour remplir les
+   * places réservées qu'une séance « haut du corps » ressemblait à une séance
+   * ordinaire. Même raison que pour « Dos » juste au-dessus.
+   *
+   * Les avant-bras et les doigts n'y sont PAS : ils ont déjà « Préhension ».
+   * Deux entrées qui se chevauchent, ce sont deux entrées dont on ne sait plus
+   * laquelle cocher.
+   */
+  bras: {
+    label: 'Bras',
     emoji: '💪',
-    regions: ['pecUpper', 'pecLower', 'pecMinor', 'lats', 'teres', 'deltAnt', 'deltLat', 'deltPost', 'trapsMid', 'trapsLow', 'rhomboids', 'serratus', 'rotatorCuff', 'supraspinatus', 'teresMinor', 'subscapularis', 'biceps', 'brachialis', 'coracobrachialis', 'tricepsLong', 'tricepsLat'],
+    regions: ['biceps', 'brachialis', 'coracobrachialis', 'tricepsLong', 'tricepsLat'],
   },
   /**
    * Cas à part : il ne vise pas un muscle mais un ÉTAT. Le générateur bascule
@@ -63,7 +76,7 @@ export const FOCUS: Record<FocusId, Focus> = {
   },
 }
 
-export const FOCUS_IDS: FocusId[] = ['core', 'prehension', 'cou', 'dos', 'jambes', 'haut', 'recup']
+export const FOCUS_IDS: FocusId[] = ['core', 'prehension', 'cou', 'dos', 'jambes', 'bras', 'recup']
 
 /**
  * Nombre de points faibles simultanés.
@@ -210,10 +223,33 @@ const BEHOURD_KEY = 'muscu_behourd'
  * deux en lecture : sans ça, ton réglage se serait silencieusement remis sur la
  * valeur par défaut au premier chargement.
  */
-export async function loadFocus(userId: string): Promise<FocusId[]> {
-  const v = await fetchKv<FocusId | FocusId[]>(userId, FOCUS_KEY, [FOCUS_PAR_DEFAUT])
+/**
+ * Anciens identifiants, et ce qu'ils sont devenus.
+ *
+ * Sans ce renvoi, un réglage écrit avant le renommage tomberait simplement au
+ * filtre du dessous : le point faible déclaré disparaîtrait sans un mot, et
+ * l'écran afficherait « aucun point faible » à quelqu'un qui en a choisi un.
+ *
+ * « Haut du corps » devient « Bras » : c'est le morceau qu'il désignait
+ * vraiment et le seul qui subsiste. Le report n'est donc pas exact — le dos et
+ * les pectoraux n'y sont plus — mais il garde une priorité là où il y en avait
+ * une, ce qu'un filtre silencieux ne fait pas.
+ */
+const RENOMMES: Record<string, FocusId> = { haut: 'bras' }
+
+/**
+ * Met en forme ce qui sort du KV : renvois d'anciens noms, inconnus écartés,
+ * doublons fondus, exclusif prioritaire, coupé à FOCUS_MAX.
+ *
+ * Séparée de `loadFocus` pour être vérifiable sans réseau : c'est ici que se
+ * jouent la compatibilité des réglages déjà enregistrés et la seule
+ * combinaison qui n'a pas de sens.
+ */
+export function normaliserFocus(v: unknown): FocusId[] {
   const liste = Array.isArray(v) ? v : [v]
-  const valides = liste.filter((id) => typeof id === 'string' && id in FOCUS)
+  const valides = liste
+    .map((id) => (typeof id === 'string' && id in RENOMMES ? RENOMMES[id] : id))
+    .filter((id): id is FocusId => typeof id === 'string' && id in FOCUS)
   // Une liste vide reste vide : c'est « aucun point faible », et c'est aussi ce
   // que devient l'ancien réglage « Aucune » une fois filtré. La remettre sur la
   // valeur par défaut aurait changé son choix dans son dos. Le défaut ne
@@ -221,7 +257,14 @@ export async function loadFocus(userId: string): Promise<FocusId[]> {
   // Un exclusif dans la liste l'emporte : c'est la seule combinaison qui n'a pas
   // de sens, et une valeur écrite à la main pourrait la produire.
   const exclusif = valides.find(estExclusif)
-  return exclusif ? [exclusif] : valides.slice(0, FOCUS_MAX)
+  // Dédoublonné APRÈS le renvoi : une sélection qui portait déjà « bras » et
+  // l'ancien « haut » donnerait deux fois le même point faible, donc une place
+  // gâchée sur les deux que compte FOCUS_MAX.
+  return exclusif ? [exclusif] : [...new Set(valides)].slice(0, FOCUS_MAX)
+}
+
+export async function loadFocus(userId: string): Promise<FocusId[]> {
+  return normaliserFocus(await fetchKv<FocusId | FocusId[]>(userId, FOCUS_KEY, [FOCUS_PAR_DEFAUT]))
 }
 
 export async function saveFocus(userId: string, ids: FocusId[]): Promise<void> {
