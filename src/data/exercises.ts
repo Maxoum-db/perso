@@ -582,6 +582,28 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { name: 'Abduction de hanche en flexion (poulie)', groups: 'Tenseur du fascia lata:1, Moyen fessier:0.8, Rotateurs de hanche:0.4, Grand droit:0.3, Obliques:0.3', sets: 3, reps: '15/jambe', notes: 'Jambe portée en AVANT d’environ 30° avant d’écarter, pointe de pied vers l’intérieur : c’est cette position-là qui met le tenseur du fascia lata devant le moyen fessier. Hanche neutre, c’est l’inverse.' },
   { name: 'Mollets assis à la barre sur les genoux', groups: 'Soléaire:1, Tibial postérieur:0.5, Gastrocnémiens:0.4, Fibulaires:0.3', sets: 4, reps: '20', notes: 'Barre posée sur le bas des cuisses, avant-pieds sur une cale. Genou fléchi : le gastrocnémien est mis hors-jeu — il croise le genou — et il ne reste que le soléaire. La version libre de la machine, quand elle est prise.' },
 
+  // ── 🎚️ Double poulie (poulie vis-à-vis) ──────────────────────────────────
+  // La station à deux colonnes réglables. Ce qui la distingue d'une poulie
+  // simple n'est pas la charge mais la LIBERTÉ : deux câbles indépendants, une
+  // hauteur au choix, et rien pour appuyer le buste. Chaque bras travaille donc
+  // pour lui — le côté faible ne peut pas se faire aider — et le gainage tient
+  // la position du début à la fin. C'est ce qui justifie une entrée à part
+  // plutôt qu'une note sous l'exercice assis correspondant : les muscles
+  // déclarés ne sont pas les mêmes.
+  //
+  // Six entrées seulement, sur les treize mouvements de la station : les sept
+  // autres étaient déjà au catalogue sous un autre nom (les trois écartés
+  // croisés, le tirage visage, les élévations latérales, le curl poulie basse,
+  // l'extension triceps). Ils ont reçu un renvoi de nom plus bas — les ajouter
+  // une seconde fois aurait donné deux exercices pour un seul mouvement, donc
+  // un historique de charges coupé en deux.
+  { name: 'Développé à la double poulie', groups: 'Grand pectoral:1, Deltoïde antérieur:0.7, Triceps latéral:0.7, Dentelé antérieur:0.5, Pectoral supérieur:0.5, Triceps longue portion:0.4, Petit pectoral:0.4, Grand droit:0.4, Obliques:0.4, Sous-scapulaire:0.3, Coiffe des rotateurs:0.3, Grand fessier:0.3, Fléchisseurs des doigts:0.3', sets: 3, reps: '12', notes: 'Poulies à hauteur de poitrine, debout au milieu : on pousse les deux poignées devant soi en fléchissant puis tendant les bras. Un développé couché debout — sauf que rien ne soutient le buste, et que le gainage encaisse ce que le banc prenait. ⚠️ AC droite : ne pas laisser les coudes partir derrière la ligne du buste.' },
+  { name: 'Tirage vertical à la double poulie haute (à genoux)', groups: 'Grand dorsal:1, Grand rond:0.7, Trapèze inférieur:0.6, Rhomboïdes:0.5, Trapèze moyen:0.5, Biceps:0.5, Brachial:0.5, Deltoïde postérieur:0.5, Brachio-radial:0.4, Fléchisseurs avant-bras:0.4, Fléchisseurs des doigts:0.4, Grand droit:0.4, Coiffe des rotateurs:0.3, Obliques:0.3', sets: 3, reps: '12', notes: 'À genoux ou assis entre les deux poulies hautes, une poignée par main : on tire vers les côtes en descendant les coudes le long du corps. L’alternative aux tractions quand la barre est prise — et comme chaque bras tire seul, le côté faible ne peut pas se faire aider.' },
+  { name: 'Rowing debout à la double poulie basse', groups: 'Grand dorsal:1, Trapèze moyen:0.7, Rhomboïdes:0.6, Deltoïde postérieur:0.5, Érecteurs du rachis:0.5, Grand rond:0.5, Biceps:0.5, Brachial:0.4, Trapèze inférieur:0.4, Grand fessier:0.4, Fléchisseurs avant-bras:0.4, Fléchisseurs des doigts:0.4, Grand droit:0.4, Brachio-radial:0.3, Coiffe des rotateurs:0.3', sets: 3, reps: '12', notes: 'Debout face à la machine, poulies en bas : on tire les deux poignées vers le nombril, coudes au corps. Debout, les érecteurs et les fessiers tiennent la position tout du long — c’est la seule différence avec le tirage horizontal assis, et elle suffit à en faire un autre exercice.' },
+  { name: 'Oiseau croisé à la poulie haute', groups: 'Deltoïde postérieur:1, Trapèze moyen:0.7, Rhomboïdes:0.6, Coiffe des rotateurs:0.5, Petit rond:0.5, Trapèze inférieur:0.4, Trapèze supérieur:0.3, Grand rond:0.3, Érecteurs du rachis:0.3, Fléchisseurs des doigts:0.3', sets: 3, reps: '15', notes: 'Debout au milieu, poulies en haut, câbles CROISÉS : la main droite prend la poulie de gauche. Bras presque tendus, on ouvre vers l’arrière. La tension ne tombe jamais, contrairement à l’oiseau aux haltères qui ne charge qu’en fin de course. Léger.', adaptable: true },
+  { name: 'Élévations frontales à la poulie basse', groups: 'Deltoïde antérieur:1, Coraco-brachial:0.5, Pectoral supérieur:0.4, Trapèze supérieur:0.3, Coiffe des rotateurs:0.3, Dentelé antérieur:0.3, Grand droit:0.3, Fléchisseurs des doigts:0.3', sets: 3, reps: '12', notes: 'Dos à la machine, poulies en bas, le câble passe le long de la cuisse : on monte le bras tendu devant soi. La poulie tire vers l’arrière et le bas, donc la tension tient en bas de course — là où l’haltère ne pèse plus rien. ⚠️ AC droite : s’arrêter à hauteur d’épaule.' },
+  { name: 'Curl aux poulies hautes (Iron Man)', groups: 'Biceps:1, Brachial:0.6, Brachio-radial:0.4, Rond pronateur:0.4, Deltoïde postérieur:0.4, Deltoïde latéral:0.3, Fléchisseurs avant-bras:0.3, Fléchisseurs des doigts:0.3, Grand droit:0.3', sets: 3, reps: '12', notes: 'Debout au milieu, poulies en HAUT, bras écartés à l’horizontale : on ramène les poignées vers les oreilles sans bouger les coudes. Bras en arrière du corps, la longue portion du biceps est étirée à fond — aucun autre curl ne la charge dans cette position. Léger : la position d’épaule ne pardonne rien.' },
+
   // ── 🧘 Récupération active ────────────────────────────────────────────────
   // Ces séances ne fatiguent pas : elles relancent la circulation et raccourcissent
   // le délai de retour. Enregistrées, elles retirent un jour de récupération aux
@@ -779,4 +801,38 @@ export const EXERCISE_RENAMES: Record<string, string> = {
   'deadbug (activation posturale)': 'Deadbug (gainage bras-jambes alternés)',
   'deadbug (gainage profond)': 'Deadbug (gainage bras-jambes alternés)',
   'soulevé de terre conventionnel': 'Soulevé de terre',
+  // Les noms de la station « double poulie ». Sept des treize mouvements
+  // existaient déjà, sous le nom que le catalogue leur donne : ces renvois
+  // évitent d'en créer des doublons, et font retrouver l'historique de charges
+  // quand la séance est écrite avec le nom de la machine.
+  // Le titre de la liste porte les deux noms d'un coup (« Écarté / Cross-over
+  // poulie haute ») : recopié tel quel dans une séance, il ne renvoyait nulle
+  // part. On le prend aussi.
+  'écarté / cross-over poulie haute': 'Écarté croisé à la poulie haute',
+  'écarté / cross-over poulie moyenne': 'Écarté croisé à la poulie à hauteur d’épaules',
+  'écarté / cross-over poulie basse': 'Écarté croisé à la poulie basse',
+  'cross-over poulie haute': 'Écarté croisé à la poulie haute',
+  'écarté cross-over poulie haute': 'Écarté croisé à la poulie haute',
+  'cross-over poulie moyenne': 'Écarté croisé à la poulie à hauteur d’épaules',
+  'écarté cross-over poulie moyenne': 'Écarté croisé à la poulie à hauteur d’épaules',
+  'écarté croisé à la poulie moyenne': 'Écarté croisé à la poulie à hauteur d’épaules',
+  'cross-over poulie basse': 'Écarté croisé à la poulie basse',
+  'écarté cross-over poulie basse': 'Écarté croisé à la poulie basse',
+  'face pull à la double poulie': 'Tirage visage à la poulie haute',
+  'face pull double poulie': 'Tirage visage à la poulie haute',
+  'élévations latérales à la double poulie basse': 'Élévations latérales poulie',
+  'curl biceps à la double poulie basse': 'Curl poulie basse',
+  'extension triceps à la double poulie haute': 'Extensions triceps poulie haute (corde)',
+  // Et les six nouveaux, sous le nom de la liste d'origine.
+  'tirage vertical à la double poulie haute': 'Tirage vertical à la double poulie haute (à genoux)',
+  // « Rowing horizontal à la double poulie basse » se fait assis OU debout, et
+  // ce ne sont pas les mêmes muscles : assis, ni les érecteurs ni les fessiers
+  // ne tiennent quoi que ce soit. Le renvoi choisit la version debout, celle de
+  // la station à deux colonnes ; assis, c'est « Tirage horizontal poulie prise
+  // neutre » qu'il faut nommer.
+  'rowing horizontal à la double poulie basse': 'Rowing debout à la double poulie basse',
+  'oiseau à la poulie haute (croisé)': 'Oiseau croisé à la poulie haute',
+  'élévations frontales à la double poulie basse': 'Élévations frontales à la poulie basse',
+  'curl biceps iron man (poulies hautes)': 'Curl aux poulies hautes (Iron Man)',
+  'curl iron man': 'Curl aux poulies hautes (Iron Man)',
 }

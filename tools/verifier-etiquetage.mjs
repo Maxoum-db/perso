@@ -45,7 +45,7 @@ try {
   await rm(dossier, { recursive: true, force: true })
 }
 
-const { EXERCISE_LIBRARY, EXERCISE_RENAMES, cleExercice } = exercices
+const { EXERCISE_LIBRARY, EXERCISE_RENAMES, cleExercice, clefReference } = exercices
 const { regionsForGroup } = muscles
 
 /** Libellés qui ne désignent volontairement aucun muscle. */
@@ -93,6 +93,28 @@ for (const exo of EXERCISE_LIBRARY) {
     if (regionsForGroup(libelle).length === 0) {
       erreurs.push(`étiquetage : « ${exo.name} » déclare « ${libelle} », qui ne désigne aucun muscle`)
     }
+  }
+}
+
+// 5. Deux entrées de la bibliothèque ne peuvent pas être le même exercice.
+//    Le renvoi de nom sert à dire « ces deux noms désignent un seul mouvement ».
+//    Si les DEUX noms sont aussi des entrées de la bibliothèque, le renvoi ne
+//    répare rien : `clefReference` ramène les deux à la même clé, et c'est la
+//    dernière lue qui gagne — silencieusement. L'historique de charges se coupe
+//    en deux et le générateur peut proposer le même mouvement deux fois dans la
+//    séance sous ses deux noms.
+//
+//    C'est la faute exacte que guette tout ajout en lot : on recopie une liste
+//    d'exercices trouvée ailleurs sans voir que la moitié est déjà au catalogue
+//    sous d'autres mots (« Cross-over poulie haute » contre « Écarté croisé à
+//    la poulie haute »).
+const parIdentite = new Map()
+for (const exo of EXERCISE_LIBRARY) {
+  const cle = clefReference(exo.name)
+  if (parIdentite.has(cle)) {
+    erreurs.push(`doublon : « ${exo.name} » et « ${parIdentite.get(cle)} » désignent le même exercice`)
+  } else {
+    parIdentite.set(cle, exo.name)
   }
 }
 
