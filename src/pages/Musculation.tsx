@@ -9,6 +9,13 @@ import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { loadNegatifs, nettoyerNegatifs, saveNegatifs, type Negatifs } from '../lib/negatif'
+import {
+  faconDeLigne,
+  loadModeleLignes,
+  nettoyerModeleLignes,
+  saveModeleLignes,
+  type ModeleLignes,
+} from '../lib/modeleLignes'
 import { appliquerComptage, comptageReglable, loadExclues, nettoyerExclues, saveExclue, type Exclues } from '../lib/comptage'
 import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
@@ -318,6 +325,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [douceurs, setDouceurs] = useState<Douceurs>({})
   // Lignes déclarées faites en freinant la descente, même index que ci-dessus.
   const [negatifs, setNegatifs] = useState<Negatifs>({})
+  // Les mêmes façons de faire, déclarées sur les lignes d'un MODÈLE.
+  const [modeleLignes, setModeleLignes] = useState<ModeleLignes>({})
   // Allures déclarées sur les exercices au temps ou à la distance, même index.
   const [allures, setAllures] = useState<Allures>({})
   // Séances décochées : au journal, mais hors du mannequin.
@@ -342,7 +351,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, al, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -359,6 +368,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
         loadNegatifs(user.id).catch(() => ({}) as Negatifs),
+        loadModeleLignes(user.id).catch(() => ({}) as ModeleLignes),
         loadAllures(user.id).catch(() => ({}) as Allures),
         loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
@@ -380,6 +390,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setDouceurs(nettoyerDouceurs(dx, new Set(s.map((x) => x.id))))
       setNegatifs(nettoyerNegatifs(ng, new Set(s.map((x) => x.id))))
+      // Purgé sur les MODÈLES vivants : un modèle supprimé emporte ses consignes.
+      setModeleLignes(nettoyerModeleLignes(ml, new Set(t.map((x) => x.id))))
       setAllures(nettoyerAllures(al, new Set(s.map((x) => x.id))))
       setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
@@ -474,6 +486,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           onDouceurs={setDouceurs}
           negatifs={negatifs}
           onNegatifs={setNegatifs}
+          modeleLignes={modeleLignes}
           allures={allures}
           onAllures={setAllures}
           onCourbatures={(next) => {
@@ -507,6 +520,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           templates={templates}
           catalog={catalog}
           groups={groups}
+          modeleLignes={modeleLignes}
+          onModeleLignes={setModeleLignes}
           onChange={reload}
           onGroups={setGroups}
         />
@@ -557,6 +572,7 @@ export function Journal({
   onDouceurs,
   negatifs,
   onNegatifs,
+  modeleLignes,
   allures,
   onAllures,
   exclues,
@@ -599,6 +615,8 @@ export function Journal({
   /** Lignes déclarées faites en freinant la descente. */
   negatifs: Negatifs
   onNegatifs: (n: Negatifs) => void
+  /** Consignes portées par les lignes des modèles : recopiées au démarrage. */
+  modeleLignes: ModeleLignes
   /** Allures déclarées sur les exercices au temps ou à la distance. */
   allures: Allures
   onAllures: (a: Allures) => void
@@ -828,6 +846,10 @@ export function Journal({
           weight: charge.weight === null ? base.weight : String(charge.weight),
           hint: charge.raison || undefined,
           hintTon: charge.ton,
+          // Ce que le modèle PRÉVOIT pour cette ligne — « au négatif », « en
+          // version douce ». Arrivé coché dans le brouillon, donc modifiable
+          // avant de commencer : le modèle propose, la séance dispose.
+          ...faconDeLigne(modeleLignes, tpl.id, e.name),
         }
       }),
     })
@@ -1687,7 +1709,6 @@ function ExoListEditor({
   catalog,
   sessions = [],
   bodyWeight,
-  declarations = true,
   onChange,
 }: {
   exos: ExoDraft[]
@@ -1696,16 +1717,6 @@ function ExoListEditor({
   /** Historique, pour proposer la charge. Vide dans l'éditeur de séance type. */
   sessions?: MuscuSession[]
   bodyWeight?: number | null
-  /**
-   * Les cases qui décrivent une séance FAITE — version douce, descente freinée.
-   *
-   * Fausse dans l'éditeur de séance type, et c'est un vrai défaut réparé au
-   * passage : elles y étaient proposées alors qu'elles n'y sont jamais
-   * enregistrées. Ces déclarations vivent en KV, indexées par séance ; un
-   * modèle n'a pas de séance, donc la coche partait à la poubelle sans un mot.
-   * Un modèle dit ce qu'on VA faire, pas comment on l'a fait.
-   */
-  declarations?: boolean
   onChange: (exos: ExoDraft[]) => void
 }) {
   // Le matériel coché sous « chercher un exercice ». C'est le MÊME magasin
@@ -1864,7 +1875,7 @@ function ExoListEditor({
               — la bibliothèque le dit. La proposer partout laisserait croire
               qu'un squat allégé se compte comme de la récupération : il ne se
               compte pas, il reste un squat. */}
-          {declarations && estAdaptable(e.name) ? (
+          {estAdaptable(e.name) ? (
             <button
               onClick={() => update(i, { doux: !e.doux })}
               aria-pressed={e.doux === true}
@@ -1883,7 +1894,7 @@ function ExoListEditor({
               freinant sous charge » se contredisent, et laisser cocher les deux
               ferait s'annuler un bonus et un malus au lieu de poser une
               question. */}
-          {!declarations || e.doux ? null : (
+          {e.doux ? null : (
             <button
               onClick={() => update(i, { negatif: !e.negatif })}
               aria-pressed={e.negatif === true}
@@ -1963,6 +1974,8 @@ function TypesTab({
   templates,
   catalog,
   groups,
+  modeleLignes,
+  onModeleLignes,
   onChange,
   onGroups,
 }: {
@@ -1970,6 +1983,9 @@ function TypesTab({
   templates: MuscuTemplate[]
   catalog: CatalogExercise[]
   groups: string[]
+  /** Version douce / descente freinée déclarées sur les lignes des modèles. */
+  modeleLignes: ModeleLignes
+  onModeleLignes: (m: ModeleLignes) => void
   onChange: () => void
   onGroups: (g: string[]) => void
 }) {
@@ -1982,7 +1998,11 @@ function TypesTab({
       icon: t.icon,
       duration: t.duration_min ? String(t.duration_min) : '',
       notes: t.notes,
-      exos: t.exercises.map(exoToDraft),
+      // Les consignes suivent la COPIE aussi : dupliquer un modèle pour en
+      // faire une variante et perdre au passage « au négatif » sur cinq lignes,
+      // c'est la copie qui devient fausse sans rien dire. Elles seront
+      // réécrites sous le nouvel identifiant à l'enregistrement.
+      exos: t.exercises.map((e) => ({ ...exoToDraft(e), ...faconDeLigne(modeleLignes, t.id, e.name) })),
     }
   }
 
@@ -1994,10 +2014,20 @@ function TypesTab({
         catalog={catalog}
         onCancel={() => setDraft(null)}
         onSave={async (d) => {
-          await saveTemplate(
+          const id = await saveTemplate(
             userId,
             { id: d.id, name: d.name, icon: d.icon, duration_min: parseInt(d.duration, 10) || null, notes: d.notes },
             d.exos.filter((e) => e.name.trim()).map(draftToInput),
+          )
+          // Les consignes de ligne après le modèle : une création n'a son
+          // identifiant qu'ici, et c'est lui qui les indexe.
+          onModeleLignes(
+            await saveModeleLignes(
+              userId,
+              id,
+              d.exos.filter((e) => e.name.trim()).map((e) => ({ nom: e.name, doux: e.doux, negatif: e.negatif })),
+              modeleLignes,
+            ),
           )
           setDraft(null)
           onChange()
@@ -2039,8 +2069,10 @@ function TypesTab({
                     différentes ; « Développé couché · Dips · Élévations » n'en
                     décrit qu'une — et c'est celle-là qu'on cherche à
                     reconnaître dans une liste de modèles. */}
-                {summary(t.exercises) ? (
-                  <div className="mt-0.5 text-[11px] leading-snug text-muted/80">{summary(t.exercises)}</div>
+                {summary(t.exercises, (nom) => faconDeLigne(modeleLignes, t.id, nom)) ? (
+                  <div className="mt-0.5 text-[11px] leading-snug text-muted/80">
+                    {summary(t.exercises, (nom) => faconDeLigne(modeleLignes, t.id, nom))}
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -2080,11 +2112,20 @@ function TypesTab({
  *
  * Peut donc rendre une chaîne vide sur un modèle qui n'aurait que ça : c'est
  * elle, et non `exercises.length`, qui décide si la ligne s'affiche.
+ *
+ * Les lignes prévues autrement portent leur marque — 🐢 au négatif, 🌙 en
+ * version douce. Sans elle, une consigne posée sur un modèle ne se voit qu'en
+ * ouvrant l'éditeur : on relirait sa liste de modèles sans jamais apprendre
+ * que trois d'entre eux prévoient des négatifs.
  */
-function summary(exos: MuscuExo[]): string {
+function summary(exos: MuscuExo[], facon?: (nom: string) => { doux?: true; negatif?: true }): string {
   return exos
     .map((e) => e.name.trim())
     .filter((n) => n && !estRessenti(n))
+    .map((n) => {
+      const f = facon?.(n) ?? {}
+      return `${f.negatif ? '🐢 ' : ''}${f.doux ? '🌙 ' : ''}${n}`
+    })
     .join(' · ')
 }
 
@@ -2222,13 +2263,7 @@ export function TemplateEditor({
         </p>
       </div>
 
-      <ExoListEditor
-        exos={d.exos}
-        groups={groups}
-        catalog={catalog}
-        declarations={false}
-        onChange={(exos) => setD({ ...d, exos })}
-      />
+      <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance type'}
