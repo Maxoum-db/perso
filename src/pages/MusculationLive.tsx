@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { estAuTempsOuDistance } from '../lib/muscu'
 import { loadAllures, saveAllures } from '../lib/allure'
+import { loadNegatifs, saveNegatifs } from '../lib/negatif'
 import type { IntensiteId } from '../lib/intensite'
 import {
   exoTonnage,
@@ -41,6 +42,12 @@ export interface LiveExo {
    * quand la séance a enfin un identifiant.
    */
   allure?: IntensiteId
+  /**
+   * Descente freinée sur cette ligne. Déclarée PENDANT la séance : c'est là
+   * qu'on sait comment on vient de la faire, et c'est le seul moment où l'on a
+   * l'exercice sous les yeux entre deux séries.
+   */
+  negatif?: boolean
   done: boolean[] // une case par série
 }
 
@@ -463,6 +470,16 @@ export function LiveSession({
       )
       // Les allures déclarées, une fois la séance enregistrée : elles vivent en
       // KV indexées par séance + exercice, et la séance n'a d'identifiant qu'ici.
+      // Les descentes freinées, même chemin et même indulgence : une coche
+      // perdue ne doit pas faire perdre la séance.
+      const freinees = kept.filter((e) => e.negatif)
+      if (freinees.length) {
+        try {
+          await saveNegatifs(userId, id, freinees.map((e) => e.name), await loadNegatifs(userId))
+        } catch {
+          /* la séance est enregistrée, c'est elle qui compte */
+        }
+      }
       const avecAllure = kept.filter((e) => e.allure && estAuTempsOuDistance(e.reps))
       if (avecAllure.length) {
         try {
@@ -695,6 +712,21 @@ export function LiveSession({
                     compact
                   />
                 ) : null}
+                {/* « J'ai accompagné la descente. » Mêmes muscles, mais une
+                    demi-journée de récupération en plus sur le moteur
+                    principal — cf. lib/negatif. Ici plutôt qu'après coup :
+                    entre deux séries, on sait encore comment on a fait. */}
+                <button
+                  onClick={() => updateExo(j, { negatif: !e.negatif })}
+                  aria-pressed={e.negatif === true}
+                  title="Descente freinée, poids accompagné : mêmes muscles, mais une demi-journée de récupération en plus"
+                  className={`chip flex shrink-0 items-center gap-1 text-[11px] transition ${
+                    e.negatif ? 'bg-copper/25 text-copper ring-1 ring-copper' : 'bg-bg text-muted'
+                  }`}
+                >
+                  <span>🐢</span>
+                  Freinée
+                </button>
                 {/* L'outil, juste après les kilos : c'est ce qu'on cherche des
                     yeux entre deux séries — où va-t-on, et avec quoi. Barré
                     quand le poste a été déclaré pris là-haut : la ligne

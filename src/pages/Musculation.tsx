@@ -8,6 +8,7 @@ import { Poids } from './Carnet'
 import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
+import { loadNegatifs, nettoyerNegatifs, saveNegatifs, type Negatifs } from '../lib/negatif'
 import { appliquerComptage, comptageReglable, loadExclues, nettoyerExclues, saveExclue, type Exclues } from '../lib/comptage'
 import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
@@ -209,6 +210,8 @@ interface ExoDraft {
   hintTon?: TonCharge
   /** Fait à vide, en amplitude : la ligne compte comme récupération. */
   doux?: boolean
+  /** Descente freinée : mêmes muscles, mais plus de jours de récupération. */
+  negatif?: boolean
   /** Allure déclarée — seulement pour les exercices au temps ou à la distance. */
   allure?: IntensiteId
 }
@@ -226,6 +229,7 @@ function exoToDraft(e: MuscuExo): ExoDraft {
     weight: e.weight_kg === null ? '' : String(e.weight_kg),
     notes: e.notes,
     doux: e.doux,
+    negatif: e.negatif,
     allure: e.allure,
   }
 }
@@ -312,6 +316,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [intensites, setIntensites] = useState<Intensites>({})
   // Exercices déclarés faits en version douce, indexés par séance + exercice.
   const [douceurs, setDouceurs] = useState<Douceurs>({})
+  // Lignes déclarées faites en freinant la descente, même index que ci-dessus.
+  const [negatifs, setNegatifs] = useState<Negatifs>({})
   // Allures déclarées sur les exercices au temps ou à la distance, même index.
   const [allures, setAllures] = useState<Allures>({})
   // Séances décochées : au journal, mais hors du mannequin.
@@ -336,7 +342,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, al, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -352,6 +358,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadBehourd(user.id).catch(() => false),
         loadDuree(user.id).catch(() => DUREE_PAR_DEFAUT),
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
+        loadNegatifs(user.id).catch(() => ({}) as Negatifs),
         loadAllures(user.id).catch(() => ({}) as Allures),
         loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
@@ -372,6 +379,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       // Purge les séances disparues : sinon le KV grossit sans jamais se vider.
       setIntensites(nettoyerIntensites(it, new Set(s.map((x) => x.id))))
       setDouceurs(nettoyerDouceurs(dx, new Set(s.map((x) => x.id))))
+      setNegatifs(nettoyerNegatifs(ng, new Set(s.map((x) => x.id))))
       setAllures(nettoyerAllures(al, new Set(s.map((x) => x.id))))
       setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
@@ -464,6 +472,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           onIntensite={setIntensites}
           douceurs={douceurs}
           onDouceurs={setDouceurs}
+          negatifs={negatifs}
+          onNegatifs={setNegatifs}
           allures={allures}
           onAllures={setAllures}
           onCourbatures={(next) => {
@@ -545,6 +555,8 @@ export function Journal({
   onIntensite,
   douceurs,
   onDouceurs,
+  negatifs,
+  onNegatifs,
   allures,
   onAllures,
   exclues,
@@ -584,6 +596,9 @@ export function Journal({
   /** Exercices déclarés faits en version douce, indexés par séance + exercice. */
   douceurs: Douceurs
   onDouceurs: (d: Douceurs) => void
+  /** Lignes déclarées faites en freinant la descente. */
+  negatifs: Negatifs
+  onNegatifs: (n: Negatifs) => void
   /** Allures déclarées sur les exercices au temps ou à la distance. */
   allures: Allures
   onAllures: (a: Allures) => void
@@ -988,6 +1003,9 @@ export function Journal({
         hint: e.hint,
         notes: e.notes,
         allure: e.allure,
+        // La descente freinée suit le brouillon en direct : cochée avant de
+        // lancer, elle serait sinon perdue au moment même où on va la faire.
+        negatif: e.negatif,
         done: Array(Math.max(1, parseInt(e.sets, 10) || 1)).fill(false),
       })),
     }
@@ -1077,6 +1095,14 @@ export function Journal({
               id,
               d.exos.filter((e) => e.doux && e.name.trim()).map((e) => e.name),
               douceurs,
+            ),
+          )
+          onNegatifs(
+            await saveNegatifs(
+              userId,
+              id,
+              d.exos.filter((e) => e.negatif && e.name.trim()).map((e) => e.name),
+              negatifs,
             ),
           )
           // Les allures, même chemin : elles ne peuvent s'écrire qu'une fois la
@@ -1661,6 +1687,7 @@ function ExoListEditor({
   catalog,
   sessions = [],
   bodyWeight,
+  declarations = true,
   onChange,
 }: {
   exos: ExoDraft[]
@@ -1669,6 +1696,16 @@ function ExoListEditor({
   /** Historique, pour proposer la charge. Vide dans l'éditeur de séance type. */
   sessions?: MuscuSession[]
   bodyWeight?: number | null
+  /**
+   * Les cases qui décrivent une séance FAITE — version douce, descente freinée.
+   *
+   * Fausse dans l'éditeur de séance type, et c'est un vrai défaut réparé au
+   * passage : elles y étaient proposées alors qu'elles n'y sont jamais
+   * enregistrées. Ces déclarations vivent en KV, indexées par séance ; un
+   * modèle n'a pas de séance, donc la coche partait à la poubelle sans un mot.
+   * Un modèle dit ce qu'on VA faire, pas comment on l'a fait.
+   */
+  declarations?: boolean
   onChange: (exos: ExoDraft[]) => void
 }) {
   // Le matériel coché sous « chercher un exercice ». C'est le MÊME magasin
@@ -1827,7 +1864,7 @@ function ExoListEditor({
               — la bibliothèque le dit. La proposer partout laisserait croire
               qu'un squat allégé se compte comme de la récupération : il ne se
               compte pas, il reste un squat. */}
-          {estAdaptable(e.name) ? (
+          {declarations && estAdaptable(e.name) ? (
             <button
               onClick={() => update(i, { doux: !e.doux })}
               aria-pressed={e.doux === true}
@@ -1840,6 +1877,25 @@ function ExoListEditor({
               Version douce
             </button>
           ) : null}
+          {/* Celle-ci, au contraire, n'a pas de condition : freiner la descente
+              se fait sur n'importe quel mouvement chargé. Elle est cachée sur
+              les lignes déclarées douces — « à vide sans forcer » et « en
+              freinant sous charge » se contredisent, et laisser cocher les deux
+              ferait s'annuler un bonus et un malus au lieu de poser une
+              question. */}
+          {!declarations || e.doux ? null : (
+            <button
+              onClick={() => update(i, { negatif: !e.negatif })}
+              aria-pressed={e.negatif === true}
+              title="Descente freinée, poids accompagné : mêmes muscles, mais une demi-journée de récupération en plus sur le moteur principal"
+              className={`chip flex w-fit items-center gap-1 text-[11px] transition ${
+                e.negatif ? 'bg-copper/25 text-copper ring-1 ring-copper' : 'bg-bg text-muted'
+              }`}
+            >
+              <span>🐢</span>
+              Descente freinée
+            </button>
+          )}
             </>
           )}
           <input
@@ -2166,7 +2222,13 @@ export function TemplateEditor({
         </p>
       </div>
 
-      <ExoListEditor exos={d.exos} groups={groups} catalog={catalog} onChange={(exos) => setD({ ...d, exos })} />
+      <ExoListEditor
+        exos={d.exos}
+        groups={groups}
+        catalog={catalog}
+        declarations={false}
+        onChange={(exos) => setD({ ...d, exos })}
+      />
 
       <button onClick={save} disabled={busy} className="btn-primary w-full py-2.5">
         {busy ? '…' : 'Enregistrer la séance type'}

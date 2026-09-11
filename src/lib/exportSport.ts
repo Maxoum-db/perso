@@ -89,6 +89,7 @@ function ligneExo(e: MuscuSession['exercises'][number]): string {
   if (e.weight_kg !== null && e.weight_kg > 0) bouts.push(`${e.weight_kg} kg`)
   else bouts.push('poids du corps')
   if (e.doux) bouts.push('version douce')
+  if (e.negatif) bouts.push('négatif accompagné')
   const suffixe = e.notes?.trim() ? ` — ${e.notes.trim()}` : ''
   return `  - ${e.name} · ${bouts.join(' · ')} · [${e.muscle_group}]${suffixe}`
 }
