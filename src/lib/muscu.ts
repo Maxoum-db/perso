@@ -10,6 +10,7 @@ import { PAS_HEURES, PAS_JOURS, SEUIL_PRET, VITESSE_MIN } from './recuperation'
 // lit depuis ici depuis toujours.
 export { PAS_HEURES, PAS_JOURS }
 import { loadIntensites, recupIntensite, type IntensiteId, type Intensites } from './intensite'
+import { clefNegatif, loadNegatifs, recupNegatif, type Negatifs } from './negatif'
 import { clefDouceur, loadDouceurs, type Douceurs } from './douceur'
 import { clefAllure, loadAllures, type Allures } from './allure'
 import { loadExclues, type Exclues } from './comptage'
@@ -52,6 +53,12 @@ export interface MuscuExo extends ExoInput {
    * pas à le savoir.
    */
   doux?: boolean
+  /**
+   * Faite en freinant la descente (négatif accompagné). Mêmes muscles, mais
+   * plus chers : cf. `lib/negatif`. Recollée au chargement depuis le KV, comme
+   * `doux` et l'allure.
+   */
+  negatif?: boolean
   /**
    * Allure déclarée SUR CET EXERCICE — seulement pour ceux qui se mesurent en
    * temps ou en distance, où la charge ne dit rien de l'effort.
@@ -645,7 +652,11 @@ export function groupLoads(
         // cette ligne seulement : la déclaration la plus précise gagne. Une
         // séance tranquille où l'on s'arrache sur le rameur, c'est le cas
         // courant d'une fin de séance.
-        const sur = recupIntensite(e.allure ?? s.intensite, part)
+        // Deux surcoûts, additionnés : ce que l'intensité déclarée ajoute, et
+        // ce que le freinage de la descente ajoute. Ils ne disent pas la même
+        // chose — « la séance était dure » et « CETTE ligne-ci a été freinée » —
+        // et une séance à fond faite au négatif est bien les deux.
+        const sur = recupIntensite(e.allure ?? s.intensite, part) + recupNegatif(e.negatif, part)
         const effectiveDays = Math.max(0, joursRessentis(days, part, -sur))
         const cur = out[g.name]
         // On garde la sollicitation la plus « fraîche » au sens ressenti.
@@ -1337,6 +1348,7 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   }
   const intensites: Intensites = await loadIntensites(userId).catch(() => ({}))
   const douceurs: Douceurs = await loadDouceurs(userId).catch(() => ({}))
+  const negatifs: Negatifs = await loadNegatifs(userId).catch(() => ({}))
   const allures: Allures = await loadAllures(userId).catch(() => ({}))
   const exclues: Exclues = await loadExclues(userId).catch(() => ({}))
   // Le catalogue est relu ICI, une fois, plutôt que dans chaque écran : c'est le
@@ -1347,14 +1359,43 @@ export async function listSessions(userId: string, limit = 100): Promise<MuscuSe
   return (sessions ?? []).map((s) => ({
     ...s,
     notes: s.notes ?? '',
-    exercises: appliquerCatalogue(bySession.get(s.id) ?? [], catalog).map((e) => {
-      const allure = allures[clefAllure(s.id as string, e.name)]
-      const doux = douceurs[clefDouceur(s.id as string, e.name)] === true
-      return doux || allure ? { ...e, ...(doux ? { doux: true } : {}), ...(allure ? { allure } : {}) } : e
+    exercises: avecDeclarations(s.id as string, appliquerCatalogue(bySession.get(s.id) ?? [], catalog), {
+      douceurs,
+      allures,
+      negatifs,
     }),
     intensite: intensites[s.id],
     ...(exclues[s.id as string] ? { horsMannequin: true } : {}),
   })) as MuscuSession[]
+}
+
+/**
+ * Recolle sur les lignes d'une séance les déclarations qui vivent en KV.
+ *
+ * Le seul point de jonction entre ce qu'on coche à l'écran et ce que le
+ * mannequin calcule : une ligne freinée qui n'est pas relue ici n'existe nulle
+ * part ensuite, et la case cochée ne fait plus rien. Extraite de `listSessions`
+ * pour être vérifiable sans base — c'est précisément la partie qu'un test
+ * monté à la main saute sans le voir.
+ */
+export function avecDeclarations(
+  sessionId: string,
+  exos: MuscuExo[],
+  dec: { douceurs: Douceurs; allures: Allures; negatifs: Negatifs },
+): MuscuExo[] {
+  return exos.map((e) => {
+    const allure = dec.allures[clefAllure(sessionId, e.name)]
+    const doux = dec.douceurs[clefDouceur(sessionId, e.name)] === true
+    const negatif = dec.negatifs[clefNegatif(sessionId, e.name)] === true
+    return doux || allure || negatif
+      ? {
+          ...e,
+          ...(doux ? { doux: true } : {}),
+          ...(allure ? { allure } : {}),
+          ...(negatif ? { negatif: true } : {}),
+        }
+      : e
+  })
 }
 
 export async function saveSession(
