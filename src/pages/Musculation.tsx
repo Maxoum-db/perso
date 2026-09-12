@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
-import type { Section as SectionAutorisee } from '../lib/acces'
+import { chargerOngletsMuscu, type Section as SectionAutorisee } from '../lib/acces'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
 import { Section } from '../components/training-ui'
@@ -9,6 +9,21 @@ import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { loadNegatifs, nettoyerNegatifs, saveNegatifs, type Negatifs } from '../lib/negatif'
+import {
+  loadMusclesVisibles,
+  loadOngletsMasques,
+  ongletsAffiches,
+  ONGLETS_MUSCU,
+  type OngletMuscu,
+} from '../lib/ongletsMuscu'
+import {
+  loadModelesPerso,
+  marquerPerso,
+  modeleDepuisSeance,
+  nettoyerModelesPerso,
+  trierModeles,
+  type ModelesPerso,
+} from '../lib/seancesPerso'
 import {
   faconDeLigne,
   loadModeleLignes,
@@ -327,6 +342,14 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   const [negatifs, setNegatifs] = useState<Negatifs>({})
   // Les mêmes façons de faire, déclarées sur les lignes d'un MODÈLE.
   const [modeleLignes, setModeleLignes] = useState<ModeleLignes>({})
+  // Les modèles nés d'une séance faite : ils passent devant dans l'onglet.
+  const [modelesPerso, setModelesPerso] = useState<ModelesPerso>({})
+  // Réglages d'affichage du compte : onglets rangés, muscles au journal.
+  const [ongletsMasques, setOngletsMasques] = useState<OngletMuscu[]>([])
+  const [musclesVisibles, setMusclesVisibles] = useState(false)
+  // `null` = aucune restriction. Chargé à part des réglages du compte : ce
+  // n'est pas une préférence, c'est une autorisation, et elle vient de la base.
+  const [ongletsAutorises, setOngletsAutorises] = useState<OngletMuscu[] | null>(null)
   // Allures déclarées sur les exercices au temps ou à la distance, même index.
   const [allures, setAllures] = useState<Allures>({})
   // Séances décochées : au journal, mais hors du mannequin.
@@ -351,7 +374,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, al, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, mp, om, mv, oa, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -369,6 +392,10 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadDouceurs(user.id).catch(() => ({}) as Douceurs),
         loadNegatifs(user.id).catch(() => ({}) as Negatifs),
         loadModeleLignes(user.id).catch(() => ({}) as ModeleLignes),
+        loadModelesPerso(user.id).catch(() => ({}) as ModelesPerso),
+        loadOngletsMasques(user.id).catch(() => [] as OngletMuscu[]),
+        loadMusclesVisibles(user.id).catch(() => false),
+        chargerOngletsMuscu(user.id, user.email).catch(() => null),
         loadAllures(user.id).catch(() => ({}) as Allures),
         loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
@@ -392,6 +419,10 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       setNegatifs(nettoyerNegatifs(ng, new Set(s.map((x) => x.id))))
       // Purgé sur les MODÈLES vivants : un modèle supprimé emporte ses consignes.
       setModeleLignes(nettoyerModeleLignes(ml, new Set(t.map((x) => x.id))))
+      setModelesPerso(nettoyerModelesPerso(mp, new Set(t.map((x) => x.id))))
+      setOngletsMasques(om)
+      setMusclesVisibles(mv)
+      setOngletsAutorises(oa)
       setAllures(nettoyerAllures(al, new Set(s.map((x) => x.id))))
       setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
@@ -408,6 +439,13 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
+  // Les onglets réellement proposés. `autorises` vient des accès du compte et
+  // n'est pas encore chargé au premier rendu : `null` veut alors dire « tout »,
+  // ce qui est aussi ce qu'il veut dire une fois chargé pour un compte sans
+  // restriction — le même mot pour le même sens, donc rien de spécial à faire.
+  const visibles = ongletsAffiches(ongletsMasques, ongletsAutorises)
+  const ongletCourant = visibles.includes(tab) ? tab : 'journal'
+
   return (
     <div className="space-y-4">
       <div>
@@ -417,25 +455,23 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
 
+      {/* Les onglets que ce compte voit : ce que le propriétaire autorise,
+          moins ce que le compte a rangé depuis les réglages. `visible` remet
+          sur le journal si l'onglet ouvert vient d'être masqué — sinon l'écran
+          reste sur une page que plus aucune case ne permet de quitter. */}
       <SubTabs
-        tabs={[
-          { id: 'journal', label: '📒 Journal' },
-          { id: 'types', label: '📋 Séances types' },
-          { id: 'progression', label: '📈 Progression' },
-          { id: 'sommeil', label: '😴 Sommeil' },
-          { id: 'poids', label: '⚖️ Poids' },
-        ]}
-        active={tab}
+        tabs={ONGLETS_MUSCU.filter((o) => visibles.includes(o.id)).map((o) => ({ id: o.id, label: o.label }))}
+        active={ongletCourant}
         onChange={(id) => setTab(id as typeof tab)}
       />
 
-      {tab === 'poids' ? (
+      {ongletCourant === 'poids' ? (
         <Poids />
-      ) : tab === 'sommeil' ? (
+      ) : ongletCourant === 'sommeil' ? (
         <Sommeil userId={user?.id ?? ''} nuits={nuits} onChange={setNuits} />
       ) : templates === null || sessions === null ? (
         <div className="animate-pulse text-sm text-muted">Chargement…</div>
-      ) : tab === 'progression' ? (
+      ) : ongletCourant === 'progression' ? (
         <div className="space-y-3">
           <ProgressTab progress={exerciseProgress(sessions)} />
           <NeglectedMuscles
@@ -452,7 +488,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
               donnée d'analyse, au même titre que les courbes de progression. */}
           <ObservationsCard observations={observations} />
         </div>
-      ) : tab === 'journal' ? (
+      ) : ongletCourant === 'journal' ? (
         <Journal
           pourLaRecup={[
             ...appliquerComptage(sessions ?? [], exclues),
@@ -487,6 +523,9 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           negatifs={negatifs}
           onNegatifs={setNegatifs}
           modeleLignes={modeleLignes}
+          modelesPerso={modelesPerso}
+          onModelesPerso={setModelesPerso}
+          musclesVisibles={musclesVisibles}
           allures={allures}
           onAllures={setAllures}
           onCourbatures={(next) => {
@@ -522,6 +561,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           groups={groups}
           modeleLignes={modeleLignes}
           onModeleLignes={setModeleLignes}
+          modelesPerso={modelesPerso}
           onChange={reload}
           onGroups={setGroups}
         />
@@ -573,6 +613,9 @@ export function Journal({
   negatifs,
   onNegatifs,
   modeleLignes,
+  modelesPerso,
+  onModelesPerso,
+  musclesVisibles,
   allures,
   onAllures,
   exclues,
@@ -617,6 +660,11 @@ export function Journal({
   onNegatifs: (n: Negatifs) => void
   /** Consignes portées par les lignes des modèles : recopiées au démarrage. */
   modeleLignes: ModeleLignes
+  /** Modèles nés d'une séance faite. Sert à ne pas proposer deux fois la même. */
+  modelesPerso: ModelesPerso
+  onModelesPerso: (m: ModelesPerso) => void
+  /** Écrire les muscles sollicités derrière chaque exercice du journal. */
+  musclesVisibles: boolean
   /** Allures déclarées sur les exercices au temps ou à la distance. */
   allures: Allures
   onAllures: (a: Allures) => void
@@ -649,6 +697,9 @@ export function Journal({
   // les séances chronométrées, à partir de ce que le mannequin sait.
   const [picking, setPicking] = useState<null | 'manual'>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // La séance en cours d'ajout aux séances perso : le bouton se désarme le
+  // temps de l'aller-retour, sinon deux appuis créent deux modèles identiques.
+  const [ajoutEnCours, setAjoutEnCours] = useState<string | null>(null)
   // Les séances précédentes sont repliées par défaut : le journal courant doit
   // tenir à l'écran. L'état n'est pas persisté — on le rouvre quand on en a
   // besoin, ce qui est justement l'usage.
@@ -1037,6 +1088,33 @@ export function Journal({
     setLive(state)
   }
 
+  /**
+   * Range une séance faite dans « Mes séances perso ».
+   *
+   * Un modèle ordinaire côté base — même table, même éditeur, même façon de
+   * démarrer une séance —, marqué perso dans le KV pour qu'il passe devant les
+   * modèles reçus. Les charges du jour sont gardées telles quelles : c'est ce
+   * qu'on vient chercher, et l'éditeur permet de les corriger ensuite.
+   */
+  async function ajouterAMesSeances(s: MuscuSession) {
+    setAjoutEnCours(s.id)
+    try {
+      const { tpl, exos } = modeleDepuisSeance(s, estRessenti)
+      if (!exos.length) {
+        alert('Cette séance n’a aucun exercice chiffré à reproduire.')
+        return
+      }
+      const id = await saveTemplate(userId, tpl, exos)
+      onModelesPerso(await marquerPerso(userId, id, modelesPerso))
+      onChange()
+      alert(`« ${tpl.name} » est dans tes séances perso.`)
+    } catch (e) {
+      alert(`Ajout impossible : ${(e as Error).message}`)
+    } finally {
+      setAjoutEnCours(null)
+    }
+  }
+
   function startEdit(s: MuscuSession) {
     ouvrirNeuf({
       id: s.id,
@@ -1219,7 +1297,14 @@ export function Journal({
                           {' '}
                           — {e.sets}×{e.reps}
                           {e.weight_kg !== null ? ` @ ${e.weight_kg} kg` : ''}
-                          {e.muscle_group ? ` · ${e.muscle_group}` : ''}
+                          {/* Les muscles et leurs coefficients ne s'écrivent
+                              plus ici par défaut : douze muscles chiffrés sous
+                              chaque exercice repoussaient hors de l'écran ce
+                              qu'on vient y lire — 3×8 @ 65 kg. Le mannequin,
+                              l'export et la récupération continuent de les
+                              lire ; l'interrupteur des réglages les ramène à
+                              l'écran pour qui vérifie un étiquetage. */}
+                          {musclesVisibles && e.muscle_group ? ` · ${e.muscle_group}` : ''}
                         </span>
                         {e.notes ? <div className="text-xs italic text-muted">{e.notes}</div> : null}
                       </li>
@@ -1237,6 +1322,17 @@ export function Journal({
                   <div className="flex justify-end gap-3 text-xs">
                     <button onClick={() => startEdit(s)} className="font-semibold text-copper">
                       Modifier
+                    </button>
+                    {/* Refaire une séance qui a bien marché est le geste le
+                        plus courant après l'avoir regardée : on la range dans
+                        ses séances perso, avec ses charges, et on la relance
+                        d'un bouton la semaine suivante. */}
+                    <button
+                      onClick={() => ajouterAMesSeances(s)}
+                      disabled={ajoutEnCours === s.id}
+                      className="font-semibold text-sage disabled:opacity-50"
+                    >
+                      {ajoutEnCours === s.id ? '…' : '⭐ Ajouter à mes séances'}
                     </button>
                     <button
                       onClick={() => confirm('Supprimer cette séance ?') && deleteSession(s.id).then(onChange)}
@@ -1976,6 +2072,7 @@ function TypesTab({
   groups,
   modeleLignes,
   onModeleLignes,
+  modelesPerso,
   onChange,
   onGroups,
 }: {
@@ -1986,6 +2083,8 @@ function TypesTab({
   /** Version douce / descente freinée déclarées sur les lignes des modèles. */
   modeleLignes: ModeleLignes
   onModeleLignes: (m: ModeleLignes) => void
+  /** Ceux qui viennent d'une séance faite : ils passent devant. */
+  modelesPerso: ModelesPerso
   onChange: () => void
   onGroups: (g: string[]) => void
 }) {
@@ -2036,6 +2135,8 @@ function TypesTab({
     )
   }
 
+  const { perso, types } = trierModeles(templates, modelesPerso)
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
@@ -2050,12 +2151,63 @@ function TypesTab({
         + Nouvelle séance type
       </button>
 
-      {/* Repliée comme les deux autres : l'onglet s'ouvre sur trois titres et on
-          déplie celui qu'on vient chercher, au lieu d'une liste de modèles qui
-          pousse le catalogue et les groupes hors de l'écran. */}
-      <Section title="📋 Mes séances types" subtitle={`${templates.length} modèles`} accent="#B87333">
+      {/* Deux listes, perso d'abord : les modèles reçus (programme Basic Fit,
+          béhourd, récups) sont ceux qu'on suit, les séances perso sont celles
+          qu'on a faites et qu'on veut refaire. C'est celles-là qu'on vient
+          chercher, donc elles passent devant. Repliées toutes les deux : trois
+          titres à l'arrivée, on déplie le sien. */}
+      <Section title="⭐ Mes séances perso" subtitle={sousTitrePerso(perso.length)} accent="#7fd39a">
+        {perso.length ? (
       <ul className="space-y-2">
-        {templates.map((t) => (
+          {perso.map((t) => (
+            <li key={t.id} className="card p-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">{t.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-bold text-ink">{t.name}</div>
+                  <div className="text-xs text-muted">
+                    {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
+                  </div>
+                  {/* Les exercices, nommés, et pas les muscles qu'ils sollicitent.
+                      « Pectoraux, Triceps, Épaules » décrit une dizaine de séances
+                      différentes ; « Développé couché · Dips · Élévations » n'en
+                      décrit qu'une — et c'est celle-là qu'on cherche à
+                      reconnaître dans une liste de modèles. */}
+                  {summary(t.exercises, (nom) => faconDeLigne(modeleLignes, t.id, nom)) ? (
+                    <div className="mt-0.5 text-[11px] leading-snug text-muted/80">
+                      {summary(t.exercises, (nom) => faconDeLigne(modeleLignes, t.id, nom))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="mt-2 flex justify-end gap-3 text-xs">
+                <button onClick={() => setDraft(toDraft(t))} className="font-semibold text-copper">
+                  Modifier
+                </button>
+                <button onClick={() => setDraft(toDraft(t, true))} className="text-muted hover:text-copper">
+                  Dupliquer
+                </button>
+                <button
+                  onClick={() => confirm(`Supprimer la séance type « ${t.name} » ?`) && deleteTemplate(t.id).then(onChange)}
+                  className="text-muted hover:text-clay"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        ) : (
+          <p className="px-1 text-xs leading-snug text-muted">
+            Aucune pour l’instant. Au journal, déplie une séance que tu veux refaire et touche « ⭐ Ajouter à mes
+            séances » : elle arrivera ici avec ses charges.
+          </p>
+        )}
+      </Section>
+
+      <Section title="📋 Mes séances types" subtitle={`${types.length} modèles`} accent="#B87333">
+      <ul className="space-y-2">
+        {types.map((t) => (
           <li key={t.id} className="card p-3">
             <div className="flex items-center gap-3">
               <span className="text-xl">{t.icon}</span>
@@ -2118,6 +2270,11 @@ function TypesTab({
  * ouvrant l'éditeur : on relirait sa liste de modèles sans jamais apprendre
  * que trois d'entre eux prévoient des négatifs.
  */
+/** « 3 séances » — au singulier quand il n'y en a qu'une, à zéro on n'écrit rien de faux. */
+function sousTitrePerso(n: number): string {
+  return n === 0 ? 'aucune' : `${n} séance${n > 1 ? 's' : ''}`
+}
+
 function summary(exos: MuscuExo[], facon?: (nom: string) => { doux?: true; negatif?: true }): string {
   return exos
     .map((e) => e.name.trim())

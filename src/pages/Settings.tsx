@@ -6,7 +6,19 @@ import { fetchSettings, saveSettings, type Discipline, type PersoSettings } from
 import { applyTextSize, readTextSize, TEXT_SIZES, type TextSize } from '../lib/textSize'
 import { disablePush, enablePush, isStandalone, pushStatus, sendTestPush } from '../lib/push'
 import { exporterSport, type ContexteExport, type PorteeExport } from '../lib/exportSport'
-import { FENETRE_STATS, listCatalog, listSessions } from '../lib/muscu'
+import { FENETRE_STATS, listCatalog, listSessions, listTemplates, saveTemplate, type MuscuTemplate } from '../lib/muscu'
+import {
+  estMasquable,
+  loadMusclesVisibles,
+  loadOngletsMasques,
+  ONGLETS_MUSCU,
+  saveMusclesVisibles,
+  saveOngletsMasques,
+  type OngletMuscu,
+} from '../lib/ongletsMuscu'
+import { loadModelesPerso, marquerPerso, trierModeles, type ModelesPerso } from '../lib/seancesPerso'
+import { faconDeLigne, loadModeleLignes, saveModeleLignes, type ModeleLignes } from '../lib/modeleLignes'
+import { coderSeance, decoderSeance } from '../lib/partageSeance'
 import { orphelins, resumeOrphelins, type Orphelin } from '../lib/orphelins'
 import { listWeighins } from '../lib/workouts'
 import { loadNuits } from '../lib/sommeil'
@@ -18,6 +30,7 @@ import { CLASSEMENTS, lireEtatSax, majEtatSax, type EtatSax } from '../lib/saxop
 import {
   DEFAUT_NOUVEAU_COMPTE,
   enregistrerAcces,
+  enregistrerOngletsMuscu,
   estProprietaire,
   listerComptes,
   PROPRIETAIRE,
@@ -85,6 +98,8 @@ export function Settings({ sections }: { sections: Section[] }) {
       {sections.includes('saxophone') ? <SaxophoneSection /> : null}
 
       <ExportSportSection userId={user?.id ?? ''} />
+
+      {sections.includes('musculation') ? <SeancesSection userId={user?.id ?? ''} /> : null}
 
       <OrphelinsSection userId={user?.id ?? ''} />
 
@@ -288,6 +303,220 @@ function SaxophoneSection() {
           quel nom, inutiles après : le schéma le dit déjà en vert.
         </div>
       </button>
+    </section>
+  )
+}
+
+/**
+ * Le menu des séances : ce qui se règle une fois et ce qui s'échange.
+ *
+ * Posé entre l'export et la cohérence du journal, parce que les trois parlent
+ * du même sujet — sortir, échanger, vérifier ses séances — et qu'aucun n'a sa
+ * place dans l'écran Musculation, où l'on vient s'entraîner, pas régler.
+ */
+function SeancesSection({ userId }: { userId: string }) {
+  const [musclesVisibles, setMuscles] = useState(false)
+  const [masques, setMasques] = useState<OngletMuscu[]>([])
+  const [templates, setTemplates] = useState<MuscuTemplate[] | null>(null)
+  const [perso, setPerso] = useState<ModelesPerso>({})
+  const [lignes, setLignes] = useState<ModeleLignes>({})
+  const [code, setCode] = useState<string | null>(null)
+  const [recu, setRecu] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function recharger() {
+    if (!userId) return
+    const [tpl, mp, ml, mv, om] = await Promise.all([
+      listTemplates(userId).catch(() => [] as MuscuTemplate[]),
+      loadModelesPerso(userId).catch(() => ({}) as ModelesPerso),
+      loadModeleLignes(userId).catch(() => ({}) as ModeleLignes),
+      loadMusclesVisibles(userId).catch(() => false),
+      loadOngletsMasques(userId).catch(() => [] as OngletMuscu[]),
+    ])
+    setTemplates(tpl)
+    setPerso(mp)
+    setLignes(ml)
+    setMuscles(mv)
+    setMasques(om)
+  }
+  useEffect(() => {
+    recharger()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
+  const mesSeances = templates ? trierModeles(templates, perso).perso : []
+
+  async function basculerMuscles() {
+    const next = !musclesVisibles
+    setMuscles(next)
+    await saveMusclesVisibles(userId, next)
+  }
+
+  async function basculerOnglet(id: OngletMuscu) {
+    const next = masques.includes(id) ? masques.filter((x) => x !== id) : [...masques, id]
+    setMasques(await saveOngletsMasques(userId, next))
+  }
+
+  /** Fabrique le code d'une séance perso et le met dans le presse-papier. */
+  async function partager(t: MuscuTemplate) {
+    const out = coderSeance(t, t.exercises.map((e) => ({
+      name: e.name,
+      muscle_group: e.muscle_group,
+      sets: e.sets,
+      reps: e.reps,
+      weight_kg: e.weight_kg,
+      notes: e.notes,
+      facon: faconDeLigne(lignes, t.id, e.name),
+    })))
+    setCode(out)
+    try {
+      await navigator.clipboard.writeText(out)
+      setMsg('Code copié ✓ — envoie-le par message.')
+    } catch {
+      setMsg('Copie automatique refusée : sélectionne le code ci-dessous.')
+    }
+  }
+
+  /**
+   * Relit un code reçu et en fait une séance perso.
+   *
+   * Elle arrive dans « Mes séances perso » et non dans les modèles : une séance
+   * reçue de quelqu'un est exactement ce qu'on veut refaire, pas un programme à
+   * suivre. Les consignes de ligne suivent, sinon un négatif prévu par celui
+   * qui l'a envoyée disparaîtrait en route.
+   */
+  async function integrer() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const s = decoderSeance(recu)
+      const id = await saveTemplate(
+        userId,
+        { name: s.nom, icon: s.icone, duration_min: s.duree, notes: s.notes },
+        s.exos.map((e) => ({
+          name: e.nom,
+          muscle_group: e.muscles,
+          sets: e.series,
+          reps: e.reps,
+          weight_kg: e.charge,
+          notes: e.notes,
+        })),
+      )
+      setPerso(await marquerPerso(userId, id, perso))
+      await saveModeleLignes(
+        userId,
+        id,
+        s.exos.map((e) => ({ nom: e.nom, doux: e.facon?.doux, negatif: e.facon?.negatif })),
+        lignes,
+      )
+      setRecu('')
+      await recharger()
+      setMsg(`« ${s.nom} » est dans tes séances perso (${s.exos.length} exercices).`)
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card space-y-4 p-4">
+      <h2 className="text-sm font-bold text-ink">🏋️ Séances et affichage</h2>
+
+      <div>
+        <button
+          onClick={basculerMuscles}
+          aria-pressed={musclesVisibles}
+          className={`chip flex w-fit items-center gap-1.5 text-xs transition ${
+            musclesVisibles ? 'bg-copper/25 text-copper ring-1 ring-copper' : 'bg-bg text-muted'
+          }`}
+        >
+          <span>{musclesVisibles ? '☑' : '☐'}</span>
+          Marquer les muscles travaillés
+        </button>
+        <p className="mt-1 text-xs leading-snug text-muted">
+          Écrit les muscles et leurs coefficients derrière chaque exercice du journal. Décoché, la ligne se lit d’un
+          coup d’œil — <b className="text-ink">3×8 @ 65 kg</b>. Le mannequin et l’export les lisent de toute façon.
+        </p>
+      </div>
+
+      <div>
+        <div className="text-xs font-bold text-ink">Catégories affichées</div>
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          Décoche ce dont tu ne te sers pas : la barre de l’écran Musculation en a cinq, et viser entre deux cases
+          coûte plus qu’un onglet en moins. Le journal reste toujours là.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {ONGLETS_MUSCU.map((o) => {
+            const affiche = !masques.includes(o.id)
+            const fige = !estMasquable(o.id)
+            return (
+              <button
+                key={o.id}
+                onClick={() => basculerOnglet(o.id)}
+                disabled={fige}
+                aria-pressed={affiche}
+                title={fige ? 'Le journal ne se masque pas : c’est le seul onglet où l’on enregistre.' : o.aide}
+                className={`chip text-xs transition ${
+                  affiche ? 'bg-copper/20 text-ink' : 'bg-bg text-muted line-through'
+                } ${fige ? 'opacity-60' : ''}`}
+              >
+                {o.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs font-bold text-ink">Partager une séance perso</div>
+        {templates === null ? (
+          <p className="mt-1 text-xs text-muted">Chargement…</p>
+        ) : mesSeances.length === 0 ? (
+          <p className="mt-1 text-xs leading-snug text-muted">
+            Aucune séance perso pour l’instant. Au journal, déplie une séance et touche « ⭐ Ajouter à mes séances ».
+          </p>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {mesSeances.map((t) => (
+              <button key={t.id} onClick={() => partager(t)} className="chip bg-bg text-xs text-ink">
+                {t.icon} {t.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {code ? (
+          <textarea
+            readOnly
+            value={code}
+            onFocus={(e) => e.currentTarget.select()}
+            className="field mt-2 h-20 font-mono text-[10px] leading-snug"
+          />
+        ) : null}
+      </div>
+
+      <div>
+        <div className="text-xs font-bold text-ink">Intégrer une séance reçue</div>
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          Colle ici le code qu’on t’a envoyé. Le message qui l’entoure ne gêne pas.
+        </p>
+        <textarea
+          value={recu}
+          onChange={(e) => setRecu(e.target.value)}
+          placeholder="COUANAC-SEANCE-v1-…"
+          className="field mt-2 h-20 font-mono text-[10px] leading-snug"
+        />
+        <button
+          onClick={integrer}
+          disabled={busy || !recu.trim() || !userId}
+          className="btn-ghost mt-2 text-xs text-copper disabled:opacity-50"
+        >
+          {busy ? 'Lecture…' : '📥 Intégrer'}
+        </button>
+      </div>
+
+      {msg ? <p className="text-xs text-copper">{msg}</p> : null}
     </section>
   )
 }
@@ -547,6 +776,32 @@ function AccesSection({ monId }: { monId: string }) {
       .catch((e: Error) => setMsg(e.message))
   }, [])
 
+  /**
+   * Ouvre ou ferme un onglet Musculation pour ce compte.
+   *
+   * Le premier clic FIGE la liste : tant que la colonne vaut `null` le compte
+   * voit tout, et fermer un onglet revient à dire « les quatre autres, oui ».
+   * Sans cette conversion, décocher « Poids » sur une colonne nulle écrirait
+   * une liste d'un seul élément et fermerait les trois autres du même coup.
+   */
+  async function basculerOnglet(c: Acces, onglet: OngletMuscu) {
+    const actuels = c.muscuOnglets ?? ONGLETS_MUSCU.map((o) => o.id)
+    const muscuOnglets = actuels.includes(onglet)
+      ? actuels.filter((x) => x !== onglet)
+      : [...actuels, onglet]
+    setComptes((liste) => (liste ?? []).map((x) => (x.user_id === c.user_id ? { ...x, muscuOnglets } : x)))
+    setBusy(c.user_id)
+    try {
+      await enregistrerOngletsMuscu(c.user_id, muscuOnglets)
+      setMsg(null)
+    } catch (e) {
+      setMsg((e as Error).message)
+      setComptes(await listerComptes().catch(() => comptes ?? []))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function basculer(c: Acces, section: Section) {
     const sections = c.sections.includes(section)
       ? c.sections.filter((s) => s !== section)
@@ -608,24 +863,66 @@ function AccesSection({ monId }: { monId: string }) {
                   se règlent pas, ils sont acquis.
                 </p>
               ) : (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {SECTIONS.map((s) => {
-                    const ouvert = c.sections.includes(s.id)
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => basculer(c, s.id)}
-                        disabled={busy === c.user_id}
-                        title={s.aide}
-                        className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
-                          ouvert ? 'bg-sage text-white' : 'bg-white/5 text-muted hover:text-ink'
-                        }`}
-                      >
-                        {s.icone} {s.label}
-                      </button>
-                    )
-                  })}
-                </div>
+                <>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {SECTIONS.map((s) => {
+                      const ouvert = c.sections.includes(s.id)
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => basculer(c, s.id)}
+                          disabled={busy === c.user_id}
+                          title={s.aide}
+                          className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                            ouvert ? 'bg-sage text-white' : 'bg-white/5 text-muted hover:text-ink'
+                          }`}
+                        >
+                          {s.icone} {s.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Le détail des onglets Musculation, et seulement si la
+                      section est ouverte : restreindre les onglets d'une
+                      section qu'on n'a pas accordée ne veut rien dire, et
+                      afficher cinq cases mortes sous chaque compte encombre
+                      l'écran pour rien. */}
+                  {c.sections.includes('musculation') ? (
+                    <div className="mt-2 rounded-xl2 bg-white/5 p-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                        Onglets de la musculation
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {ONGLETS_MUSCU.map((o) => {
+                          // `null` = aucune restriction, donc tout est ouvert.
+                          // Ne pas le confondre avec une liste vide, qui ferme
+                          // tout sauf le journal.
+                          const ouvert = c.muscuOnglets === null || c.muscuOnglets.includes(o.id)
+                          const fige = !estMasquable(o.id)
+                          return (
+                            <button
+                              key={o.id}
+                              onClick={() => basculerOnglet(c, o.id)}
+                              disabled={busy === c.user_id || fige}
+                              title={fige ? 'Le journal reste ouvert : sans lui, la section ne sert à rien.' : o.aide}
+                              className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                                ouvert ? 'bg-sage/70 text-white' : 'bg-white/5 text-muted hover:text-ink'
+                              } ${fige ? 'opacity-60' : ''}`}
+                            >
+                              {o.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <p className="mt-1 text-[10px] italic text-muted">
+                        {c.muscuOnglets === null
+                          ? 'Aucune restriction : ce compte voit les cinq.'
+                          : `${c.muscuOnglets.length} onglet(s) sur ${ONGLETS_MUSCU.length}.`}
+                      </p>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           )

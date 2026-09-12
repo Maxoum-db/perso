@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { ecrireCache, lireCache } from './cache'
+import { ONGLETS_MUSCU, type OngletMuscu } from './ongletsMuscu'
 
 // Qui voit quoi.
 //
@@ -96,6 +97,15 @@ export interface Acces {
   user_id: string
   email: string | null
   sections: Section[]
+  /**
+   * Onglets de la section Musculation ouverts à ce compte.
+   *
+   * `null` veut dire « aucune restriction », et c'est l'état par défaut : la
+   * colonne est nullable exprès, parce qu'un tableau VIDE dit autre chose —
+   * « rien sauf le journal ». Confondre les deux fermerait tout à tout le monde
+   * le jour où la colonne a été ajoutée.
+   */
+  muscuOnglets: OngletMuscu[] | null
 }
 
 /**
@@ -147,12 +157,74 @@ export async function chargerAcces(userId: string, email: string | null | undefi
  * identifiants ne permettrait pas de savoir à qui on accorde quoi.
  */
 export async function listerComptes(): Promise<Acces[]> {
-  const { data, error } = await supabase.from('perso_acces').select('user_id, email, sections')
+  const { data, error } = await supabase.from('perso_acces').select('user_id, email, sections, muscu_onglets')
   if (error) throw new Error(error.message)
-  const lignes = (data ?? []) as Array<{ user_id: string; email: string | null; sections: Section[] }>
+  const lignes = (data ?? []) as Array<{
+    user_id: string
+    email: string | null
+    sections: Section[]
+    muscu_onglets: string[] | null
+  }>
   return lignes
-    .map((l) => ({ user_id: l.user_id, email: l.email, sections: l.sections ?? [] }))
+    .map((l) => ({
+      user_id: l.user_id,
+      email: l.email,
+      sections: l.sections ?? [],
+      muscuOnglets: ongletsValides(l.muscu_onglets),
+    }))
     .sort((a, b) => (a.email ?? a.user_id).localeCompare(b.email ?? b.user_id))
+}
+
+/**
+ * Trie ce que la colonne rend : `null` reste `null` — « aucune restriction » —,
+ * et tout le reste devient une liste d'onglets connus.
+ *
+ * Le `null` doit traverser sans se faire aplatir en `[]` : la moindre confusion
+ * ici ferme les quatre onglets de tous les comptes d'un coup, en silence.
+ */
+function ongletsValides(v: string[] | null | undefined): OngletMuscu[] | null {
+  if (v === null || v === undefined) return null
+  return (Array.isArray(v) ? v : []).filter((id): id is OngletMuscu =>
+    ONGLETS_MUSCU.some((o) => o.id === id),
+  )
+}
+
+/**
+ * Les onglets Musculation accordés au compte courant.
+ *
+ * Le propriétaire n'est jamais restreint — même règle que pour les sections, et
+ * pour la même raison : c'est lui qui règle, il doit voir ce qu'il règle.
+ * Une panne de lecture ne ferme rien non plus : on rend `null`, donc tout, et
+ * la base reste seule juge de ce qu'on peut réellement lire.
+ */
+export async function chargerOngletsMuscu(
+  userId: string,
+  email: string | null | undefined,
+): Promise<OngletMuscu[] | null> {
+  if (estProprietaire(email)) return null
+  const { data, error } = await supabase
+    .from('perso_acces')
+    .select('muscu_onglets')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    console.warn('Lecture des onglets Musculation échouée :', error.message)
+    return null
+  }
+  return ongletsValides((data?.muscu_onglets as string[] | null) ?? null)
+}
+
+export async function enregistrerOngletsMuscu(
+  userId: string,
+  onglets: OngletMuscu[] | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('perso_acces')
+    .upsert(
+      { user_id: userId, muscu_onglets: onglets, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' },
+    )
+  if (error) throw new Error(error.message)
 }
 
 export async function enregistrerAcces(userId: string, sections: Section[]): Promise<void> {
