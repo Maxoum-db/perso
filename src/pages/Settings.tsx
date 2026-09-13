@@ -19,18 +19,31 @@ import {
 import { loadModelesPerso, marquerPerso, trierModeles, type ModelesPerso } from '../lib/seancesPerso'
 import { faconDeLigne, loadModeleLignes, saveModeleLignes, type ModeleLignes } from '../lib/modeleLignes'
 import { coderSeance, decoderSeance } from '../lib/partageSeance'
+import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type MesureRepos as Mesure } from '../lib/cardioSeance'
+import { fcMaxEstimee, ZONES } from '../lib/cardio'
+import { age } from '../lib/profil'
+import { MesureRepos } from '../components/MesureRepos'
+import {
+  loadOptionsEteintes,
+  optionActive,
+  OPTIONS_MUSCU,
+  saveOptionsEteintes,
+  type OptionMuscu,
+} from '../lib/optionsMuscu'
 import { orphelins, resumeOrphelins, type Orphelin } from '../lib/orphelins'
 import { listWeighins } from '../lib/workouts'
 import { loadNuits } from '../lib/sommeil'
 import { loadObservations } from '../lib/observations'
 import { loadCourbatures } from '../lib/soreness'
-import { loadProfil } from '../lib/profil'
+import { loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
 import { loadBehourd, loadFocus } from '../lib/focus'
 import { CLASSEMENTS, lireEtatSax, majEtatSax, type EtatSax } from '../lib/saxophone'
 import {
   DEFAUT_NOUVEAU_COMPTE,
+  chargerOptionsMuscu,
   enregistrerAcces,
   enregistrerOngletsMuscu,
+  enregistrerOptionsMuscu,
   estProprietaire,
   listerComptes,
   PROPRIETAIRE,
@@ -100,6 +113,8 @@ export function Settings({ sections }: { sections: Section[] }) {
       <ExportSportSection userId={user?.id ?? ''} />
 
       {sections.includes('musculation') ? <SeancesSection userId={user?.id ?? ''} /> : null}
+
+      {sections.includes('musculation') ? <CardioSection userId={user?.id ?? ''} email={user?.email} /> : null}
 
       <OrphelinsSection userId={user?.id ?? ''} />
 
@@ -521,6 +536,136 @@ function SeancesSection({ userId }: { userId: string }) {
   )
 }
 
+/**
+ * Le capteur cardiaque : ce qui se règle une fois, et la mesure au calme.
+ *
+ * Le branchement lui-même se fait dans la séance en cours — c'est là qu'on a le
+ * brassard au bras. Ici vivent les deux choses qui ne changent pas tous les
+ * jours : la fréquence maximale, qui donne les zones, et la mesure de repos,
+ * qui demande deux minutes tranquilles qu'on n'a jamais en pleine séance.
+ */
+function CardioSection({ userId, email }: { userId: string; email: string | null | undefined }) {
+  const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
+  const [eteintes, setEteintes] = useState<OptionMuscu[]>([])
+  const [autorisees, setAutorisees] = useState<OptionMuscu[] | null>(null)
+  const [relevee, setRelevee] = useState<number | null>(null)
+  const [saisie, setSaisie] = useState('')
+  const [repos, setRepos] = useState<Mesure | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    loadProfil(userId).then(setProfil).catch(() => {})
+    loadFcMaxRelevee(userId).then((v) => {
+      setRelevee(v)
+      setSaisie(v === null ? '' : String(v))
+    }).catch(() => {})
+    loadRepos(userId).then(setRepos).catch(() => {})
+    loadOptionsEteintes(userId).then(setEteintes).catch(() => {})
+    chargerOptionsMuscu(userId, email).then(setAutorisees).catch(() => {})
+  }, [userId, email])
+
+  const accorde = autorisees === null || autorisees.includes('cardio')
+  const actif = optionActive('cardio', eteintes, autorisees)
+
+  async function basculer() {
+    const next = eteintes.includes('cardio') ? eteintes.filter((x) => x !== 'cardio') : [...eteintes, 'cardio' as const]
+    setEteintes(await saveOptionsEteintes(userId, next))
+  }
+
+  // Non accordé : on ne montre RIEN, pas même un cadre grisé. Un réglage qu'on
+  // voit sans pouvoir l'utiliser n'apprend qu'une chose — qu'il existe.
+  if (!accorde) return null
+
+  const estime = fcMaxEstimee(age(profil))
+  const fcMax = relevee ?? estime
+
+  async function enregistrerMax() {
+    const v = parseInt(saisie, 10)
+    // Vide = on revient à l'estimation. Une valeur hors des bornes humaines est
+    // refusée plutôt que rangée : des zones calculées sur 42 bpm ne diraient
+    // rien, et rien ne le signalerait ensuite.
+    if (!saisie.trim()) {
+      await saveFcMaxRelevee(userId, null)
+      setRelevee(null)
+      setMsg('Retour à l’estimation.')
+      return
+    }
+    if (!Number.isFinite(v) || v < 120 || v > 230) {
+      setMsg('Une fréquence maximale plausible va de 120 à 230 bpm.')
+      return
+    }
+    await saveFcMaxRelevee(userId, v)
+    setRelevee(v)
+    setMsg('Zones recalculées sur cette valeur.')
+  }
+
+  return (
+    <section className="card space-y-4 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-sm font-bold text-ink">❤️ Capteur cardiaque</h2>
+        <button
+          onClick={basculer}
+          aria-pressed={actif}
+          className={`chip shrink-0 text-[11px] transition ${
+            actif ? 'bg-sage/25 text-sage ring-1 ring-sage' : 'bg-bg text-muted'
+          }`}
+        >
+          {actif ? '☑ Activé' : '☐ Éteint'}
+        </button>
+      </div>
+      <p className="-mt-2 text-xs leading-snug text-muted">
+        Le brassard se branche dans la séance en cours, en Bluetooth, directement depuis le navigateur. Rien ne passe
+        par Polar Flow ni par aucun cloud : la mesure va du capteur au téléphone.
+        {actif ? '' : ' Éteint, il ne s’affiche ni dans la séance ni au journal.'}
+      </p>
+
+      {!actif ? null : (
+        <>
+      <div>
+        <div className="text-xs font-bold text-ink">Fréquence maximale</div>
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          Elle découpe les zones. {estime
+            ? <>Estimée à <b className="text-ink">{estime} bpm</b> d’après ton âge (formule de Tanaka, ±10 bpm).</>
+            : <>Inconnue tant que ton année de naissance n’est pas renseignée dans Poids › profil.</>}{' '}
+          Si tu en as relevé une en côte ou sur un test, écris-la : elle l’emporte.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            className="field w-24"
+            type="number"
+            inputMode="numeric"
+            placeholder={estime ? String(estime) : 'bpm'}
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+          />
+          <button onClick={enregistrerMax} disabled={!userId} className="btn-ghost text-xs text-copper">
+            Enregistrer
+          </button>
+          {relevee ? <span className="text-xs text-sage">relevée · {relevee} bpm</span> : null}
+        </div>
+        {fcMax ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {ZONES.filter((z) => z.id > 0).map((z) => (
+              <span key={z.id} className="chip text-[10px]" style={{ background: `${z.couleur}22`, color: z.couleur }}>
+                {z.label} {Math.round(z.bas * fcMax)}–{Math.round(Math.min(z.haut, 1) * fcMax)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {msg ? <p className="mt-1 text-xs text-copper">{msg}</p> : null}
+      </div>
+
+      <div>
+        <div className="text-xs font-bold text-ink">Mesure au repos</div>
+        <MesureRepos userId={userId} derniere={repos} onFini={setRepos} />
+      </div>
+        </>
+      )}
+    </section>
+  )
+}
+
 function OrphelinsSection({ userId }: { userId: string }) {
   const [etat, setEtat] = useState<'repos' | 'chargement' | 'fait'>('repos')
   const [liste, setListe] = useState<Orphelin[]>([])
@@ -594,7 +739,7 @@ function ExportSportSection({ userId }: { userId: string }) {
     // Tout en parallèle : huit sources, dont aucune ne dépend d'une autre. Les
     // pesées arrivent de la plus récente à la plus ancienne, la première est
     // donc le poids du jour — celui qui sert à la dépense.
-    const [sessions, weighins, nuits, observations, courbatures, profil, focus, behourd] = await Promise.all([
+    const [sessions, weighins, nuits, observations, courbatures, profil, focus, behourd, cardios] = await Promise.all([
       listSessions(userId),
       listWeighins(userId),
       loadNuits(userId),
@@ -603,9 +748,12 @@ function ExportSportSection({ userId }: { userId: string }) {
       loadProfil(userId),
       loadFocus(userId),
       loadBehourd(userId),
+      // Sans capteur, l'objet est vide et l'export retombe exactement sur ce
+      // qu'il écrivait avant : une séance sans mesure n'a pas de ligne « FC ».
+      loadCardios(userId).catch(() => ({})),
     ])
     donnees.current = {
-      sessions, weighins, nuits, observations, courbatures, profil, focus, behourd,
+      sessions, weighins, nuits, observations, courbatures, profil, focus, behourd, cardios,
       bodyWeight: weighins[0]?.weight_kg ?? null,
     }
     return donnees.current
@@ -802,6 +950,33 @@ function AccesSection({ monId }: { monId: string }) {
     }
   }
 
+  /**
+   * Accorde ou retire une OPTION à ce compte.
+   *
+   * Même piège que pour les onglets : tant que la colonne vaut `null` le compte
+   * a tout, et le premier clic doit figer la liste complète avant d'en retirer
+   * un élément. Sans ça, éteindre le cardio écrirait `[]`… ce qui se trouve
+   * être le bon résultat ici puisqu'il n'y a qu'une option — mais cesserait de
+   * l'être à la deuxième, silencieusement.
+   */
+  async function basculerOption(c: Acces, option: OptionMuscu) {
+    const actuelles = c.muscuOptions ?? OPTIONS_MUSCU.map((o) => o.id)
+    const muscuOptions = actuelles.includes(option)
+      ? actuelles.filter((x) => x !== option)
+      : [...actuelles, option]
+    setComptes((liste) => (liste ?? []).map((x) => (x.user_id === c.user_id ? { ...x, muscuOptions } : x)))
+    setBusy(c.user_id)
+    try {
+      await enregistrerOptionsMuscu(c.user_id, muscuOptions)
+      setMsg(null)
+    } catch (e) {
+      setMsg((e as Error).message)
+      setComptes(await listerComptes().catch(() => comptes ?? []))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function basculer(c: Acces, section: Section) {
     const sections = c.sections.includes(section)
       ? c.sections.filter((s) => s !== section)
@@ -920,6 +1095,33 @@ function AccesSection({ monId }: { monId: string }) {
                           ? 'Aucune restriction : ce compte voit les cinq.'
                           : `${c.muscuOnglets.length} onglet(s) sur ${ONGLETS_MUSCU.length}.`}
                       </p>
+
+                      {/* Les options, sous les onglets : elles ne se rangent pas
+                          dans la barre, elles apparaissent à l'intérieur des
+                          écrans. Retirée, l'option disparaît de la séance, du
+                          journal et des réglages du compte — pas de case morte
+                          laissée derrière. */}
+                      <div className="mt-2 border-t border-line/60 pt-2">
+                        <div className="text-[10px] font-bold uppercase tracking-wide text-muted">Options</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {OPTIONS_MUSCU.map((o) => {
+                            const ouvert = c.muscuOptions === null || c.muscuOptions.includes(o.id)
+                            return (
+                              <button
+                                key={o.id}
+                                onClick={() => basculerOption(c, o.id)}
+                                disabled={busy === c.user_id}
+                                title={o.aide}
+                                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                                  ouvert ? 'bg-sage/70 text-white' : 'bg-white/5 text-muted hover:text-ink'
+                                }`}
+                              >
+                                {o.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </>

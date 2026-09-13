@@ -20,6 +20,8 @@ import { metabolismeDeBase, tendancePoids, type Profil } from './profil'
 import { FOCUS, type FocusId } from './focus'
 import type { Courbatures } from './soreness'
 import type { Weighin } from './workouts'
+import { fmtSecondes, ZONES } from './cardio'
+import type { CardioSeance, CardiosSeances } from './cardioSeance'
 
 // Export texte du sport récent, pour aller le coller ailleurs — NotebookLM, une
 // note, un message au coach.
@@ -62,6 +64,14 @@ export interface ContexteExport {
   profil?: Profil
   focus?: FocusId[]
   behourd?: boolean
+  /**
+   * Fréquence cardiaque relevée au capteur, séance par séance.
+   *
+   * Facultative : sans capteur, ou l'option éteinte, les séances s'exportent
+   * comme avant. Aucun bloc vide, aucun « FC : — » qui ferait croire à une
+   * mesure ratée là où il n'y a jamais eu de brassard.
+   */
+  cardios?: CardiosSeances
   /** Défaut : `complet`. */
   portee?: PorteeExport
   /** Fenêtre en jours. */
@@ -94,7 +104,30 @@ function ligneExo(e: MuscuSession['exercises'][number]): string {
   return `  - ${e.name} · ${bouts.join(' · ')} · [${e.muscle_group}]${suffixe}`
 }
 
-function blocSeance(s: MuscuSession, bodyWeight: number | null): string {
+/**
+ * La ligne cardiaque d'une séance.
+ *
+ * Le temps par zone ET la moyenne : la moyenne se compare d'une séance à
+ * l'autre, le temps par zone dit ce que ni la durée ni le tonnage ne disent —
+ * une heure dont huit minutes au-dessus de 80 % n'est pas une heure dont
+ * trente. C'est la donnée la plus utile de tout l'export pour juger ce qu'une
+ * séance a réellement coûté.
+ *
+ * Le nombre de mesures est écrit : une moyenne sur douze battements n'a pas le
+ * poids d'une moyenne sur trois mille, et rien d'autre ne permet de le savoir
+ * après coup.
+ */
+function ligneCardio(c: CardioSeance): string[] {
+  const parZone = ZONES.filter((z) => c.zones[z.id] > 0)
+    .slice()
+    .reverse()
+    .map((z) => `${z.label} ${fmtSecondes(c.zones[z.id])}`)
+  const lignes = [`FC : ${c.moyenne} bpm moyen · max ${c.max} (${c.mesures} mesures${c.capteur ? `, ${c.capteur}` : ''})`]
+  if (parZone.length) lignes.push(`Temps par zone : ${parZone.join(' · ')}`)
+  return lignes
+}
+
+function blocSeance(s: MuscuSession, bodyWeight: number | null, cardio?: CardioSeance): string {
   const cal = sessionCalories(s, bodyWeight)
   const tonnage = sessionTonnage(s.exercises)
   const entete = [
@@ -108,6 +141,7 @@ function blocSeance(s: MuscuSession, bodyWeight: number | null): string {
   if (tonnage > 0) entete.push(`Tonnage : ${fmtTonnage(tonnage)}`)
   if (s.intensite) entete.push(`Intensité déclarée : ${INTENSITES[s.intensite].label}`)
   const lignes = [entete.join(' · ').replace(' · Durée', '\nDurée')]
+  if (cardio) lignes.push(...ligneCardio(cardio))
   for (const e of s.exercises) lignes.push(ligneExo(e))
   if (s.notes?.trim()) lignes.push(`  Note : ${s.notes.trim()}`)
   return lignes.join('\n')
@@ -397,7 +431,7 @@ export function exporterSport(ctx: ContexteExport): string {
 
   lignes.push('## Séances', '')
   for (const s of retenues) {
-    lignes.push(blocSeance(s, ctx.bodyWeight))
+    lignes.push(blocSeance(s, ctx.bodyWeight, ctx.cardios?.[s.id]))
     lignes.push('')
   }
 

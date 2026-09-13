@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { ecrireCache, lireCache } from './cache'
 import { ONGLETS_MUSCU, type OngletMuscu } from './ongletsMuscu'
+import { estOptionConnue, type OptionMuscu } from './optionsMuscu'
 
 // Qui voit quoi.
 //
@@ -106,6 +107,12 @@ export interface Acces {
    * le jour où la colonne a été ajoutée.
    */
   muscuOnglets: OngletMuscu[] | null
+  /**
+   * Options de la section Musculation ouvertes à ce compte — le capteur
+   * cardiaque aujourd'hui. Même convention que ci-dessus : `null` = aucune
+   * restriction, `[]` = aucune option.
+   */
+  muscuOptions: OptionMuscu[] | null
 }
 
 /**
@@ -157,13 +164,16 @@ export async function chargerAcces(userId: string, email: string | null | undefi
  * identifiants ne permettrait pas de savoir à qui on accorde quoi.
  */
 export async function listerComptes(): Promise<Acces[]> {
-  const { data, error } = await supabase.from('perso_acces').select('user_id, email, sections, muscu_onglets')
+  const { data, error } = await supabase
+    .from('perso_acces')
+    .select('user_id, email, sections, muscu_onglets, muscu_options')
   if (error) throw new Error(error.message)
   const lignes = (data ?? []) as Array<{
     user_id: string
     email: string | null
     sections: Section[]
     muscu_onglets: string[] | null
+    muscu_options: string[] | null
   }>
   return lignes
     .map((l) => ({
@@ -171,6 +181,7 @@ export async function listerComptes(): Promise<Acces[]> {
       email: l.email,
       sections: l.sections ?? [],
       muscuOnglets: ongletsValides(l.muscu_onglets),
+      muscuOptions: optionsValides(l.muscu_options),
     }))
     .sort((a, b) => (a.email ?? a.user_id).localeCompare(b.email ?? b.user_id))
 }
@@ -197,6 +208,48 @@ function ongletsValides(v: string[] | null | undefined): OngletMuscu[] | null {
  * Une panne de lecture ne ferme rien non plus : on rend `null`, donc tout, et
  * la base reste seule juge de ce qu'on peut réellement lire.
  */
+/** Même garde que `ongletsValides`, et le même piège : `null` doit traverser. */
+function optionsValides(v: string[] | null | undefined): OptionMuscu[] | null {
+  if (v === null || v === undefined) return null
+  return (Array.isArray(v) ? v : []).filter((id): id is OptionMuscu => estOptionConnue(id))
+}
+
+/**
+ * Les options Musculation accordées au compte courant.
+ *
+ * Lue en même temps que les onglets, et avec les mêmes règles : le
+ * propriétaire n'est jamais restreint, et une panne de lecture n'éteint rien.
+ */
+export async function chargerOptionsMuscu(
+  userId: string,
+  email: string | null | undefined,
+): Promise<OptionMuscu[] | null> {
+  if (estProprietaire(email)) return null
+  const { data, error } = await supabase
+    .from('perso_acces')
+    .select('muscu_options')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    console.warn('Lecture des options Musculation échouée :', error.message)
+    return null
+  }
+  return optionsValides((data?.muscu_options as string[] | null) ?? null)
+}
+
+export async function enregistrerOptionsMuscu(
+  userId: string,
+  options: OptionMuscu[] | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('perso_acces')
+    .upsert(
+      { user_id: userId, muscu_options: options, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' },
+    )
+  if (error) throw new Error(error.message)
+}
+
 export async function chargerOngletsMuscu(
   userId: string,
   email: string | null | undefined,
