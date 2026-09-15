@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { estAuTempsOuDistance } from '../lib/muscu'
 import { loadAllures, saveAllures } from '../lib/allure'
 import { loadNegatifs, saveNegatifs } from '../lib/negatif'
-import { useCapteurCardio } from '../lib/capteurCardio'
+import { useCapteur } from '../lib/capteurContexte'
 import { loadCardios, loadFcMaxRelevee, saveCardio } from '../lib/cardioSeance'
 import { fcMaxEstimee } from '../lib/cardio'
 import { age, loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
@@ -295,7 +295,9 @@ export function LiveSession({
     : fcMaxEstime
       ? `une max estimée à ${fcMaxEstime} bpm (formule de Tanaka)`
       : 'aucune max connue'
-  const capteur = useCapteurCardio(fcMax)
+  // Le capteur vient de l'application, pas de cet écran : réduire la séance ou
+  // aller voir son journal ne doit plus débrancher le brassard.
+  const capteur = useCapteur()
 
   useEffect(() => {
     storeLive(s)

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './lib/auth'
+import { CapteurProvider } from './lib/capteurContexte'
 import { applyTextSize, readTextSize } from './lib/textSize'
 import './index.css'
 
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <CapteurProvider>
+          <App />
+        </CapteurProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,

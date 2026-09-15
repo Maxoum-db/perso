@@ -8,7 +8,7 @@
     "verifier-etiquetage": "node tools/verifier-etiquetage.mjs",
     "verifier-saxophone": "node tools/verifier-saxophone.mjs",
     "verifier-focus": "node tools/verifier-focus.mjs",
-    "prebuild": "node tools/verifier-etiquetage.mjs && node tools/verifier-saxophone.mjs && node tools/verifier-focus.mjs",
+    "prebuild": "node tools/verifier-etiquetage.mjs && node tools/verifier-saxophone.mjs && node tools/verifier-focus.mjs && node tools/verifier-capteur.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
