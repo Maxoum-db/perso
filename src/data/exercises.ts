@@ -245,6 +245,15 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   // Le préfixe « Vie quotidienne — » n'est pas décoratif : c'est lui que la
   // table des MET reconnaît. Sans lui, « courses » partirait au coût de la
   // course à pied. Toute entrée ajoutée ici doit le porter.
+  // La marche est une ACTIVITÉ, au même titre que le ménage ou le port de
+  // sacs : son coût est dans son MET, pas dans une charge. Elle se mesure au
+  // GPS depuis la ligne de séance — le bouton 📍 remplit la durée et écrit la
+  // distance dans les notes.
+  //
+  // Les muscles cités sont ceux qui travaillent vraiment en marchant sur le
+  // plat : le triceps sural d'abord, les fessiers et le quadriceps ensuite.
+  // « Cardio » est là parce que c'est ce que la marche entretient le mieux.
+  { name: 'Marche', groups: 'Cardio:1, Soléaire:0.6, Gastrocnémiens:0.6, Grand fessier:0.5, Droit fémoral:0.4, Moyen fessier:0.4, Biceps fémoral:0.3, Tibial antérieur:0.3', sets: 1, reps: '30 min', notes: 'Sur le plat, à allure de conversation. Se mesure au GPS depuis la séance : 📍 à côté de la durée.', kind: 'activite' },
   { name: 'Vie quotidienne — ménage, aspirateur et sols', groups: 'Deltoïde antérieur:0.6, Obliques:0.5, Érecteurs du rachis:0.5, Fléchisseurs avant-bras:0.5, Grand droit:0.4, Cardio:0.4, Trapèze supérieur:0.4, Vaste latéral:0.4, Grand dorsal:0.4, Brachio-radial:0.3, Grand fessier:0.3, Droit fémoral:0.3', sets: 1, reps: '45 min', notes: 'Poussée répétée, buste penché. Alterner les bras pour ne pas charger toujours le même côté.', kind: 'activite' },
   { name: 'Vie quotidienne — vaisselle, cuisine et linge', groups: 'Deltoïde antérieur:0.4, Fléchisseurs avant-bras:0.4, Érecteurs du rachis:0.4, Trapèze supérieur:0.3, Soléaire:0.3, Extenseurs du cou:0.3', sets: 1, reps: '30 min', notes: 'Debout, buste légèrement penché, bras devant. Léger mais long — c’est la posture qui coûte, pas l’effort.', kind: 'activite' },
   { name: 'Vie quotidienne — courses et port de sacs', groups: 'Fléchisseurs des doigts:1, Fléchisseurs avant-bras:0.8, Trapèze supérieur:0.7, Carré des lombes:0.6, Grand droit:0.5, Obliques:0.5, Érecteurs du rachis:0.5, Biceps:0.4, Élévateur de la scapula:0.4, Brachial:0.4, Vaste latéral:0.4, Moyen fessier:0.4, Soléaire:0.3, Brachio-radial:0.3', sets: 1, reps: '20 min', notes: 'Farmer’s walk sans le vouloir. Répartir la charge des deux côtés, dos droit.', kind: 'activite' },

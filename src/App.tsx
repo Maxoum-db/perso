@@ -9,6 +9,7 @@ import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
 import { Behourd } from './pages/Behourd'
 import { Course } from './pages/Course'
+import { Moto } from './pages/Moto'
 import { Musculation } from './pages/Musculation'
 import { Brassage } from './pages/Brassage'
 import { Rustique } from './pages/Rustique'
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="/mails" element={garde('/mails', <Mails />)} />
         <Route path="/behourd" element={garde('/behourd', <Behourd />)} />
         <Route path="/course" element={garde('/course', <Course />)} />
+        <Route path="/moto" element={garde('/moto', <Moto />)} />
         <Route path="/musculation" element={garde('/musculation', <Musculation sections={sections} />)} />
         <Route path="/brassage" element={garde('/brassage', <Brassage />)} />
         <Route path="/rustique" element={garde('/rustique', <Rustique />)} />

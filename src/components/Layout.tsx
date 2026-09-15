@@ -46,6 +46,10 @@ const moreTabs = (onglet: Tab | null): Tab[] => [
   { to: '/brassage', label: 'Brassage', icon: IconBeer },
   { to: '/rustique', label: 'Rustique', icon: IconBrain },
   { to: '/saxophone', label: 'Saxophone', icon: IconSax },
+  // La moto est une section à elle seule, et pas une carte de la musculation :
+  // un trajet ne brûle rien, n'entre ni dans la charge ni dans la dépense, et
+  // logé dans l'écran d'entraînement il laissait croire qu'il y comptait.
+  { to: '/moto', label: 'Moto', icon: IconMoto },
 ]
 
 export function Layout({ children, sections }: { children: ReactNode; sections: Section[] }) {
@@ -269,6 +273,18 @@ function IconRun({ active }: IconProps) {
       <path d="M6.5 12.2l2.6-3.9 3.6-1.2 2.8 2.4 3 1" />
       <path d="M14.3 15.8l3.2 2.1 1.2 3.1" />
       <path d="M4 9.5h3.2" />
+    </svg>
+  )
+}
+
+function IconMoto({ active }: IconProps) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stroke(active)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="5" cy="17" r="3" />
+      <circle cx="19" cy="17" r="3" />
+      <path d="M8 17h5l3.5-6H21" />
+      <path d="M13 11L9.5 7H6" />
+      <path d="M16.5 11l-2-4h3" />
     </svg>
   )
 }

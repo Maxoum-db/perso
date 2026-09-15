@@ -41,7 +41,6 @@ import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { RattacherMesurePolar } from '../components/PolarFlow'
-import { TrajetGps } from '../components/TrajetGps'
 import { RecuperationCard } from '../components/RecuperationCard'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { ObservationsCard } from '../components/ObservationsCard'
@@ -737,7 +736,6 @@ export function Journal({
   // et il partait d'une page blanche : c'est le compositeur qui ouvre désormais
   // les séances chronométrées, à partir de ce que le mannequin sait.
   const [picking, setPicking] = useState<null | 'manual'>(null)
-  const [trajet, setTrajet] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   // La séance en cours d'ajout aux séances perso : le bouton se désarme le
   // temps de l'aller-retour, sinon deux appuis créent deux modèles identiques.
@@ -1506,16 +1504,8 @@ export function Journal({
           <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
             ✍️ Saisir une séance
           </button>
-          {/* Le troisième point d'entrée, et il ne compose rien : il MESURE.
-              Une marche ne se planifie pas au mannequin, elle se fait — et ce
-              qu'on veut d'elle, ce sont des kilomètres. */}
-          <button onClick={() => setTrajet((x) => !x)} className="btn-ghost w-full py-2 text-sm">
-            📍 {trajet ? 'Fermer l’enregistreur' : 'Enregistrer un trajet'}
-          </button>
         </div>
       )}
-
-      {trajet ? <TrajetGps userId={userId} onSeanceCreee={onChange} /> : null}
 
       <FocusPicker
         value={focus}
