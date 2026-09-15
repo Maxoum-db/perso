@@ -155,7 +155,7 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
                   }}
                   className="text-xs font-semibold text-muted hover:text-ink"
                 >
-                  {repliee ? '⌃ Rouvrir la barre' : '⌄ Replier la barre'}
+                  {repliee ? 'Rouvrir la barre' : 'Replier la barre'}
                 </button>
                 <button onClick={() => setMoreOpen(false)} className="text-xs font-semibold text-copper">
                   Fermer ▾
