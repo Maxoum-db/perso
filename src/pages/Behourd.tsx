@@ -4,19 +4,35 @@ import { fetchKv, saveKv, readKvCache } from '../lib/kv'
 import { ArmorBodyDiagram, STATE_LABELS, pieceState, type PieceState } from '../components/ArmorBodyDiagram'
 import { Section, Stat } from '../components/training-ui'
 import { ARMOR_PIECES_TEMPLATE, type ArmorPiece } from '../data/behourd'
+import { EntrainementBehourd } from '../components/EntrainementBehourd'
+import { chargerOptionsMuscu } from '../lib/acces'
+import { loadOptionsEteintes, optionActive, type OptionMuscu } from '../lib/optionsMuscu'
 
 const ARMOR_KEY = 'behourd_armor'
+/** Le volet de l'équipement, ouvert ou non. Retenu d'une visite à l'autre. */
+const EQUIPEMENT_KEY = 'behourd_equipement_ouvert'
 
 function freshArmor(): ArmorPiece[] {
   return ARMOR_PIECES_TEMPLATE.map((p) => ({ ...p, owned: false, weight_actual_kg: p.typical_weight_kg, notes_user: '' }))
 }
 
-// Page Béhourd : suivi de l'armure, pièce par pièce.
-// (La musculation et l'entraînement ont leur propre page : /musculation.)
+// Page Béhourd : l'entraînement d'abord, l'armure ensuite.
+//
+// L'armure occupait toute la page : une bannière de précommande, quatre
+// compteurs, un mannequin et vingt fiches de pièces. C'est un inventaire — on
+// le met à jour quand une pièce arrive ou casse, donc quelques fois par an.
+// L'entraînement, lui, c'est toutes les semaines, et il n'avait pas d'écran.
+//
+// Tout l'équipement est donc replié dans UN volet, et ce qui reste est un suivi
+// d'entraînement : un chrono, le capteur, les zones qui ont pris. Le volet
+// retient s'il était ouvert — replier un inventaire qu'on vient consulter
+// chaque fois serait aussi pénible que l'inverse.
 export function Behourd() {
   const { user } = useAuth()
   const [armor, setArmor] = useState<ArmorPiece[]>(() => readKvCache<ArmorPiece[]>(ARMOR_KEY, freshArmor()))
   const [loaded, setLoaded] = useState(false)
+  const [equipementOuvert, setEquipementOuvert] = useState(() => readKvCache<boolean>(EQUIPEMENT_KEY, false))
+  const [cardioActif, setCardioActif] = useState(true)
 
   useEffect(() => {
     if (!user) return
@@ -30,6 +46,25 @@ export function Behourd() {
     if (!user || !loaded) return
     saveKv(user.id, ARMOR_KEY, armor)
   }, [armor, user, loaded])
+
+  useEffect(() => {
+    if (!user) return
+    fetchKv<boolean>(user.id, EQUIPEMENT_KEY, false).then(setEquipementOuvert).catch(() => {})
+    // Le capteur suit la même autorisation que dans la musculation : c'est le
+    // même brassard et le même réglage, il n'y a pas deux permissions à tenir.
+    Promise.all([
+      loadOptionsEteintes(user.id).catch(() => [] as OptionMuscu[]),
+      chargerOptionsMuscu(user.id, user.email).catch(() => null),
+    ])
+      .then(([eteintes, autorisees]) => setCardioActif(optionActive('cardio', eteintes, autorisees)))
+      .catch(() => {})
+  }, [user])
+
+  function basculerEquipement() {
+    const next = !equipementOuvert
+    setEquipementOuvert(next)
+    if (user) saveKv(user.id, EQUIPEMENT_KEY, next)
+  }
 
   const totalWeight = useMemo(() => armor.filter((p) => p.owned).reduce((s, p) => s + (Number(p.weight_actual_kg) || 0), 0), [armor])
   const totalSpent = useMemo(() => armor.filter((p) => p.owned && p.price_usd).reduce((s, p) => s + (Number(p.price_usd) || 0), 0), [armor])
@@ -57,9 +92,31 @@ export function Behourd() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">🛡️ Béhourd</h1>
-        <p className="text-sm text-muted">Suivi de l'armure — état pièce par pièce</p>
+        <p className="text-sm text-muted">Entraînement et harnois</p>
       </div>
 
+      <EntrainementBehourd userId={user?.id ?? ''} cardioActif={cardioActif} />
+
+      {/* ── Tout l'équipement, sous un seul volet ──────────────────────────
+          Bannière de précommande, compteurs, mannequin, réparations et fiches :
+          c'est un inventaire, pas un écran de tous les jours. Replié, la page
+          est ce qu'elle doit être la plupart du temps — un suivi
+          d'entraînement. */}
+      <button
+        onClick={basculerEquipement}
+        aria-expanded={equipementOuvert}
+        className="card flex w-full items-center gap-2 px-4 py-3 text-left"
+      >
+        <span className="inline-block h-3.5 w-1.5 shrink-0 rounded-full bg-clay" />
+        <span className="min-w-0 flex-1 text-sm font-extrabold text-ink">🧰 Mon équipement</span>
+        <span className="shrink-0 text-xs text-muted">
+          {ownedCount}/{armor.length} · {totalWeight.toFixed(1)} kg
+          {toRepair.length ? ` · 🔧 ${toRepair.length}` : ''} {equipementOuvert ? '▾' : '▸'}
+        </span>
+      </button>
+
+      {!equipementOuvert ? null : (
+        <>
       {totalPreOrder > 0 ? (
         <div className="rounded-xl2 border-l-[3px] border-sand bg-white/5 p-3 text-xs leading-relaxed text-ink">
           <div className="mb-1 font-extrabold text-ink">
@@ -96,10 +153,14 @@ export function Behourd() {
         </div>
       ) : null}
 
+      {/* Ouverte d'office : elle est DÉJÀ dans le volet « Mon équipement ».
+          Deux pliages l'un dans l'autre obligeaient à deux appuis pour voir
+          une liste qu'on venait justement de déplier. */}
       <Section
         title="🛡️ Pièces d'armure"
         subtitle={`${ownedCount}/${armor.length} · ${totalWeight.toFixed(1)} kg`}
         accent="#ef4444"
+        defaultOpen
       >
         <p className="mb-3 text-xs italic text-muted">
           Coche l'état de chaque pièce et ajuste son poids réel. Le total sert à dimensionner l'entraînement
@@ -198,6 +259,8 @@ export function Behourd() {
           + Ajouter une pièce custom
         </button>
       </Section>
+        </>
+      )}
     </div>
   )
 }
