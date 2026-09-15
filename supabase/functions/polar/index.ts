@@ -39,6 +39,9 @@ const AUTORISATION = "https://flow.polar.com/oauth2/authorization";
 const JETON = "https://polarremote.com/v2/oauth2/token";
 const API = "https://www.polaraccesslink.com/v3";
 
+/** La clé du KV où atterrit l'information physique relevée chez Polar. */
+const CLE_PHYSIQUE = "polar_physique";
+
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
     status,
@@ -140,6 +143,92 @@ async function seancesPolar(token: string): Promise<unknown> {
   if (res.status === 204) return [];
   if (!res.ok) throw new Error(`polar_exercises_${res.status}: ${(await res.text()).slice(0, 300)}`);
   return await res.json();
+}
+
+// ── L'information physique ──────────────────────────────────────────────────
+//
+// C'est là que vit le résultat du test de condition physique Polar : le VO2max
+// mesuré, la fréquence de repos et la maximale du profil Polar Flow.
+//
+// ⚠️ Cette route est TRANSACTIONNELLE, contrairement à celle des séances, et il
+// n'en existe pas d'autre pour ces valeurs. Trois requêtes, dans cet ordre :
+//
+//   1. POST …/physical-information-transactions — ouvre une transaction.
+//      204 veut dire « rien de nouveau depuis la dernière fois », et ce n'est
+//      pas une panne : c'est le cas ordinaire tant qu'on ne refait pas le test ;
+//   2. GET sur l'adresse rendue — la liste des entrées ;
+//   3. PUT sur la même adresse — la validation, qui EFFACE les données côté
+//      Polar. On ne la fait qu'APRÈS avoir écrit chez nous.
+//
+// L'ordre compte : valider avant d'écrire perdrait la mesure pour de bon, sans
+// moyen de la retrouver. Valider après un échec d'écriture ne coûte qu'une
+// relecture, puisque la transaction suivante rendra la même entrée.
+
+interface Physique {
+  vo2max: number | null;
+  fcRepos: number | null;
+  fcMax: number | null;
+  poidsKg: number | null;
+  tailleCm: number | null;
+  /** Date de la mesure, telle que Polar la donne. */
+  date: string | null;
+}
+
+function lirePhysique(brut: unknown): Physique | null {
+  if (!brut || typeof brut !== "object") return null;
+  const o = brut as Record<string, unknown>;
+  return {
+    vo2max: nombre(champ(o, "vo2-max")),
+    fcRepos: nombre(champ(o, "resting-heart-rate")),
+    fcMax: nombre(champ(o, "maximum-heart-rate")),
+    poidsKg: nombre(champ(o, "weight")),
+    tailleCm: nombre(champ(o, "height")),
+    date: texte(champ(o, "created")) ?? texte(champ(o, "date")),
+  };
+}
+
+/** Une entrée où tout est vide n'apprend rien et ne doit pas écraser la précédente. */
+function physiqueUtile(p: Physique): boolean {
+  return p.vo2max !== null || p.fcRepos !== null || p.fcMax !== null;
+}
+
+async function physiquePolar(
+  token: string,
+  polarUserId: string,
+): Promise<{ valeurs: Physique | null; valider: (() => Promise<void>) | null }> {
+  const ouvrir = await fetch(`${API}/users/${polarUserId}/physical-information-transactions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  if (ouvrir.status === 204) return { valeurs: null, valider: null };
+  if (!ouvrir.ok) {
+    throw new Error(`polar_physique_${ouvrir.status}: ${(await ouvrir.text()).slice(0, 300)}`);
+  }
+  const t = (await ouvrir.json()) as Record<string, unknown>;
+  const uri = texte(champ(t, "resource-uri"));
+  if (!uri) return { valeurs: null, valider: null };
+
+  const liste = await fetch(uri, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+  if (!liste.ok) throw new Error(`polar_physique_liste_${liste.status}`);
+  const corps = (await liste.json()) as Record<string, unknown>;
+  const urls = champ(corps, "physical-informations");
+  const adresses = Array.isArray(urls) ? urls.filter((x): x is string => typeof x === "string") : [];
+
+  // La DERNIÈRE entrée utile, pas la première : la transaction peut en contenir
+  // plusieurs si le test a été refait entre deux relèves, et c'est la plus
+  // récente qui décrit l'état actuel.
+  let valeurs: Physique | null = null;
+  for (const a of adresses) {
+    const r = await fetch(a, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!r.ok) continue;
+    const p = lirePhysique(await r.json());
+    if (p && physiqueUtile(p)) valeurs = p;
+  }
+
+  const valider = async () => {
+    await fetch(uri, { method: "PUT", headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+  };
+  return { valeurs, valider };
 }
 
 // ── La lecture d'une séance ─────────────────────────────────────────────────
@@ -334,6 +423,31 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", moi.id);
 
       return json({ vues: lignes.length, note });
+    }
+
+    if (action === "physique") {
+      const { valeurs, valider } = await physiquePolar(lien.access_token, lien.polar_user_id);
+      if (!valeurs) {
+        // Rien de nouveau : on rend ce qu'on avait déjà, pour que l'écran
+        // n'efface pas une mesure valide en croyant bien faire.
+        const { data } = await db
+          .from("perso_kv")
+          .select("value")
+          .eq("user_id", moi.id)
+          .eq("key", CLE_PHYSIQUE)
+          .maybeSingle();
+        return json({ physique: data?.value ?? null, nouveau: false });
+      }
+      // On écrit AVANT de valider : la validation efface la donnée chez Polar.
+      const { error } = await db
+        .from("perso_kv")
+        .upsert(
+          { user_id: moi.id, key: CLE_PHYSIQUE, value: valeurs, updated_at: new Date().toISOString() },
+          { onConflict: "user_id,key" },
+        );
+      if (error) return json({ error: "ecriture", detail: error.message }, 502);
+      if (valider) await valider();
+      return json({ physique: valeurs, nouveau: true });
     }
 
     if (action === "delier") {

@@ -46,7 +46,7 @@ export class PolarPasConfigure extends Error {
   }
 }
 
-async function appeler<T>(body: Record<string, unknown>): Promise<T> {
+export async function appeler<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('polar', { body })
   if (error) {
     const ctx = (error as { context?: Response }).context
