@@ -22,6 +22,7 @@ import { coderSeance, decoderSeance } from '../lib/partageSeance'
 import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type MesureRepos as Mesure } from '../lib/cardioSeance'
 import { PolarFlowReglage } from '../components/PolarFlow'
 import { CardioDuJour } from '../components/CardioDuJour'
+import { VoletReglage } from '../components/VoletReglage'
 import { DELAI_S, loadVeilleuse, saveVeilleuse } from '../lib/veilleuse'
 import { CAPTURE_RAPIDE } from '../lib/reglagesInterface'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
@@ -70,16 +71,14 @@ export function Settings({ sections }: { sections: Section[] }) {
 
       <TextSizeSection />
 
-      <section className="card p-4">
-        <h2 className="text-sm font-bold text-ink">Compte</h2>
+      <VoletReglage id="compte" titre="Compte">
         <p className="mt-1 text-sm text-ink">{user?.email}</p>
         <button onClick={signOut} className="btn-ghost mt-3 text-xs">
           Se déconnecter
         </button>
-      </section>
+      </VoletReglage>
 
-      <section className="card p-4">
-        <h2 className="text-sm font-bold text-ink">Connexion Google</h2>
+      <VoletReglage id="google" titre="Connexion Google">
         <p className="mt-1 flex items-center gap-2 text-sm">
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
@@ -91,17 +90,16 @@ export function Settings({ sections }: { sections: Section[] }) {
         <button onClick={signInWithGoogle} className="btn-ghost mt-3 text-xs">
           {connected ? 'Rafraîchir la connexion' : 'Reconnecter Google'}
         </button>
-      </section>
+      </VoletReglage>
 
-      <section className="card p-4">
-        <h2 className="text-sm font-bold text-ink">Dossier de synthèses</h2>
+      <VoletReglage id="drive" titre="Dossier de synthèses">
         <p className="mt-1 text-sm text-ink">
           {settings?.drive_synthese_folder_name ?? 'Aucun dossier choisi'}
         </p>
         <Link to="/drive" className="btn-ghost mt-3 inline-flex text-xs">
           {settings?.drive_synthese_folder_id ? 'Changer' : 'Choisir un dossier'}
         </Link>
-      </section>
+      </VoletReglage>
 
       <CaptureRapideSection userId={user?.id ?? ''} />
 
@@ -123,8 +121,7 @@ export function Settings({ sections }: { sections: Section[] }) {
 
       <OrphelinsSection userId={user?.id ?? ''} />
 
-      <section className="card p-4">
-        <h2 className="text-sm font-bold text-ink">Agendas affichés</h2>
+      <VoletReglage id="agendas" titre="Agendas affichés">
         <p className="mt-1 text-sm text-muted">
           {settings && settings.visible_calendar_ids.length > 0
             ? `${settings.visible_calendar_ids.length} agenda(s) sélectionné(s)`
@@ -133,7 +130,7 @@ export function Settings({ sections }: { sections: Section[] }) {
         <Link to="/agenda" className="btn-ghost mt-3 inline-flex text-xs">
           Gérer dans l'agenda
         </Link>
-      </section>
+      </VoletReglage>
 
       <NotificationsSection userId={user?.id ?? ''} />
 
@@ -161,8 +158,7 @@ function TextSizeSection() {
   }
 
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">🔤 Taille du texte</h2>
+    <VoletReglage id="texte" titre="🔤 Taille du texte">
       <p className="mt-1 text-sm text-muted">
         Pour lire longtemps sans forcer — utile en Apprentissage et au Quiz. S'applique à toute l'app.
       </p>
@@ -185,7 +181,7 @@ function TextSizeSection() {
           </button>
         ))}
       </div>
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -223,8 +219,7 @@ function DisciplineSection({
     }
   }
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">Discipline suivie</h2>
+    <VoletReglage id="discipline" titre="Discipline suivie">
       <p className="mt-1 text-sm text-muted">
         Ce que montre l’onglet dédié. Les deux pages restent accessibles par leur adresse — c’est la navigation qui
         change, pas les données.
@@ -247,7 +242,7 @@ function DisciplineSection({
           </button>
         ))}
       </div>
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -282,8 +277,7 @@ function SaxophoneSection() {
   const poser = (patch: Partial<EtatSax>) => setEtat(majEtatSax(patch))
 
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">🎷 Saxophone</h2>
+    <VoletReglage id="saxophone" titre="🎷 Saxophone">
       <p className="mt-1 text-sm text-muted">Comment la page des doigtés se présente.</p>
 
       <h3 className="mt-3 text-xs font-bold text-ink">Classement des notes</h3>
@@ -323,7 +317,7 @@ function SaxophoneSection() {
           quel nom, inutiles après : le schéma le dit déjà en vert.
         </div>
       </button>
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -441,8 +435,7 @@ function SeancesSection({ userId }: { userId: string }) {
   }
 
   return (
-    <section className="card space-y-4 p-4">
-      <h2 className="text-sm font-bold text-ink">🏋️ Séances et affichage</h2>
+    <VoletReglage id="seances" titre="🏋️ Séances et affichage">
 
       <div>
         <button
@@ -537,7 +530,7 @@ function SeancesSection({ userId }: { userId: string }) {
       </div>
 
       {msg ? <p className="text-xs text-copper">{msg}</p> : null}
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -616,9 +609,9 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
   }
 
   return (
-    <section className="card space-y-4 p-4">
+    <VoletReglage id="cardio" titre="❤️ Capteur cardiaque" resume={actif ? 'activé' : 'éteint'}>
+      <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="text-sm font-bold text-ink">❤️ Capteur cardiaque</h2>
         <button
           onClick={() => basculer('cardio')}
           aria-pressed={actif}
@@ -752,7 +745,8 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
       </div>
         </>
       )}
-    </section>
+      </div>
+    </VoletReglage>
   )
 }
 
@@ -773,8 +767,7 @@ function OrphelinsSection({ userId }: { userId: string }) {
   }
 
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">Cohérence du journal</h2>
+    <VoletReglage id="coherence" titre="Cohérence du journal">
       <p className="mt-1 text-sm text-muted">
         Vérifie que chaque exercice enregistré désigne encore un exercice du catalogue. Un exercice détaché
         garde son nom et sa charge, mais perd son étiquetage musculaire et sa progression — sans rien
@@ -812,7 +805,7 @@ function OrphelinsSection({ userId }: { userId: string }) {
       <button onClick={verifier} disabled={etat === 'chargement' || !userId} className="btn-ghost mt-3 text-xs">
         {etat === 'chargement' ? 'Vérification…' : etat === 'fait' ? 'Vérifier à nouveau' : 'Vérifier'}
       </button>
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -870,8 +863,7 @@ function ExportSportSection({ userId }: { userId: string }) {
   }
 
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">🏋️ Export</h2>
+    <VoletReglage id="export" titre="🏋️ Export">
       <p className="mt-1 text-sm text-muted">
         Sur {FENETRE_STATS} jours, en texte, prêt à coller.{' '}
         <b className="text-ink">Séances</b> donne le journal et son résumé ; <b className="text-ink">Tout</b> y ajoute
@@ -901,7 +893,7 @@ function ExportSportSection({ userId }: { userId: string }) {
           className="field mt-2 h-40 font-mono text-[10px] leading-snug"
         />
       ) : null}
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -954,8 +946,7 @@ function NotificationsSection({ userId }: { userId: string }) {
   }
 
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">🔔 Notifications</h2>
+    <VoletReglage id="notifications" titre="🔔 Notifications">
 
       {status === 'unsupported' ? (
         <p className="mt-1 text-sm text-muted">
@@ -991,7 +982,7 @@ function NotificationsSection({ userId }: { userId: string }) {
       )}
 
       {msg ? <p className="mt-2 text-xs text-copper">{msg}</p> : null}
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -1088,8 +1079,7 @@ function AccesSection({ monId }: { monId: string }) {
   }
 
   return (
-    <section className="card p-4">
-      <h2 className="text-sm font-bold text-ink">🔑 Accès des comptes</h2>
+    <VoletReglage id="acces" titre="🔑 Accès des comptes">
       <p className="mt-1 text-sm text-muted">
         Ton compte voit tout, toujours. Pour les autres, c'est ici que ça se décide, section par section. L'accueil et
         les réglages restent ouverts à tous — les fermer enfermerait le compte dans une application sans porte de
@@ -1220,7 +1210,7 @@ function AccesSection({ monId }: { monId: string }) {
           )
         })}
       </div>
-    </section>
+    </VoletReglage>
   )
 }
 
@@ -1242,9 +1232,8 @@ function CaptureRapideSection({ userId }: { userId: string }) {
   }, [userId])
 
   return (
-    <section className="card p-4">
+    <VoletReglage id="capture" titre="➕ Bouton de capture rapide" resume={on ? 'affiché' : 'masqué'}>
       <div className="flex items-start justify-between gap-2">
-        <h2 className="text-sm font-bold text-ink">➕ Bouton de capture rapide</h2>
         <button
           onClick={() => {
             CAPTURE_RAPIDE.save(userId, !on).then(setOn).catch(() => {})
@@ -1261,6 +1250,6 @@ function CaptureRapideSection({ userId }: { userId: string }) {
         Le rond orange en bas à droite, sur toutes les pages : une note, une tâche ou un événement en deux touchers,
         avec dictée. Masqué, il libère le coin de l’écran — le reste de l’application ne change pas.
       </p>
-    </section>
+    </VoletReglage>
   )
 }
