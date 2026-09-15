@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { prendreVerrou } from './verrouEcran'
 import { accumulateurVide, accumuler, bilan, parseMesureFC, type AccumulateurCardio, type BilanCardio } from './cardio'
 import {
   COMMANDE_ARRETER_PPI,
@@ -86,6 +87,9 @@ import {
 // servirait à rien. On demande donc un verrou d'écran TANT QUE le capteur est
 // branché, et on le rend en le débranchant : garder l'écran allumé coûte de la
 // batterie, ça ne se fait pas « au cas où ».
+//
+// Le verrou lui-même vit dans `verrouEcran.ts` depuis que le GPS a le même
+// besoin, et pour la même raison. Deux copies auraient divergé.
 
 /** Service et caractéristique normalisés. Les deux seuls identifiants du fichier. */
 const SERVICE_FC = 0x180d
@@ -437,26 +441,6 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
     deconnecter,
     remettreAZero,
     activerPpi,
-  }
-}
-
-/**
- * Demande le verrou d'écran, en silence.
- *
- * Absent d'un navigateur sur deux, refusé en arrière-plan, révoqué à
- * l'économiseur de batterie : tous ces cas sont normaux et aucun ne doit
- * interrompre une séance. On essaie, et s'il n'y a pas de verrou, tant pis —
- * la liaison tiendra tant que l'écran reste allumé à la main.
- */
-async function prendreVerrou(ref: { current: { release: () => Promise<void> } | null }): Promise<void> {
-  if (ref.current) return
-  const api = (navigator as unknown as { wakeLock?: { request(t: string): Promise<{ release(): Promise<void> }> } })
-    .wakeLock
-  if (!api) return
-  try {
-    ref.current = await api.request('screen')
-  } catch {
-    ref.current = null
   }
 }
 
