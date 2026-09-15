@@ -97,6 +97,13 @@ export function MesureRepos({
             <span className="chip bg-bg text-xs text-ink">
               ❤️ {capteur.bpm ?? '—'} bpm · {capteur.rr.length} intervalles
             </span>
+            {/* Dire d'OÙ viennent les intervalles : le protocole Polar les
+                accompagne d'une marge d'erreur, le service standard non. Sur un
+                capteur optique, le second n'en envoie souvent aucun — et il
+                vaut mieux le savoir avant deux minutes d'immobilité. */}
+            <span className="text-[10px] text-muted">
+              {capteur.ppi ? 'via le protocole Polar (PPI)' : 'service standard'}
+            </span>
             {enCours ? (
               <>
                 <span className="text-xs font-bold tabular-nums text-copper">

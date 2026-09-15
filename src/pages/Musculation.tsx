@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState , type ReactNode } from 'react'
 import { useAuth } from '../lib/auth'
 import { chargerOngletsMuscu, chargerOptionsMuscu, type Section as SectionAutorisee } from '../lib/acces'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -1138,6 +1138,32 @@ export function Journal({
     }
   }
 
+  /**
+   * Repart d'une séance DÉJÀ FAITE.
+   *
+   * Ni une modification (on ne touche pas à celle du journal) ni un modèle (on
+   * n'en crée aucun) : un brouillon neuf, daté d'aujourd'hui, garni de ce qu'on
+   * a fait la dernière fois. C'est le geste le plus courant de la semaine —
+   * refaire lundi ce qu'on a fait lundi dernier — et il passait jusqu'ici par
+   * « ⭐ Ajouter à mes séances » puis un démarrage depuis le modèle, soit deux
+   * détours pour une séance qu'on ne voulait même pas garder.
+   *
+   * Les charges sont reprises telles quelles ; la ligne de ressenti saute, elle
+   * décrivait ce jour-là.
+   */
+  function rejouerSeance(s: MuscuSession) {
+    setPicking(null)
+    ouvrirNeuf({
+      date: today(),
+      name: s.name,
+      duration: s.duration_min ? String(s.duration_min) : '',
+      intensite: null,
+      notes: '',
+      template_id: s.template_id,
+      exos: s.exercises.filter((e) => e.name.trim() && !estRessenti(e.name)).map(exoToDraft),
+    })
+  }
+
   function startEdit(s: MuscuSession) {
     ouvrirNeuf({
       id: s.id,
@@ -1420,36 +1446,16 @@ export function Journal({
       </div>
 
       {picking ? (
-        <div className="card space-y-2 p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-ink">
-              ✍️ Saisir : quelle séance ?
-            </span>
-            <button onClick={() => setPicking(null)} className="text-xs text-copper">
-              Fermer
-            </button>
-          </div>
-          {/* La séance vierge d'abord, les modèles ensuite : une séance saisie
-              après coup part presque toujours de rien — on note ce qu'on a fait,
-              on ne déroule pas un programme. En dernière case, il fallait
-              parcourir toute la grille pour trouver le cas le plus fréquent. */}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={startBlank} className="card p-2 text-left text-sm hover:shadow-lift">
-              ✍️ <span className="font-semibold text-ink">Séance vierge</span>
-              <div className="text-[11px] text-muted">repartir de zéro</div>
-            </button>
-            {templates.map((t) => (
-              <button key={t.id} onClick={() => startFromTemplate(t)} className="card p-2 text-left text-sm hover:shadow-lift">
-                <span className="mr-1">{t.icon}</span>
-                <span className="font-semibold text-ink">{t.name}</span>
-                <div className="text-[11px] text-muted">
-                  {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
-                </div>
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-muted">💡 Les charges et reps sont pré-remplies depuis ta dernière séance.</p>
-        </div>
+        <SourcesDeSeance
+          templates={templates}
+          sessions={sessions}
+          modelesPerso={modelesPerso}
+          modeleLignes={modeleLignes}
+          onFermer={() => setPicking(null)}
+          onVierge={startBlank}
+          onModele={startFromTemplate}
+          onSeancePassee={rejouerSeance}
+        />
       ) : (
         <div className="space-y-2">
           {/* Un seul point d'entrée : composer. La séance « en direct » partait
@@ -1585,6 +1591,186 @@ function BlocCardio({ c }: { c: CardioSeance }) {
         </div>
       ) : null}
       <p className="mt-1 text-[10px] italic text-muted/70">{c.mesures} mesures reçues.</p>
+    </div>
+  )
+}
+
+/**
+ * D'où part une séance : les trois sources, repliées.
+ *
+ * Avant, c'était une grille : « Séance vierge » puis tous les modèles à la
+ * suite, et rien d'autre. Deux choses manquaient — refaire une séance qu'on a
+ * DÉJÀ faite, qui est le geste le plus fréquent de la semaine, et un moyen de
+ * s'y retrouver quand la liste dépasse l'écran.
+ *
+ * D'où trois volets, dans l'ordre où l'on y va :
+ *
+ *   1. vierge — on écrit au fur et à mesure. Pas de volet : c'est un bouton,
+ *      parce que c'est le cas le plus fréquent d'une saisie après coup et que
+ *      le replier coûterait un geste pour rien ;
+ *   2. une séance déjà faite — le journal, sans doublons : trois « Pectoraux ·
+ *      Épaules » identiques dans la liste n'aident personne à choisir ;
+ *   3. une séance de base — les modèles, perso d'abord.
+ *
+ * Toutes mènent au même éditeur, qui porte « ▶️ La faire maintenant, en
+ * direct ». C'est ce qui rend ce panneau capable de LANCER une séance et pas
+ * seulement d'en saisir une : la source et le moment sont deux questions
+ * séparées, et les mélanger obligeait à choisir « en direct » avant de savoir
+ * ce qu'on allait faire.
+ */
+function SourcesDeSeance({
+  templates,
+  sessions,
+  modelesPerso,
+  modeleLignes,
+  onFermer,
+  onVierge,
+  onModele,
+  onSeancePassee,
+}: {
+  templates: MuscuTemplate[]
+  sessions: MuscuSession[]
+  modelesPerso: ModelesPerso
+  modeleLignes: ModeleLignes
+  onFermer: () => void
+  onVierge: () => void
+  onModele: (t: MuscuTemplate) => void
+  onSeancePassee: (s: MuscuSession) => void
+}) {
+  const [ouvert, setOuvert] = useState<'passees' | 'base' | null>(null)
+  const { perso, types } = trierModeles(templates, modelesPerso)
+
+  // Les séances passées, la plus récente de chaque nom. Refaire une séance, ce
+  // n'est pas choisir entre ses quinze occurrences : c'est reprendre la
+  // dernière, avec les charges de la dernière.
+  const passees: MuscuSession[] = []
+  const vus = new Set<string>()
+  for (const s of sessions) {
+    const cle = nomSansEmoji(s.name).trim().toLowerCase()
+    if (vus.has(cle) || !s.exercises.some((e) => !estRessenti(e.name))) continue
+    vus.add(cle)
+    passees.push(s)
+    if (passees.length >= 12) break
+  }
+
+  return (
+    <div className="card space-y-2 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-bold text-ink">Partir de quoi ?</span>
+        <button onClick={onFermer} className="text-xs text-copper">
+          Fermer
+        </button>
+      </div>
+
+      <button onClick={onVierge} className="btn-primary w-full py-2.5 text-sm">
+        ✍️ Séance vierge
+      </button>
+      <p className="-mt-1 text-[11px] leading-snug text-muted">
+        Rien de pré-rempli : on cherche chaque exercice au fur et à mesure.
+      </p>
+
+      <Volet
+        titre="🔁 Une séance déjà faite"
+        detail={passees.length ? `${passees.length} au journal` : 'aucune'}
+        ouvert={ouvert === 'passees'}
+        onToggle={() => setOuvert(ouvert === 'passees' ? null : 'passees')}
+      >
+        {passees.length ? (
+          <div className="grid grid-cols-2 gap-2">
+            {passees.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onSeancePassee(s)}
+                className="card p-2 text-left text-sm hover:shadow-lift"
+              >
+                <span className="font-semibold text-ink">{nomSansEmoji(s.name)}</span>
+                <div className="text-[11px] text-muted">
+                  {frDate(s.date)} · {fmtExos(s.exercises.filter((e) => !estRessenti(e.name)).length)}
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11px] leading-snug text-muted">
+            Rien encore au journal. La première séance part forcément d’une page vierge.
+          </p>
+        )}
+      </Volet>
+
+      <Volet
+        titre="📋 Une séance de base"
+        detail={`${templates.length} modèles`}
+        ouvert={ouvert === 'base'}
+        onToggle={() => setOuvert(ouvert === 'base' ? null : 'base')}
+      >
+        {templates.length ? (
+          <div className="space-y-2">
+            {[
+              { cle: 'perso', label: '⭐ Mes séances perso', liste: perso },
+              { cle: 'types', label: '📋 Séances types', liste: types },
+            ]
+              .filter((g) => g.liste.length)
+              .map((g) => (
+                <div key={g.cle}>
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted">{g.label}</div>
+                  <div className="mt-1 grid grid-cols-2 gap-2">
+                    {g.liste.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => onModele(t)}
+                        className="card p-2 text-left text-sm hover:shadow-lift"
+                      >
+                        <span className="mr-1">{t.icon}</span>
+                        <span className="font-semibold text-ink">{t.name}</span>
+                        <div className="text-[11px] text-muted">
+                          {fmtExos(t.exercises.length)}{t.duration_min ? ` · ${t.duration_min} min` : ''}
+                        </div>
+                        {summary(t.exercises, (nom) => faconDeLigne(modeleLignes, t.id, nom)) ? (
+                          <div className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted/80">
+                            {summary(t.exercises, (nom) => faconDeLigne(modeleLignes, t.id, nom))}
+                          </div>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted">Aucun modèle pour l’instant.</p>
+        )}
+      </Volet>
+
+      <p className="text-[11px] leading-snug text-muted">
+        💡 Charges et reps sont reprises de ta dernière fois. L’éditeur qui s’ouvre permet d’enregistrer après coup{' '}
+        <b className="text-ink">ou</b> de lancer la séance en direct.
+      </p>
+    </div>
+  )
+}
+
+/** Un volet replié, pour une source de séance. */
+function Volet({
+  titre,
+  detail,
+  ouvert,
+  onToggle,
+  children,
+}: {
+  titre: string
+  detail: string
+  ouvert: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-xl2 border border-line/60">
+      <button onClick={onToggle} aria-expanded={ouvert} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
+        <span className="shrink-0 text-[10px] text-copper">{ouvert ? '▾' : '▸'}</span>
+        <span className="min-w-0 flex-1 text-xs font-bold text-ink">{titre}</span>
+        <span className="shrink-0 text-[10px] text-muted">{detail}</span>
+      </button>
+      {ouvert ? <div className="px-2.5 pb-2.5">{children}</div> : null}
     </div>
   )
 }
@@ -2241,7 +2427,7 @@ function TypesTab({
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-bold text-ink">{t.name}</div>
                   <div className="text-xs text-muted">
-                    {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
+                    {fmtExos(t.exercises.length)}{t.duration_min ? ` · ${t.duration_min} min` : ''}
                   </div>
                   {/* Les exercices, nommés, et pas les muscles qu'ils sollicitent.
                       « Pectoraux, Triceps, Épaules » décrit une dizaine de séances
@@ -2289,7 +2475,7 @@ function TypesTab({
               <div className="min-w-0 flex-1">
                 <div className="truncate font-bold text-ink">{t.name}</div>
                 <div className="text-xs text-muted">
-                  {t.exercises.length} exos{t.duration_min ? ` · ${t.duration_min} min` : ''}
+                  {fmtExos(t.exercises.length)}{t.duration_min ? ` · ${t.duration_min} min` : ''}
                 </div>
                 {/* Les exercices, nommés, et pas les muscles qu'ils sollicitent.
                     « Pectoraux, Triceps, Épaules » décrit une dizaine de séances
@@ -2345,6 +2531,11 @@ function TypesTab({
  * ouvrant l'éditeur : on relirait sa liste de modèles sans jamais apprendre
  * que trois d'entre eux prévoient des négatifs.
  */
+/** « 1 exo », « 4 exos ». Écrit une fois : la faute se recopiait de carte en carte. */
+function fmtExos(n: number): string {
+  return `${n} exo${n > 1 ? 's' : ''}`
+}
+
 /** « 3 séances » — au singulier quand il n'y en a qu'une, à zéro on n'écrit rien de faux. */
 function sousTitrePerso(n: number): string {
   return n === 0 ? 'aucune' : `${n} séance${n > 1 ? 's' : ''}`

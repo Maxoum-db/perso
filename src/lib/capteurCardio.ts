@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { accumulateurVide, accumuler, bilan, parseMesureFC, type AccumulateurCardio, type BilanCardio } from './cardio'
+import {
+  COMMANDE_ARRETER_PPI,
+  COMMANDE_DEMARRER_PPI,
+  intervallesUtilisables,
+  parsePpi,
+  parseTramePmd,
+  PMD_CONTROL,
+  PMD_DATA,
+  PMD_SERVICE,
+} from './polarPmd'
 
 // Le capteur, branché directement au navigateur.
 //
@@ -14,6 +24,20 @@ import { accumulateurVide, accumuler, bilan, parseMesureFC, type AccumulateurCar
 // n'importe quel cardiofréquencemètre. Passer par le SDK propriétaire de Polar
 // donnerait accès à plus de choses (ECG brut, accéléromètre) au prix d'une
 // dépendance à une marque — et d'un SDK Android, donc inutilisable ici.
+//
+// ── Deux services, et le second n'existe que chez Polar ─────────────────────
+//
+// Le service NORMALISÉ donne les battements par minute : c'est lui qui fait
+// tout ce qui s'affiche pendant la séance, et il marche avec n'importe quelle
+// marque.
+//
+// Le service PMD de Polar donne en plus le PPI — les intervalles entre
+// battements, avec leur marge d'erreur. Sur un capteur optique comme le Verity
+// Sense, le service normalisé ne publie généralement AUCUN intervalle : sans
+// PMD, la mesure de variabilité ne marcherait jamais avec ce brassard. On le
+// demande donc quand il est là, et on s'en passe quand il n'y est pas — une
+// ceinture d'une autre marque garde ses battements et ses zones, elle perd
+// seulement la variabilité.
 //
 // ── Ce qui ne marchera pas, et il faut le dire ──────────────────────────────
 //
@@ -54,6 +78,8 @@ export type EtatCapteur = 'absent' | 'prêt' | 'recherche' | 'connexion' | 'conn
 
 export interface Capteur {
   etat: EtatCapteur
+  /** Le capteur parle-t-il le protocole Polar ? Sinon, pas de variabilité. */
+  ppi: boolean
   /** Nom du brassard tel qu'il s'annonce (« Polar Sense C1A2B3 »). */
   nom: string | null
   /** Dernier battement reçu. `null` tant que rien n'est arrivé. */
@@ -86,20 +112,24 @@ interface BluetoothDeviceMin {
   name?: string | null
   gatt?: {
     connected: boolean
-    connect(): Promise<{ getPrimaryService(u: number): Promise<GattServiceMin> }>
+    connect(): Promise<{ getPrimaryService(u: number | string): Promise<GattServiceMin> }>
     disconnect(): void
   }
   addEventListener(t: string, f: () => void): void
   removeEventListener(t: string, f: () => void): void
 }
 
+interface CaracteristiqueMin {
+  startNotifications(): Promise<unknown>
+  stopNotifications(): Promise<unknown>
+  addEventListener(t: string, f: (e: Event) => void): void
+  removeEventListener(t: string, f: (e: Event) => void): void
+  writeValue(v: BufferSource): Promise<void>
+  writeValueWithResponse?(v: BufferSource): Promise<void>
+}
+
 interface GattServiceMin {
-  getCharacteristic(u: number): Promise<{
-    startNotifications(): Promise<unknown>
-    stopNotifications(): Promise<unknown>
-    addEventListener(t: string, f: (e: Event) => void): void
-    removeEventListener(t: string, f: (e: Event) => void): void
-  }>
+  getCharacteristic(u: number | string): Promise<CaracteristiqueMin>
 }
 
 /**
@@ -115,11 +145,13 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
   const [bpm, setBpm] = useState<number | null>(null)
   const [contact, setContact] = useState<boolean | null>(null)
   const [rr, setRr] = useState<number[]>([])
+  const [ppi, setPpi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [acc, setAcc] = useState<AccumulateurCardio>(accumulateurVide)
 
   const appareil = useRef<BluetoothDeviceMin | null>(null)
   const verrou = useRef<{ release: () => Promise<void> } | null>(null)
+  const controlePmd = useRef<{ writeValueWithResponse?(v: BufferSource): Promise<void>; writeValue(v: BufferSource): Promise<void> } | null>(null)
   // La FC max change quand le profil change ; la sonde de notification, elle,
   // est posée une fois. Sans cette référence elle garderait la valeur du jour
   // de l'appairage — les zones resteraient calculées sur l'ancienne.
@@ -141,6 +173,44 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
     setAcc((prev) => accumuler(prev, m.bpm, fcMaxRef.current, Date.now()))
   }, [])
 
+  /**
+   * Les intervalles Polar, quand le capteur les propose.
+   *
+   * Tout échoue en silence et c'est voulu : un brassard d'une autre marque n'a
+   * pas ce service, un Polar peut refuser la commande, et dans les deux cas la
+   * séance doit se dérouler normalement avec les battements du service
+   * standard. Perdre la variabilité n'est pas perdre la mesure.
+   */
+  const brancherPpi = useCallback(
+    async (serveur: { getPrimaryService(u: string): Promise<GattServiceMin> }) => {
+      try {
+        const service = await serveur.getPrimaryService(PMD_SERVICE)
+        const donnees = await service.getCharacteristic(PMD_DATA)
+        donnees.addEventListener('characteristicvaluechanged', (e: Event) => {
+          const vue = (e.target as unknown as { value: DataView }).value
+          try {
+            const utiles = intervallesUtilisables(parsePpi(parseTramePmd(vue)))
+            if (utiles.length) setRr((prev) => [...prev, ...utiles].slice(-RR_GARDES))
+          } catch {
+            // Trame d'un autre type de mesure, ou abîmée : on saute celle-là.
+          }
+        })
+        await donnees.startNotifications()
+        const controle = await service.getCharacteristic(PMD_CONTROL)
+        // Le point de contrôle répond par une notification : il faut l'écouter
+        // AVANT d'écrire, sinon la réponse du capteur tombe dans le vide et
+        // certaines piles Bluetooth rejettent l'écriture suivante.
+        await controle.startNotifications().catch(() => {})
+        await ecrire(controle, COMMANDE_DEMARRER_PPI)
+        controlePmd.current = controle as never
+        setPpi(true)
+      } catch {
+        setPpi(false)
+      }
+    },
+    [],
+  )
+
   const connecter = useCallback(async () => {
     if (!bluetoothDisponible()) {
       setEtat('absent')
@@ -154,6 +224,11 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
       // une fréquence cardiaque, et rien d'autre.
       const dev = await (navigator as unknown as BluetoothAvecScan).bluetooth.requestDevice({
         filters: [{ services: [SERVICE_FC] }],
+        // Le service Polar doit être demandé ICI : le navigateur interdit
+        // d'accéder à un service qu'on n'a pas annoncé au moment de
+        // l'appairage, même une fois connecté. Il reste facultatif — un
+        // capteur qui ne l'a pas se connecte quand même.
+        optionalServices: [PMD_SERVICE],
       })
       setEtat('connexion')
       appareil.current = dev
@@ -166,6 +241,7 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
       await caract.startNotifications()
       setEtat('connecté')
       void prendreVerrou(verrou)
+      void brancherPpi(serveur)
     } catch (e) {
       const msg = (e as Error).message ?? ''
       // Fermer le sélecteur du navigateur n'est pas une panne : on retourne à
@@ -179,6 +255,12 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
   }, [surMesure])
 
   const deconnecter = useCallback(() => {
+    // On arrête la mesure Polar avant de couper : un capteur laissé en PPI
+    // continue d'échantillonner et vide sa pile pour personne.
+    const c = controlePmd.current
+    controlePmd.current = null
+    if (c) void ecrire(c, COMMANDE_ARRETER_PPI).catch(() => {})
+    setPpi(false)
     try {
       appareil.current?.gatt?.disconnect()
     } catch {
@@ -226,6 +308,7 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
 
   return {
     etat,
+    ppi,
     nom,
     bpm,
     contact,
@@ -257,4 +340,20 @@ async function prendreVerrou(ref: { current: { release: () => Promise<void> } | 
   } catch {
     ref.current = null
   }
+}
+
+/**
+ * Écrit sur une caractéristique, avec accusé de réception quand c'est possible.
+ *
+ * Le point de contrôle PMD répond, donc l'écriture doit être « avec réponse » —
+ * une écriture sans accusé peut être perdue sans que rien ne le dise, et la
+ * mesure ne démarrerait jamais. `writeValueWithResponse` n'existe pas sur les
+ * piles les plus anciennes, d'où le repli.
+ */
+async function ecrire(
+  caract: { writeValueWithResponse?(v: BufferSource): Promise<void>; writeValue(v: BufferSource): Promise<void> },
+  octets: Uint8Array<ArrayBuffer>,
+): Promise<void> {
+  if (caract.writeValueWithResponse) return caract.writeValueWithResponse(octets)
+  return caract.writeValue(octets)
 }
