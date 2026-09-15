@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { bluetoothDisponible, useCapteurCardio } from '../lib/capteurCardio'
 import { bpmDesRr, rmssd } from '../lib/cardio'
 import { saveRepos, type MesureRepos as Mesure } from '../lib/cardioSeance'
-import { baseDe, COULEUR_VERDICT, fmtEcart, INTERVALLES_MIN, lireRecup, mesureFiable } from '../lib/recupCardiaque'
+import { INTERVALLES_MIN, mesureFiable } from '../lib/recupCardiaque'
 
 // La mesure au repos : fréquence de base et variabilité.
 //
@@ -38,7 +38,6 @@ export function MesureRepos({
   // vingt-cinq secondes avant le premier lot — ne gêne pas quelqu'un d'assis
   // qui ne bouge pas. En séance, ce serait l'inverse.
   const capteur = useCapteurCardio(null, { ppi: true })
-  const derniere = historique[0] ?? null
   const [enCours, setEnCours] = useState(false)
   const [reste, setReste] = useState(DUREE_S)
   const [msg, setMsg] = useState<string | null>(null)
@@ -142,57 +141,6 @@ export function MesureRepos({
 
       {capteur.erreur ? <p className="mt-1 text-xs text-clay">{capteur.erreur}</p> : null}
       {msg ? <p className="mt-1 text-xs text-copper">{msg}</p> : null}
-
-      {derniere ? (
-        <LectureDerniere derniere={derniere} historique={historique} />
-      ) : null}
-    </div>
-  )
-}
-
-/**
- * Ce que la dernière mesure dit — comparée aux précédentes, jamais seule.
- *
- * Le verdict d'abord, parce que c'est ce qu'on vient chercher le matin, et la
- * base juste derrière : sans elle le verdict serait une opinion. Tant qu'il n'y
- * a pas trois mesures fiables, on l'écrit franchement plutôt que de juger sur
- * du vide.
- */
-function LectureDerniere({ derniere, historique }: { derniere: Mesure; historique: Mesure[] }) {
-  const base = baseDe(historique)
-  const lecture = lireRecup(derniere, base)
-  const couleur = COULEUR_VERDICT[lecture.verdict]
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-sm font-bold" style={{ color: couleur }}>
-          {lecture.verdict === 'inconnu' ? 'Pas encore de référence' : lecture.verdict}
-        </span>
-        {lecture.z !== null ? (
-          <span className="text-xs tabular-nums" style={{ color: couleur }}>
-            {fmtEcart(lecture.z)}
-          </span>
-        ) : null}
-      </div>
-      <p className="text-xs leading-snug text-muted">{lecture.aide}</p>
-      <p className="text-xs text-muted">
-        Dernière : <b className="text-ink">{derniere.bpm} bpm</b>
-        {derniere.rmssd !== null ? (
-          <>
-            {' '}
-            · variabilité <b className="text-ink">{derniere.rmssd} ms</b>
-          </>
-        ) : (
-          ' · pas de variabilité'
-        )}{' '}
-        · {derniere.intervalles} intervalles ·{' '}
-        {new Date(derniere.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-      </p>
-      {base.rmssd !== null ? (
-        <p className="text-[11px] text-muted/80">
-          Ta base : {base.bpm} bpm · {base.rmssd} ms (± {base.ecartType}), sur {base.mesures} mesures.
-        </p>
-      ) : null}
     </div>
   )
 }
