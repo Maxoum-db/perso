@@ -130,6 +130,16 @@ export function Veilleuse({ sombre, onSombre }: { sombre: boolean; onSombre: (v:
         @media (max-height: 320px) {
           .veilleuse .veilleuse-aide { display: none; }
           .veilleuse .veilleuse-bpm { font-size: 3rem; line-height: 1; }
+          /* ── Le chiffre remonte en HAUT ──────────────────────────────
+             Pas une question d'esthétique. Android impose un plancher à la
+             taille d'une fenêtre, et on ne le descend pas ; mais One UI
+             laisse TRAÎNER une fenêtre contextuelle au-delà du bord de
+             l'écran. En poussant la fenêtre vers le bas, il ne reste que sa
+             bande supérieure — et c'est là que le chiffre doit être.
+
+             Centré, il disparaissait avec le reste. En haut, il survit à
+             tout ce qu'on cache. */
+          .veilleuse { justify-content: flex-start; padding-top: .5rem; }
         }
         @media (max-height: 200px) {
           .veilleuse .veilleuse-bpm { font-size: 2.25rem; }
