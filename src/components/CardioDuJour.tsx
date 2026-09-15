@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
 import { MesureRepos } from './MesureRepos'
-import { loadCardios, loadRepos, oublierRepos, type CardiosSeances, type MesureRepos as Mesure } from '../lib/cardioSeance'
+import {
+  loadCardios,
+  loadFcMaxRelevee,
+  loadRepos,
+  oublierRepos,
+  saveFcMaxRelevee,
+  type CardiosSeances,
+  type MesureRepos as Mesure,
+} from '../lib/cardioSeance'
+import { chercherFcMax, decalageZone, type Proposition } from '../lib/fcMaxObservee'
+import { fcMaxEstimee } from '../lib/cardio'
+import { age, loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
 import { baseDe, COULEUR_VERDICT, fmtEcart, INTERVALLES_MIN, lireRecup, mesureFiable } from '../lib/recupCardiaque'
 import { bilanCardiaque, ecartMoyenne, type BilanCardiaque } from '../lib/chargeCardiaque'
 import { PolarFlowSeances } from './PolarFlow'
@@ -39,12 +50,16 @@ export function CardioDuJour({
 }) {
   const [historique, setHistorique] = useState<Mesure[]>([])
   const [cardios, setCardios] = useState<CardiosSeances>({})
+  const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
+  const [relevee, setRelevee] = useState<number | null>(null)
   const [ouvert, setOuvert] = useState<'mesure' | 'historique' | 'aide' | null>(null)
 
   useEffect(() => {
     if (!userId) return
     loadRepos(userId).then(setHistorique).catch(() => {})
     loadCardios(userId).then(setCardios).catch(() => {})
+    loadProfil(userId).then(setProfil).catch(() => {})
+    loadFcMaxRelevee(userId).then(setRelevee).catch(() => {})
   }, [userId])
 
   const derniere = historique[0] ?? null
@@ -52,6 +67,8 @@ export function CardioDuJour({
   const lecture = lireRecup(derniere, base)
   const couleur = COULEUR_VERDICT[lecture.verdict]
   const bilan = bilanCardiaque(cardios, seances)
+  const fcMax = relevee ?? fcMaxEstimee(age(profil))
+  const proposition = chercherFcMax(cardios, fcMax)
 
   function basculer(v: 'mesure' | 'historique' | 'aide') {
     setOuvert((x) => (x === v ? null : v))
@@ -120,6 +137,20 @@ export function CardioDuJour({
       ) : null}
 
       {ouvert === 'aide' ? <PourquoiPasEnContinu /> : null}
+
+      {proposition && fcMax !== null ? (
+        <PropositionFcMax
+          p={proposition}
+          actuelle={fcMax}
+          estimee={relevee === null}
+          date={seances.find((x) => x.id === proposition.sessionId)?.date ?? null}
+          onRetenir={() => {
+            saveFcMaxRelevee(userId, proposition.bpm)
+              .then(() => setRelevee(proposition.bpm))
+              .catch(() => {})
+          }}
+        />
+      ) : null}
 
       <ChargeSemaine bilan={bilan} />
 
@@ -236,6 +267,53 @@ function PourquoiPasEnContinu() {
         position, et la comparaison à ta propre base. C’est exactement l’information qu’un suivi continu sert à
         produire.
       </p>
+    </div>
+  )
+}
+
+
+/**
+ * « Tu es monté plus haut que ce qu'on te suppose. »
+ *
+ * Proposé, jamais appliqué. Un capteur optique produit des artefacts : un
+ * brassard qui glisse et une trame part à 210 sans que le cœur ait bougé. Le
+ * calcul ne peut pas distinguer l'artefact de l'effort — les deux sont un
+ * nombre élevé au milieu de nombres plus bas. La personne, elle, se souvient si
+ * elle a tout donné ce jour-là.
+ *
+ * D'où la date et le nombre de trames à l'écran : de quoi reconnaître la
+ * séance, et de quoi juger si le chiffre est solide.
+ */
+function PropositionFcMax({
+  p,
+  actuelle,
+  estimee,
+  date,
+  onRetenir,
+}: {
+  p: Proposition
+  actuelle: number
+  /** La valeur actuelle est-elle une estimation d'après l'âge ? */
+  estimee: boolean
+  date: string | null
+  onRetenir: () => void
+}) {
+  return (
+    <div className="rounded-xl2 border border-copper/40 bg-copper/5 p-2.5">
+      <div className="text-[11px] font-bold text-copper">Fréquence maximale à revoir</div>
+      <p className="mt-0.5 text-[11px] leading-snug text-ink">
+        Une séance a atteint <b>{p.bpm} bpm</b>, au-dessus des {actuelle} bpm {estimee ? 'estimés d’après ton âge' : 'que tu as relevés'}.
+        {date ? ` Séance du ${new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}.` : ''}
+      </p>
+      <p className="mt-1 text-[10px] leading-snug text-muted">
+        {p.mesures > 0 ? `${p.mesures} trames sur cette séance. ` : 'Mesure relevée via Polar Flow. '}
+        Un brassard qui glisse suffit à faire partir une trame trop haut — ne retiens cette valeur que si tu te souviens
+        d’avoir vraiment tout donné. Tes zones se décaleraient d’environ {decalageZone(actuelle, p.bpm, 0.8)} bpm au
+        seuil.
+      </p>
+      <button onClick={onRetenir} className="btn-ghost mt-1.5 px-2 py-1 text-[11px] text-copper">
+        Retenir {p.bpm} bpm
+      </button>
     </div>
   )
 }
