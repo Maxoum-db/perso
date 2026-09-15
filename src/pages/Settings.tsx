@@ -22,7 +22,6 @@ import { coderSeance, decoderSeance } from '../lib/partageSeance'
 import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type MesureRepos as Mesure } from '../lib/cardioSeance'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
 import { age } from '../lib/profil'
-import { MesureRepos } from '../components/MesureRepos'
 import {
   loadOptionsEteintes,
   optionActive,
@@ -656,9 +655,17 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
         {msg ? <p className="mt-1 text-xs text-copper">{msg}</p> : null}
       </div>
 
+      {/* La mesure au repos a quitté cet écran. Elle se prend tous les matins,
+          et ce qu'elle dit sert à décider de la séance du jour : elle vit
+          maintenant dans Musculation › Journal, au-dessus du bouton qui compose
+          la séance. Les réglages gardent ce qui se règle une fois. */}
       <div>
         <div className="text-xs font-bold text-ink">Mesure au repos</div>
-        <MesureRepos userId={userId} historique={repos} onFini={setRepos} />
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          Elle est passée dans <b className="text-ink">Musculation › Journal</b>, avec la lecture de récupération et la
+          charge cardiaque de la semaine. C’est là qu’on décide de sa séance, donc là qu’elle sert.
+          {repos.length ? ` ${repos.length} mesure${repos.length > 1 ? 's' : ''} enregistrée${repos.length > 1 ? 's' : ''}.` : ''}
+        </p>
       </div>
         </>
       )}

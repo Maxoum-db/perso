@@ -38,6 +38,7 @@ import { appliquerComptage, comptageReglable, loadExclues, nettoyerExclues, save
 import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
+import { CardioDuJour } from '../components/CardioDuJour'
 import { RecuperationCard } from '../components/RecuperationCard'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { ObservationsCard } from '../components/ObservationsCard'
@@ -1444,6 +1445,11 @@ export function Journal({
           sub={`soulevé sur ${FENETRE_STATS} j`}
         />
       </div>
+
+      {/* Avant le bouton qui compose la séance, et pas après : ce que la mesure
+          du matin dit sert précisément à décider si on y va fort aujourd'hui.
+          Sous la liste des séances, elle n'aurait été lue qu'après coup. */}
+      {cardioActif ? <CardioDuJour userId={userId} seances={sessions} /> : null}
 
       {picking ? (
         <SourcesDeSeance
