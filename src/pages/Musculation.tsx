@@ -1085,8 +1085,8 @@ export function Journal({
    * Fait basculer en séance EN DIRECT ce qu'on était en train de saisir.
    *
    * Troisième issue de l'éditeur, à côté d'« Annuler » et d'« Enregistrer ».
-   * Elle existe parce que le chemin est fréquent : on ouvre « Saisir une séance
-   * après coup », on choisit un modèle pour retrouver ses charges — et on se
+   * Elle existe parce que le chemin est fréquent : on ouvre « Saisir une
+   * séance », on choisit un modèle pour retrouver ses charges — et on se
    * rend compte qu'on va la faire maintenant. Sans ce bouton il fallait
    * abandonner la saisie, revenir en arrière et tout reprendre depuis le
    * générateur, qui ne compose pas le modèle qu'on venait de choisir.
@@ -1504,8 +1504,13 @@ export function Journal({
           <button onClick={() => suggerer()} className="btn-primary w-full py-3">
             {estModeRecup(focus) ? '🧊 Composer une séance de récupération' : '🧠 Composer une séance'}
           </button>
+          {/* « après coup » a sauté, et le nom rattrape la fonction : ce bouton
+              n'ouvre plus une saisie rétrospective depuis qu'il propose trois
+              sources, dont une qui LANCE la séance en direct. Annoncer « après
+              coup » à quelqu'un qui veut démarrer maintenant, c'est l'envoyer
+              chercher ailleurs un bouton qui n'existe pas. */}
           <button onClick={() => setPicking('manual')} className="btn-ghost w-full py-2 text-sm">
-            ✍️ Saisir une séance après coup
+            ✍️ Saisir une séance
           </button>
         </div>
       )}
