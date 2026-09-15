@@ -39,6 +39,31 @@ export const MESURES_MIN = 3
 
 export type OrigineFcMax = 'relevée' | 'estimée'
 
+/**
+ * D'où vient le VO2max affiché.
+ *
+ *   · `'test Polar'` — le test de condition physique de l'application Polar
+ *     Flow, cinq minutes allongé avec le brassard. Ce n'est pas une mesure
+ *     directe de consommation d'oxygène — aucun chiffre obtenu sans masque n'en
+ *     est une — mais c'est mieux que le nôtre : il repose sur une variabilité
+ *     relevée dans les conditions du test, et sur un modèle que Polar a calibré
+ *     sur sa propre population ;
+ *   · `'rapport des fréquences'` — notre estimation, qui multiplie deux
+ *     approximations (cf. `FACTEUR_UTH`).
+ *
+ * Le premier l'emporte quand il existe. Afficher le nôtre alors qu'une mesure
+ * meilleure dort dans le KV serait garder le pire des deux par habitude.
+ */
+export type OrigineVo2max = 'test Polar' | 'rapport des fréquences'
+
+/** Ce que Polar sait, quand le compte y est relié et que le test a été passé. */
+export interface ApportPolar {
+  vo2max: number | null
+  fcRepos: number | null
+  fcMax: number | null
+  date: string | null
+}
+
 export interface ProfilCardiaque {
   /** Médiane des battements au repos sur la fenêtre. `null` faute de mesures. */
   fcRepos: number | null
@@ -53,11 +78,15 @@ export interface ProfilCardiaque {
    * ou que la maximale n'est qu'estimée (cf. plus bas).
    */
   vo2max: number | null
+  /** `null` quand il n'y a pas de VO2max à montrer. */
+  origineVo2max: OrigineVo2max | null
   /**
    * Dérive de la FC de repos : médiane des trente derniers jours moins celle
    * des trente précédents, en battements. Positif = le repos monte.
    */
   tendance: number | null
+  /** Ce que Polar dit, quand il dit quelque chose — à côté du nôtre, pas à la place. */
+  polar: ApportPolar | null
 }
 
 /**
@@ -142,6 +171,7 @@ export function profilCardiaque(
   fcMax: number | null,
   origine: OrigineFcMax | null,
   maintenant: number = Date.now(),
+  polar: ApportPolar | null = null,
 ): ProfilCardiaque {
   const recentes = dansLaFenetre(historique, maintenant, 0, FENETRE_J)
   const fcRepos = recentes.length >= MESURES_MIN ? Math.round(mediane(recentes.map((m) => m.bpm)) as number) : null
@@ -150,10 +180,36 @@ export function profilCardiaque(
   const fcAvant = avant.length >= MESURES_MIN ? Math.round(mediane(avant.map((m) => m.bpm)) as number) : null
 
   const reserve = fcRepos !== null && fcMax !== null ? fcMax - fcRepos : null
-  const vo2max =
+
+  // Le nôtre, sous condition — cf. plus haut : deux estimations multipliées ne
+  // rendent pas une mesure.
+  const estime =
     fcRepos !== null && fcMax !== null && origine === 'relevée' && fcRepos > 0
       ? Math.round(FACTEUR_UTH * (fcMax / fcRepos))
       : null
+
+  // Celui de Polar l'emporte quand il existe. C'est la seule règle de priorité
+  // du module, et elle va dans le sens de la meilleure mesure — pas dans celui
+  // du chiffre qu'on a produit soi-même.
+  const mesure = polar?.vo2max ?? null
+
+  // ── Le chiffre et son étiquette sortent de la MÊME décision ──────────────
+  //
+  // Ils étaient calculés par deux expressions séparées, chacune refaisant la
+  // priorité de son côté. Les deux disaient la même chose, jusqu'au jour où
+  // l'une changerait sans l'autre : l'écran aurait alors affiché notre
+  // estimation sous l'étiquette « test Polar ». Pas une approximation — un
+  // mensonge, et du genre qu'on ne repère pas, puisque les deux nombres sont
+  // plausibles.
+  //
+  // Une seule expression, donc, et l'étiquette ne peut plus mentir sur la
+  // provenance du chiffre qu'elle accompagne.
+  const vo2: { valeur: number | null; origine: OrigineVo2max | null } =
+    mesure !== null
+      ? { valeur: mesure, origine: 'test Polar' }
+      : estime !== null
+        ? { valeur: estime, origine: 'rapport des fréquences' }
+        : { valeur: null, origine: null }
 
   return {
     fcRepos,
@@ -161,8 +217,10 @@ export function profilCardiaque(
     fcMax,
     origineFcMax: fcMax === null ? null : origine,
     reserve,
-    vo2max,
+    vo2max: vo2.valeur,
+    origineVo2max: vo2.origine,
     tendance: fcRepos !== null && fcAvant !== null ? fcRepos - fcAvant : null,
+    polar: polar && (polar.vo2max !== null || polar.fcRepos !== null || polar.fcMax !== null) ? polar : null,
   }
 }
 

@@ -15,6 +15,7 @@ import { age, loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
 import { baseDe, COULEUR_VERDICT, fmtEcart, INTERVALLES_MIN, lireRecup, mesureFiable } from '../lib/recupCardiaque'
 import { bilanCardiaque, ecartMoyenne, type BilanCardiaque } from '../lib/chargeCardiaque'
 import { FENETRE_J, lireTendance, profilCardiaque } from '../lib/profilCardiaque'
+import { loadPhysique, releverPhysique, type Physique } from '../lib/polarPhysique'
 import { PolarFlowSeances } from './PolarFlow'
 
 // Le cardio là où l'on s'entraîne, et plus dans les réglages.
@@ -54,6 +55,7 @@ export function CardioDuJour({
   const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
   const [relevee, setRelevee] = useState<number | null>(null)
   const [ouvert, setOuvert] = useState<'mesure' | 'historique' | 'aide' | null>(null)
+  const [physique, setPhysique] = useState<Physique | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -61,6 +63,7 @@ export function CardioDuJour({
     loadCardios(userId).then(setCardios).catch(() => {})
     loadProfil(userId).then(setProfil).catch(() => {})
     loadFcMaxRelevee(userId).then(setRelevee).catch(() => {})
+    loadPhysique(userId).then(setPhysique).catch(() => {})
   }, [userId])
 
   const derniere = historique[0] ?? null
@@ -153,7 +156,14 @@ export function CardioDuJour({
         />
       ) : null}
 
-      <ProfilCardiaqueBloc historique={historique} fcMax={fcMax} relevee={relevee !== null} />
+      <ProfilCardiaqueBloc
+        historique={historique}
+        fcMax={fcMax}
+        relevee={relevee !== null}
+        physique={physique}
+        polarActif={polarActif}
+        onPhysique={setPhysique}
+      />
 
       <ChargeSemaine bilan={bilan} />
 
@@ -180,14 +190,52 @@ function ProfilCardiaqueBloc({
   historique,
   fcMax,
   relevee,
+  physique,
+  polarActif,
+  onPhysique,
 }: {
   historique: Mesure[]
   fcMax: number | null
   relevee: boolean
+  physique: Physique | null
+  polarActif: boolean
+  onPhysique: (p: Physique | null) => void
 }) {
-  const p = profilCardiaque(historique, fcMax, fcMax === null ? null : relevee ? 'relevée' : 'estimée')
-  if (p.fcRepos === null) return null
+  const [occupe, setOccupe] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const p = profilCardiaque(
+    historique,
+    fcMax,
+    fcMax === null ? null : relevee ? 'relevée' : 'estimée',
+    Date.now(),
+    physique ? { vo2max: physique.vo2max, fcRepos: physique.fcRepos, fcMax: physique.fcMax, date: physique.date } : null,
+  )
+  // Le bloc apparaît dès qu'il a QUELQUE CHOSE à dire — trois mesures du matin,
+  // ou un test Polar. Il attendait les trois mesures dans tous les cas, ce qui
+  // cachait un VO2max mesuré à quelqu'un qui n'avait pas encore pris le pli de
+  // la mesure quotidienne.
+  if (p.fcRepos === null && !p.polar) return null
   const t = lireTendance(p.tendance)
+
+  async function relever() {
+    setOccupe(true)
+    setMsg(null)
+    try {
+      const r = await releverPhysique()
+      onPhysique(r.physique)
+      setMsg(
+        r.physique
+          ? r.nouveau
+            ? 'Relevé chez Polar.'
+            : 'Rien de neuf depuis la dernière fois.'
+          : 'Polar n’a rien : passe le test de condition physique dans l’application Polar Flow (Start › Testing), allongé cinq minutes avec le brassard.',
+      )
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setOccupe(false)
+    }
+  }
 
   return (
     <div className="rounded-xl2 bg-white/[0.03] p-2.5">
@@ -197,11 +245,13 @@ function ProfilCardiaqueBloc({
       </div>
 
       <dl className="mt-2 space-y-1.5">
-        <Ligne
-          terme="Repos"
-          valeur={`${p.fcRepos} bpm`}
-          aide={`médiane de ${p.mesures} mesure${p.mesures > 1 ? 's' : ''} fiable${p.mesures > 1 ? 's' : ''} sur ${FENETRE_J} jours`}
-        />
+        {p.fcRepos !== null ? (
+          <Ligne
+            terme="Repos"
+            valeur={`${p.fcRepos} bpm`}
+            aide={`médiane de ${p.mesures} mesure${p.mesures > 1 ? 's' : ''} fiable${p.mesures > 1 ? 's' : ''} sur ${FENETRE_J} jours`}
+          />
+        ) : null}
         {p.fcMax !== null ? (
           <Ligne
             terme="Maximale"
@@ -215,14 +265,33 @@ function ProfilCardiaqueBloc({
         {p.vo2max !== null ? (
           <Ligne
             terme="VO2max"
-            valeur={`≈ ${p.vo2max}`}
-            aide="ml/kg/min — ordre de grandeur (méthode du rapport, Uth 2004). Établie sur des hommes bien entraînés : elle surestime quand on ne l’est pas."
+            valeur={p.origineVo2max === 'test Polar' ? String(p.vo2max) : `≈ ${p.vo2max}`}
+            aide={
+              p.origineVo2max === 'test Polar'
+                ? `ml/kg/min — test de condition physique Polar${p.polar?.date ? `, ${quand(p.polar.date)}` : ''}. Estimé au repos, pas mesuré à l’effort : aucun chiffre obtenu sans masque n’est une mesure directe.`
+                : 'ml/kg/min — ordre de grandeur (méthode du rapport, Uth 2004). Établie sur des hommes bien entraînés : elle surestime quand on ne l’est pas.'
+            }
           />
         ) : p.fcMax !== null ? (
           <Ligne
             terme="VO2max"
             valeur="—"
-            aide="il faudrait une maximale RELEVÉE. La calculer sur une maximale elle-même estimée multiplierait deux approximations pour rendre un chiffre qui aurait l’air d’une mesure."
+            aide="il faudrait une maximale RELEVÉE, ou le test de condition physique de l’application Polar Flow. Le calculer sur une maximale elle-même estimée multiplierait deux approximations pour rendre un chiffre qui aurait l’air d’une mesure."
+          />
+        ) : null}
+        {/* Ce que Polar dit, À CÔTÉ du nôtre et pas à la place. Notre repos
+            vient de TON protocole — même posture, même heure ; celui de Polar
+            vient de son propre calcul, sur ses propres conditions. Les
+            confondre effacerait la seule chose qui rend une base comparable à
+            elle-même. */}
+        {p.polar?.fcRepos !== null && p.polar?.fcRepos !== undefined ? (
+          <Ligne terme="Repos Polar" valeur={`${p.polar.fcRepos} bpm`} aide="d’après ton profil Polar Flow — une seconde opinion, pas la nôtre" />
+        ) : null}
+        {p.polar?.fcMax !== null && p.polar?.fcMax !== undefined && p.polar.fcMax !== p.fcMax ? (
+          <Ligne
+            terme="Max Polar"
+            valeur={`${p.polar.fcMax} bpm`}
+            aide="celle du profil Polar Flow. Pour la retenir ici, écris-la dans « Fréquence maximale » plus haut — elle ne s’applique pas toute seule."
           />
         ) : null}
         {t ? (
@@ -234,6 +303,17 @@ function ProfilCardiaqueBloc({
           />
         ) : null}
       </dl>
+
+      {polarActif ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-line pt-2">
+          <button onClick={relever} disabled={occupe} className="chip bg-bg text-[10px] text-copper disabled:opacity-50">
+            {occupe ? '…' : '↻ Relever chez Polar'}
+          </button>
+          <span className="min-w-0 flex-1 text-[10px] leading-snug text-muted/70">
+            {msg ?? 'Le test de condition physique de l’application Polar Flow donne un VO2max et une fréquence de repos. Cinq minutes allongé, avec le brassard.'}
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }
