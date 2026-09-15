@@ -14,6 +14,7 @@ import { fcMaxEstimee } from '../lib/cardio'
 import { age, loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
 import { baseDe, COULEUR_VERDICT, fmtEcart, INTERVALLES_MIN, lireRecup, mesureFiable } from '../lib/recupCardiaque'
 import { bilanCardiaque, ecartMoyenne, type BilanCardiaque } from '../lib/chargeCardiaque'
+import { FENETRE_J, lireTendance, profilCardiaque } from '../lib/profilCardiaque'
 import { PolarFlowSeances } from './PolarFlow'
 
 // Le cardio là où l'on s'entraîne, et plus dans les réglages.
@@ -152,10 +153,110 @@ export function CardioDuJour({
         />
       ) : null}
 
+      <ProfilCardiaqueBloc historique={historique} fcMax={fcMax} relevee={relevee !== null} />
+
       <ChargeSemaine bilan={bilan} />
 
       {polarActif ? <PolarFlowSeances userId={userId} journal={seances} onSeanceCreee={onSeanceCreee} /> : null}
     </section>
+  )
+}
+
+
+/**
+ * Ce que le capteur a fini par apprendre sur toi.
+ *
+ * Rien à saisir : tout vient des mesures déjà prises. C'était le reproche qu'on
+ * pouvait faire à l'application — elle rangeait un relevé par matin, en tirait
+ * un verdict du jour, et ne s'en resservait jamais. Les deux chiffres qui
+ * décrivent vraiment un cœur, le repos et l'écart au maximum, n'étaient nulle
+ * part.
+ *
+ * Le bloc ne s'affiche pas tant qu'il n'y a rien à dire : un cadre vide qui
+ * annonce « pas encore de données » occupe la place sans rien apprendre. Il
+ * apparaît à la troisième mesure fiable.
+ */
+function ProfilCardiaqueBloc({
+  historique,
+  fcMax,
+  relevee,
+}: {
+  historique: Mesure[]
+  fcMax: number | null
+  relevee: boolean
+}) {
+  const p = profilCardiaque(historique, fcMax, fcMax === null ? null : relevee ? 'relevée' : 'estimée')
+  if (p.fcRepos === null) return null
+  const t = lireTendance(p.tendance)
+
+  return (
+    <div className="rounded-xl2 bg-white/[0.03] p-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+        <h3 className="text-xs font-bold text-ink">Ton profil cardiaque</h3>
+        <span className="text-[10px] text-muted/70">déduit de tes mesures, rien à saisir</span>
+      </div>
+
+      <dl className="mt-2 space-y-1.5">
+        <Ligne
+          terme="Repos"
+          valeur={`${p.fcRepos} bpm`}
+          aide={`médiane de ${p.mesures} mesure${p.mesures > 1 ? 's' : ''} fiable${p.mesures > 1 ? 's' : ''} sur ${FENETRE_J} jours`}
+        />
+        {p.fcMax !== null ? (
+          <Ligne
+            terme="Maximale"
+            valeur={`${p.fcMax} bpm`}
+            aide={p.origineFcMax === 'relevée' ? 'relevée sur le terrain' : 'estimée d’après ton âge (Tanaka, ±10 bpm)'}
+          />
+        ) : null}
+        {p.reserve !== null ? (
+          <Ligne terme="Réserve" valeur={`${p.reserve} bpm`} aide="l’amplitude dont ton cœur dispose entre les deux" />
+        ) : null}
+        {p.vo2max !== null ? (
+          <Ligne
+            terme="VO2max"
+            valeur={`≈ ${p.vo2max}`}
+            aide="ml/kg/min — ordre de grandeur (méthode du rapport, Uth 2004). Établie sur des hommes bien entraînés : elle surestime quand on ne l’est pas."
+          />
+        ) : p.fcMax !== null ? (
+          <Ligne
+            terme="VO2max"
+            valeur="—"
+            aide="il faudrait une maximale RELEVÉE. La calculer sur une maximale elle-même estimée multiplierait deux approximations pour rendre un chiffre qui aurait l’air d’une mesure."
+          />
+        ) : null}
+        {t ? (
+          <Ligne
+            terme="Tendance"
+            valeur={p.tendance === 0 ? '=' : `${(p.tendance as number) > 0 ? '+' : '−'}${Math.abs(p.tendance as number)} bpm`}
+            aide={t.texte}
+            couleur={t.sens === 'haut' ? '#e08a3c' : t.sens === 'bas' ? '#5bbf6a' : undefined}
+          />
+        ) : null}
+      </dl>
+    </div>
+  )
+}
+
+function Ligne({
+  terme,
+  valeur,
+  aide,
+  couleur,
+}: {
+  terme: string
+  valeur: string
+  aide: string
+  couleur?: string
+}) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2">
+      <dt className="w-16 shrink-0 text-[11px] text-muted">{terme}</dt>
+      <dd className="text-[11px] font-bold tabular-nums" style={couleur ? { color: couleur } : undefined}>
+        {valeur}
+      </dd>
+      <dd className="w-full text-[10px] leading-snug text-muted/70 sm:w-auto sm:flex-1">{aide}</dd>
+    </div>
   )
 }
 
