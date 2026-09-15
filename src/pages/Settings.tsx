@@ -663,7 +663,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
 
       <div>
         <div className="flex items-start justify-between gap-2">
-          <div className="text-xs font-bold text-ink">Écran sombre pendant la mesure</div>
+          <div className="text-xs font-bold text-ink">Assombrir tout seul après une minute</div>
           <button
             onClick={() => {
               saveVeilleuse(userId, !veilleuse).then(setVeilleuse).catch(() => {})
@@ -679,6 +679,8 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
         <p className="mt-0.5 text-xs leading-snug text-muted">
           Brassard branché, l’écran se voile de noir après {DELAI_S} secondes sans y toucher, et la fréquence reste
           lisible en tout petit. Touche la <b className="text-ink">moitié basse</b> pour rallumer.
+          {' '}Éteint, il reste le bouton <b className="text-ink">🌙</b> de l’en-tête, à gauche de la fréquence : ce
+          réglage ne commande que l’assombrissement automatique.
         </p>
         <p className="mt-1 text-[11px] leading-snug text-muted/70">
           C’est un masque, pas une extinction : l’écran doit rester allumé, sinon le Bluetooth du navigateur s’arrête et
