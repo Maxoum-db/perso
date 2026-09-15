@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { bluetoothDisponible, useCapteurCardio } from '../lib/capteurCardio'
+import { bluetoothDisponible } from '../lib/capteurCardio'
+import { useCapteur } from '../lib/capteurContexte'
 import { bpmDesRr, rmssd } from '../lib/cardio'
 import { saveRepos, type MesureRepos as Mesure } from '../lib/cardioSeance'
 import { INTERVALLES_MIN, mesureFiable } from '../lib/recupCardiaque'
@@ -37,7 +38,12 @@ export function MesureRepos({
   // le prix qu'il coûte — une fréquence rafraîchie toutes les cinq secondes,
   // vingt-cinq secondes avant le premier lot — ne gêne pas quelqu'un d'assis
   // qui ne bouge pas. En séance, ce serait l'inverse.
-  const capteur = useCapteurCardio(null, { ppi: true })
+  //
+  // D'où l'allumage à la DEMANDE, au démarrage de la mesure, et l'extinction
+  // dès qu'elle est finie : la liaison est maintenant partagée avec la séance
+  // en cours, et la laisser en PPI dégraderait la fréquence de quelqu'un
+  // d'autre.
+  const capteur = useCapteur()
   const [enCours, setEnCours] = useState(false)
   const [reste, setReste] = useState(DUREE_S)
   const [msg, setMsg] = useState<string | null>(null)
@@ -55,6 +61,7 @@ export function MesureRepos({
   useEffect(() => {
     if (!enCours || reste > 0) return
     setEnCours(false)
+    void capteur.activerPpi(false)
     const rr = rrRef.current
     const bpm = bpmDesRr(rr) ?? capteur.bpm
     if (bpm === null) {
@@ -82,7 +89,18 @@ export function MesureRepos({
     setMsg(null)
     setReste(DUREE_S)
     setEnCours(true)
+    void capteur.activerPpi(true)
   }
+
+  // Éteindre en quittant l'écran, même si la mesure n'est pas allée à son
+  // terme : un volet qu'on referme ne doit pas laisser le capteur en PPI pour
+  // le reste de la journée.
+  useEffect(() => {
+    return () => {
+      void capteur.activerPpi(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (!bluetoothDisponible()) {
     return (

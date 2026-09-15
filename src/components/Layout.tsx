@@ -4,6 +4,8 @@ import { useAuth } from '../lib/auth'
 import { fetchSettings, readCachedSettings, type Discipline } from '../lib/settings'
 import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
+import { useCapteur, useFcMax } from '../lib/capteurContexte'
+import { ZONES, zoneDe } from '../lib/cardio'
 
 type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
 
@@ -81,6 +83,7 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
           <img src="/icon-192.png" alt="" className="h-9 w-9 rounded-lg object-cover" />
         </NavLink>
         <div className="ml-auto flex items-center gap-3">
+          <PastilleCardio />
           {user?.user_metadata?.avatar_url ? (
             <img src={user.user_metadata.avatar_url} alt="" className="h-7 w-7 rounded-full border border-white/30" />
           ) : null}
@@ -314,5 +317,49 @@ function IconMore({ active }: IconProps) {
       <circle cx="12" cy="12" r="1.6" />
       <circle cx="19" cy="12" r="1.6" />
     </svg>
+  )
+}
+
+
+/**
+ * La fréquence cardiaque, visible depuis n'importe quel écran.
+ *
+ * ── Pourquoi dans l'en-tête ─────────────────────────────────────────────────
+ *
+ * Parce qu'on ne reste pas sur l'écran de séance. On va voir le journal pour
+ * retrouver ce qu'on avait mis la dernière fois, on ouvre le mannequin, on
+ * consulte une fiche — et pendant ce temps le cœur continue. La fréquence
+ * n'était visible que là où on ne regardait pas.
+ *
+ * L'en-tête est le seul endroit présent partout. La pastille n'y apparaît que
+ * si le brassard est branché : un cadre vide en permanence ne dirait rien et
+ * prendrait la place d'autre chose.
+ *
+ * ── Pourquoi elle porte la couleur de la zone ───────────────────────────────
+ *
+ * Un nombre seul demande un calcul mental à chaque coup d'œil — 148, c'est
+ * beaucoup ou pas ? La couleur répond avant qu'on ait lu le chiffre, et c'est
+ * la MÊME que dans la séance : une pastille orange en haut de l'écran veut dire
+ * exactement ce que la barre orange veut dire en bas.
+ */
+function PastilleCardio() {
+  const capteur = useCapteur()
+  const fcMax = useFcMax()
+  if (capteur.etat !== 'connecté' || capteur.bpm === null) return null
+  const zone = fcMax ? ZONES.find((z) => z.id === zoneDe(capteur.bpm as number, fcMax)) : undefined
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+      style={{
+        background: zone ? `${zone.couleur}33` : 'rgba(255,255,255,.12)',
+        color: zone?.couleur ?? '#fff',
+      }}
+      title={zone ? `Zone ${zone.label}` : 'Fréquence cardiaque'}
+    >
+      ❤️ {capteur.bpm}
+      {/* Le brassard décroché se dit tout de suite : sinon le dernier chiffre
+          reçu reste affiché et on le croit à jour. */}
+      {capteur.contact === false ? <span className="text-[10px] font-normal opacity-80">décroché</span> : null}
+    </span>
   )
 }

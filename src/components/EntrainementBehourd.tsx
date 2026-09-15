@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useCapteurCardio } from '../lib/capteurCardio'
+import { useCapteur } from '../lib/capteurContexte'
 import { fcMaxEstimee } from '../lib/cardio'
 import { loadCardios, loadFcMaxRelevee, saveCardio } from '../lib/cardioSeance'
 import { age, loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
@@ -47,7 +47,9 @@ export function EntrainementBehourd({ userId, cardioActif }: { userId: string; c
 
   const fcMaxEstime = fcMaxEstimee(age(profil))
   const fcMax = fcMaxRelevee ?? fcMaxEstime
-  const capteur = useCapteurCardio(fcMax)
+  // Le capteur de l'application, pas un second : deux liaisons ouvertes sur le
+  // même brassard, et la seconde échouerait ou volerait la première.
+  const capteur = useCapteur()
 
   useEffect(() => {
     if (debut === null) return

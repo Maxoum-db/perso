@@ -123,6 +123,16 @@ export interface Capteur {
   deconnecter: () => void
   /** Repart de zéro sans couper la liaison — au début d'une séance, d'une mesure. */
   remettreAZero: () => void
+  /**
+   * Allume ou éteint les intervalles Polar sur une liaison déjà ouverte.
+   *
+   * Réservé à la mesure au repos, et à elle seule. Le PPI coûte cher en séance :
+   * la fréquence n'est plus rafraîchie que toutes les cinq secondes, le premier
+   * lot se fait attendre vingt-cinq, et le capteur interrompt son propre
+   * enregistrement. On l'allume donc pour deux minutes d'immobilité, et on
+   * l'éteint juste après.
+   */
+  activerPpi: (on: boolean) => Promise<void>
 }
 
 /**
@@ -216,6 +226,14 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
   const appareil = useRef<BluetoothDeviceMin | null>(null)
   const verrou = useRef<{ release: () => Promise<void> } | null>(null)
   const controlePmd = useRef<{ writeValueWithResponse?(v: BufferSource): Promise<void>; writeValue(v: BufferSource): Promise<void> } | null>(null)
+  // Le serveur GATT, gardé après la connexion.
+  //
+  // Le PPI n'était demandé qu'À L'APPAIRAGE, d'après une option figée au montage
+  // du composant. C'était tenable tant que chaque écran ouvrait sa propre
+  // liaison ; ça ne l'est plus depuis que la liaison est unique et partagée —
+  // la mesure au repos doit pouvoir allumer les intervalles sur une liaison
+  // déjà ouverte par une séance, et les éteindre en repartant.
+  const serveurGatt = useRef<{ getPrimaryService(u: string): Promise<GattServiceMin> } | null>(null)
   // La FC max change quand le profil change ; la sonde de notification, elle,
   // est posée une fois. Sans cette référence elle garderait la valeur du jour
   // de l'appairage — les zones resteraient calculées sur l'ancienne.
@@ -305,6 +323,7 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
       // défaut de cet écran, pas seulement du brassard : une attente sans fin
       // n'est pas un message.
       const serveur = await sousDelai(dev.gatt!.connect(), 'la liaison')
+      serveurGatt.current = serveur
       const service = await sousDelai(serveur.getPrimaryService(SERVICE_FC), 'le service cardiaque')
       const caract = await sousDelai(service.getCharacteristic(CARACT_MESURE), 'la mesure')
       caract.addEventListener('characteristicvaluechanged', surMesure)
@@ -345,6 +364,7 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
       /* déjà parti */
     }
     appareil.current = null
+    serveurGatt.current = null
     verrou.current?.release().catch(() => {})
     verrou.current = null
     setEtat(bluetoothDisponible() ? 'prêt' : 'absent')
@@ -356,6 +376,25 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
     setAcc(accumulateurVide())
     setRr([])
   }, [])
+
+  const activerPpi = useCallback(
+    async (on: boolean) => {
+      if (on) {
+        // Déjà allumé : ne pas renvoyer la commande de démarrage. Certaines
+        // piles Bluetooth refusent la seconde, et on perdrait la première.
+        if (controlePmd.current) return
+        const serveur = serveurGatt.current
+        if (!serveur) return
+        await brancherPpi(serveur)
+        return
+      }
+      const c = controlePmd.current
+      controlePmd.current = null
+      setPpi(false)
+      if (c) await ecrire(c, COMMANDE_ARRETER_PPI).catch(() => {})
+    },
+    [brancherPpi],
+  )
 
   // Le verrou d'écran est rendu par le navigateur dès que la page passe en
   // arrière-plan, et il n'est PAS repris tout seul au retour. Sans ce
@@ -397,6 +436,7 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
     connecter,
     deconnecter,
     remettreAZero,
+    activerPpi,
   }
 }
 
