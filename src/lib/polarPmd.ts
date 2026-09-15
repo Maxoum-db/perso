@@ -137,26 +137,78 @@ export function parsePpi(trame: TramePmd): EchantillonPpi[] {
 }
 
 /**
- * Marge d'erreur au-delà de laquelle on jette l'intervalle.
+ * Marge d'erreur au-delà de laquelle un intervalle ne veut plus rien dire.
  *
- * Dix millisecondes. La RMSSD d'un adulte au repos se compte en dizaines de
- * millisecondes : un intervalle dont le capteur annonce lui-même ±30 ms ne
- * mesure plus la variabilité, il la fabrique. Polar ne fixe pas de seuil dans
- * son SDK — il expose la marge et laisse l'application décider —, celui-ci est
- * donc un choix, et il est ici pour pouvoir être discuté.
+ * ⚠️ Cent millisecondes, et c'est une CORRECTION. J'avais d'abord mis dix, par
+ * raisonnement : « la RMSSD au repos se compte en dizaines de millisecondes,
+ * donc ±30 ms fabrique la variabilité au lieu de la mesurer ». Le raisonnement
+ * se tient et le résultat était absurde — sur une mesure réelle de deux
+ * minutes à 80 bpm, il restait SIX intervalles sur environ cent vingt. Une
+ * RMSSD sur six intervalles ne vaut rien, et le chiffre s'affichait quand même.
+ *
+ * La documentation de Polar (documentation/PPIData.md) ne fixe aucun seuil
+ * d'erreur. Elle dit ce qu'il faut jeter, et c'est autre chose :
+ *
+ *   « If skin contact flag is 0 or blocker flag is 1, the sample should not be
+ *     treated as valid and discarded. »
+ *
+ * Le bit « mouvement détecté » est donc le vrai filtre. La marge d'erreur, elle,
+ * est une INFORMATION sur la qualité — bonne à afficher, mauvaise comme
+ * couperet. Ce seuil-ci ne sert plus qu'à écarter l'aberrant.
  */
-export const ERREUR_MAX_MS = 10
+export const ERREUR_MAX_MS = 100
+
+/**
+ * Faut-il se fier au drapeau de contact avec la peau ?
+ *
+ * Non sur le Verity Sense, et Polar le dit lui-même :
+ *
+ *   « Some older generation optical sensors such as Verity Sense and OH1 might
+ *     expose that skin contact is supported, but that cannot be trusted. »
+ *
+ * On ne s'en sert donc pas pour jeter des échantillons. L'écran continue de
+ * l'afficher — il est souvent juste — mais il ne décide de rien.
+ */
+export const CONTACT_FIABLE = false
 
 /**
  * Les intervalles utilisables d'une trame, en millisecondes.
  *
- * Trois filtres, du plus autoritaire au plus prudent : ce que le capteur
- * déclare inutilisable, ce dont il annonce une marge trop large, et ce qui
- * n'est physiologiquement pas un battement. Le premier vient de Polar, les deux
- * autres sont les mêmes bornes que pour les RR du service standard.
+ * Le seul filtre qui fait autorité est celui de Polar : le bit de mouvement.
+ * Les deux autres bornes n'écartent que l'absurde — un intervalle hors des
+ * limites humaines, ou une marge d'erreur si large que la valeur ne dit plus
+ * rien.
  */
 export function intervallesUtilisables(echantillons: EchantillonPpi[]): number[] {
   return echantillons
     .filter((e) => !e.bloque && e.erreurMs <= ERREUR_MAX_MS && e.ppMs >= 300 && e.ppMs <= 2000)
     .map((e) => e.ppMs)
+}
+
+/**
+ * Ce que la qualité d'un lot dit, pour le montrer plutôt que le taire.
+ *
+ * Polar conseille explicitement de prévenir l'utilisateur quand les
+ * échantillons bloqués s'enchaînent : « If the SDK application sees several
+ * samples with blocker = 1 in a row, it could use that to inform the user that
+ * they should try to be more still. » Un écran qui jette en silence laisse
+ * croire à une panne du capteur alors qu'il suffit de ne plus bouger.
+ */
+export interface QualitePpi {
+  recus: number
+  gardes: number
+  bloques: number
+  /** Marge d'erreur médiane des intervalles gardés, en millisecondes. */
+  erreurMediane: number | null
+}
+
+export function qualitePpi(echantillons: EchantillonPpi[]): QualitePpi {
+  const gardes = echantillons.filter((e) => !e.bloque && e.erreurMs <= ERREUR_MAX_MS && e.ppMs >= 300 && e.ppMs <= 2000)
+  const erreurs = gardes.map((e) => e.erreurMs).sort((a, b) => a - b)
+  return {
+    recus: echantillons.length,
+    gardes: gardes.length,
+    bloques: echantillons.filter((e) => e.bloque).length,
+    erreurMediane: erreurs.length ? erreurs[Math.floor(erreurs.length / 2)] : null,
+  }
 }
