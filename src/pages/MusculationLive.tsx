@@ -532,6 +532,15 @@ export function LiveSession({
         }
       }
       clearLive()
+      // Le brassard se débranche AVEC la séance, et ça n'a rien d'accessoire :
+      // tant qu'il est branché, la page tient un verrou d'écran, et le
+      // téléphone ne s'endort plus. Avant que la liaison ne remonte au niveau de
+      // l'application, ce démontage-ci la coupait tout seul ; maintenant que
+      // plus rien ne se démonte, il faut le dire.
+      //
+      // Après la fréquence, jamais avant : `capteur.bilan` est lu plus haut, et
+      // couper d'abord le remettrait à zéro.
+      capteur.deconnecter()
       onFinish()
     } catch (e) {
       setError((e as Error).message)
@@ -542,6 +551,9 @@ export function LiveSession({
   function quit() {
     if (!confirm('Abandonner la séance en cours ? Rien ne sera enregistré.')) return
     clearLive()
+    // Abandonner libère le capteur comme terminer : une séance qu'on jette ne
+    // doit pas laisser l'écran allumé pour la nuit.
+    capteur.deconnecter()
     onQuit()
   }
 
