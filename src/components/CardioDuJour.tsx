@@ -27,10 +27,15 @@ import { PolarFlowSeances } from './PolarFlow'
 export function CardioDuJour({
   userId,
   seances,
+  polarActif,
+  onSeanceCreee,
 }: {
   userId: string
   /** Les séances connues — elles datent les mesures cardiaques, rangées par identifiant. */
   seances: Array<{ id: string; date: string }>
+  /** L'option Polar Flow est-elle allumée pour ce compte ? */
+  polarActif: boolean
+  onSeanceCreee?: () => void
 }) {
   const [historique, setHistorique] = useState<Mesure[]>([])
   const [cardios, setCardios] = useState<CardiosSeances>({})
@@ -118,7 +123,7 @@ export function CardioDuJour({
 
       <ChargeSemaine bilan={bilan} />
 
-      <PolarFlowSeances userId={userId} />
+      {polarActif ? <PolarFlowSeances userId={userId} journal={seances} onSeanceCreee={onSeanceCreee} /> : null}
     </section>
   )
 }

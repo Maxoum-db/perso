@@ -567,9 +567,11 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
 
   const accorde = autorisees === null || autorisees.includes('cardio')
   const actif = optionActive('cardio', eteintes, autorisees)
+  const polarAccorde = autorisees === null || autorisees.includes('polar')
+  const polarActif = optionActive('polar', eteintes, autorisees)
 
-  async function basculer() {
-    const next = eteintes.includes('cardio') ? eteintes.filter((x) => x !== 'cardio') : [...eteintes, 'cardio' as const]
+  async function basculer(id: OptionMuscu) {
+    const next = eteintes.includes(id) ? eteintes.filter((x) => x !== id) : [...eteintes, id]
     setEteintes(await saveOptionsEteintes(userId, next))
   }
 
@@ -605,7 +607,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-sm font-bold text-ink">❤️ Capteur cardiaque</h2>
         <button
-          onClick={basculer}
+          onClick={() => basculer('cardio')}
           aria-pressed={actif}
           className={`chip shrink-0 text-[11px] transition ${
             actif ? 'bg-sage/25 text-sage ring-1 ring-sage' : 'bg-bg text-muted'
@@ -656,7 +658,31 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
         {msg ? <p className="mt-1 text-xs text-copper">{msg}</p> : null}
       </div>
 
-      <PolarFlowReglage />
+      {/* Polar Flow dépend du capteur : les deux parlent du même brassard, et ce
+          bloc vit à l'intérieur de la section cardio. Il n'apparaît donc que si
+          le propriétaire l'a accordé — sinon rien, pas même un cadre grisé. */}
+      {polarAccorde ? (
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-xs font-bold text-ink">Polar Flow</div>
+            <button
+              onClick={() => basculer('polar')}
+              aria-pressed={polarActif}
+              className={`chip shrink-0 text-[11px] transition ${
+                polarActif ? 'bg-sage/25 text-sage ring-1 ring-sage' : 'bg-bg text-muted'
+              }`}
+            >
+              {polarActif ? '☑ Activé' : '☐ Éteint'}
+            </button>
+          </div>
+          {polarActif ? <PolarFlowReglage /> : (
+            <p className="mt-0.5 text-xs leading-snug text-muted">
+              Éteint : les séances enregistrées par le capteur seul ne sont plus relevées, et le bloc disparaît du
+              journal. Le lien avec ton compte Polar reste en place.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {/* La mesure au repos a quitté cet écran. Elle se prend tous les matins,
           et ce qu'elle dit sert à décider de la séance du jour : elle vit

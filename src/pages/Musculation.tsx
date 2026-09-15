@@ -544,6 +544,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           musclesVisibles={musclesVisibles}
           cardios={cardios}
           cardioActif={optionActive('cardio', optionsEteintes, optionsAutorisees)}
+          polarActif={optionActive('polar', optionsEteintes, optionsAutorisees)}
           allures={allures}
           onAllures={setAllures}
           onCourbatures={(next) => {
@@ -636,6 +637,7 @@ export function Journal({
   musclesVisibles,
   cardios,
   cardioActif,
+  polarActif,
   allures,
   onAllures,
   exclues,
@@ -689,6 +691,7 @@ export function Journal({
   cardios: CardiosSeances
   /** L'option capteur est-elle accordée ET allumée ? Sinon rien de cardiaque ne s'affiche. */
   cardioActif: boolean
+  polarActif: boolean
   /** Allures déclarées sur les exercices au temps ou à la distance. */
   allures: Allures
   onAllures: (a: Allures) => void
@@ -1449,7 +1452,9 @@ export function Journal({
       {/* Avant le bouton qui compose la séance, et pas après : ce que la mesure
           du matin dit sert précisément à décider si on y va fort aujourd'hui.
           Sous la liste des séances, elle n'aurait été lue qu'après coup. */}
-      {cardioActif ? <CardioDuJour userId={userId} seances={sessions} /> : null}
+      {cardioActif ? (
+        <CardioDuJour userId={userId} seances={sessions} polarActif={polarActif} onSeanceCreee={onChange} />
+      ) : null}
 
       {picking ? (
         <SourcesDeSeance
@@ -1596,7 +1601,13 @@ function BlocCardio({ c }: { c: CardioSeance }) {
             ))}
         </div>
       ) : null}
-      <p className="mt-1 text-[10px] italic text-muted/70">{c.mesures} mesures reçues.</p>
+      {/* Le nombre de trames ne veut rien dire pour une mesure venue de Polar :
+          elle n'a traversé aucun Bluetooth ici, et sa moyenne — calculée par le
+          capteur sur toute la séance — vaut mieux que la nôtre. Écrire
+          « 0 mesures reçues » la ferait passer pour douteuse. */}
+      <p className="mt-1 text-[10px] italic text-muted/70">
+        {c.origine === 'polar' ? 'Mesurée par le capteur, relevée via Polar Flow.' : `${c.mesures} mesures reçues.`}
+      </p>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { fetchKv, saveKv } from './kv'
 import { dateDe, nomSport, type SeancePolar } from './polarFlow'
 
 // Le côté navigateur du pont Polar Flow.
@@ -158,3 +159,68 @@ export function titreSeance(s: SeanceImportee): string {
 }
 
 export { dateDe }
+
+
+// ── Les séances déjà passées au journal ─────────────────────────────────────
+//
+// Une séance relevée chez Polar n'est pas une séance du journal : elle ne pèse
+// ni dans la charge, ni dans le mannequin, ni dans les statistiques. La
+// convertir crée une vraie séance — et il faut se souvenir de laquelle, sinon
+// un second clic en crée une deuxième.
+//
+// ── Pourquoi le KV et pas une colonne ───────────────────────────────────────
+//
+// `perso_polar_exercices` n'accepte AUCUNE écriture du navigateur, et c'est
+// voulu : rien côté client ne doit pouvoir fabriquer une séance « venue de
+// Polar ». Ajouter une politique de mise à jour pour ranger un identifiant
+// rouvrirait la table entière — les règles de Postgres portent sur la ligne,
+// pas sur la colonne, et on ne peut donc pas n'autoriser que ce champ-là.
+//
+// Le lien vit donc à côté, dans le KV, comme l'intensité déclarée et les
+// mesures au repos. Il n'a rien de sensible : c'est un identifiant en face d'un
+// autre.
+
+const CLE_CONVERSIONS = 'polar_seances_converties'
+
+/** `identifiant Polar` → `identifiant de la séance créée`. */
+export type ConversionsPolar = Record<string, string>
+
+export async function loadConversions(userId: string): Promise<ConversionsPolar> {
+  const v = await fetchKv<ConversionsPolar>(userId, CLE_CONVERSIONS, {})
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+  // On ne garde que les paires de chaînes : une valeur d'un autre type
+  // renverrait un identifiant que `saveSession` refuserait plus tard, loin
+  // d'ici et sans expliquer pourquoi.
+  const out: ConversionsPolar = {}
+  for (const [k, x] of Object.entries(v)) if (typeof x === 'string' && x) out[k] = x
+  return out
+}
+
+export async function saveConversion(
+  userId: string,
+  polarId: string,
+  sessionId: string,
+  connues: ConversionsPolar,
+): Promise<ConversionsPolar> {
+  const next = { ...connues, [polarId]: sessionId }
+  await saveKv(userId, CLE_CONVERSIONS, next)
+  return next
+}
+
+/**
+ * Les conversions dont la séance existe encore.
+ *
+ * Une séance supprimée du journal doit pouvoir être recréée : garder le lien
+ * afficherait « ✓ au journal » en pointant vers rien, et le bouton resterait
+ * grisé pour toujours. On ne PURGE pas le KV pour autant — la liste des séances
+ * vivantes vient d'une requête limitée, et une séance simplement plus ancienne
+ * que la fenêtre n'est pas une séance supprimée. On filtre à l'affichage, ce
+ * qui se trompe dans le sens réparable.
+ */
+export function conversionsVivantes(connues: ConversionsPolar, idsVivants: Set<string>): ConversionsPolar {
+  const out: ConversionsPolar = {}
+  for (const [polarId, sessionId] of Object.entries(connues)) {
+    if (idsVivants.has(sessionId)) out[polarId] = sessionId
+  }
+  return out
+}

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { saveSession } from '../lib/muscu'
+import { loadCardios, saveCardioPolar } from '../lib/cardioSeance'
 import {
+  conversionsVivantes,
+  loadConversions,
+  saveConversion,
+  type ConversionsPolar,
   delierPolar,
   etatPolar,
   ETAT_INCONNU,
@@ -185,9 +191,20 @@ export function doitRelever(derniereSync: string | null, maintenant: number, ess
  * importée » chez quelqu'un qui n'a jamais relié son compte n'apprend rien, il
  * occupe un écran.
  */
-export function PolarFlowSeances({ userId }: { userId: string }) {
+export function PolarFlowSeances({
+  userId,
+  journal,
+  onSeanceCreee,
+}: {
+  userId: string
+  /** Les séances du journal — elles disent ce qui a déjà été converti. */
+  journal: Array<{ id: string; date: string }>
+  /** Prévient l'écran parent qu'une séance vient d'apparaître dans le journal. */
+  onSeanceCreee?: () => void
+}) {
   const { etat, chargement } = useEtat()
   const [seances, setSeances] = useState<SeanceImportee[]>([])
+  const [conversions, setConversions] = useState<ConversionsPolar>({})
   const [occupe, setOccupe] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [ouvert, setOuvert] = useState(false)
@@ -195,9 +212,50 @@ export function PolarFlowSeances({ userId }: { userId: string }) {
   const recharger = useCallback(() => {
     if (!userId) return
     listerSeancesPolar(userId).then(setSeances).catch(() => {})
+    loadConversions(userId).then(setConversions).catch(() => {})
   }, [userId])
 
   useEffect(recharger, [recharger])
+
+  const vivantes = conversionsVivantes(conversions, new Set(journal.map((x) => x.id)))
+
+  /**
+   * Fait d'une séance relevée une vraie séance du journal.
+   *
+   * Sans exercices : Polar ne sait pas ce qu'on a soulevé, et en inventer
+   * serait pire que rien. La séance arrive avec sa date, sa durée et son sport,
+   * et s'ouvre ensuite comme n'importe quelle autre pour qu'on y ajoute ce
+   * qu'on a fait.
+   */
+  async function convertir(s: SeanceImportee) {
+    setOccupe(true)
+    setMsg(null)
+    try {
+      const id = await saveSession(
+        userId,
+        {
+          date: s.date,
+          name: titreSeance(s),
+          duration_min: s.dureeS !== null ? Math.max(1, Math.round(s.dureeS / 60)) : null,
+          notes: `Relevée dans Polar Flow${s.appareil ? ` · ${s.appareil}` : ''}.`,
+          template_id: null,
+        },
+        [],
+      )
+      // La fréquence cardiaque rejoint la séance comme n'importe quelle autre,
+      // pour qu'elle s'affiche au journal sans traitement de faveur.
+      if (s.fcMoyenne !== null && s.fcMax !== null) {
+        await saveCardioPolar(userId, id, { moyenne: s.fcMoyenne, max: s.fcMax }, s.appareil, await loadCardios(userId))
+      }
+      setConversions(await saveConversion(userId, s.id, id, conversions))
+      setMsg('Séance créée dans le journal. Ouvre-la pour y mettre tes exercices.')
+      onSeanceCreee?.()
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setOccupe(false)
+    }
+  }
 
   const synchroniser = useCallback(
     async (auto = false) => {
@@ -279,6 +337,17 @@ export function PolarFlowSeances({ userId }: { userId: string }) {
                       {s.calories !== null ? ` · ${s.calories} kcal` : ''}
                     </span>
                   </span>
+                  {vivantes[s.id] ? (
+                    <span className="chip shrink-0 bg-sage/20 text-[10px] text-sage">✓ au journal</span>
+                  ) : (
+                    <button
+                      onClick={() => convertir(s)}
+                      disabled={occupe}
+                      className="chip shrink-0 bg-bg text-[10px] text-copper disabled:opacity-50"
+                    >
+                      + journal
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       oublierSeancePolar(userId, s.id)
@@ -295,7 +364,9 @@ export function PolarFlowSeances({ userId }: { userId: string }) {
             </ul>
             <p className="mt-1 text-[10px] leading-snug text-muted/70">
               Pas de temps par zone sur ces séances : la route qui les rend ne le donne pas. Elles ne comptent donc pas
-              dans la charge cardiaque de la semaine.
+              dans la charge cardiaque de la semaine. « + journal » en fait une vraie séance — avec sa date, sa durée et
+              sa fréquence cardiaque — qui pèse alors dans la charge et les statistiques ; les exercices restent à y
+              mettre, Polar ne sait pas ce qu’on a soulevé.
             </p>
           </>
         )
