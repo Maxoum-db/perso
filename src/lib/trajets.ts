@@ -34,6 +34,22 @@ export interface Trajet {
   segments: number
   /** Identifiant de la séance créée, quand le trajet en a produit une. */
   sessionId?: string
+  /**
+   * D'où vient le trajet, quand ce n'est pas l'enregistreur de l'application.
+   *
+   * `'gpx'` : lu dans un fichier exporté ailleurs — Calimoto, le plus souvent.
+   * Ces trajets-là n'ont pas la même origine de mesure : le récepteur d'une
+   * application de navigation tourne avec un écran dédié, pas avec un téléphone
+   * qui s'assombrit dans une poche, et ses points sont déjà lissés. Sans ce
+   * champ, on comparerait deux mesures de qualités différentes sans le savoir.
+   *
+   * Un fichier sans horodatage — un trajet PLANIFIÉ et non parcouru — donne une
+   * distance et rien d'autre : sa durée vaut alors zéro, et l'écran ne l'écrit
+   * pas plutôt que d'afficher « 0 s ».
+   */
+  origine?: 'gpx'
+  /** Nom de la trace, quand le fichier en portait un. */
+  nom?: string
 }
 
 export const MODES: Array<{ id: ModeTrajet; icone: string; label: string; aide: string }> = [
