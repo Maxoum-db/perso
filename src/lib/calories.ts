@@ -50,6 +50,36 @@ const MET_PAR_MOTIF: Array<[RegExp, number]> = [
   // au sol. Rien ici ne peut être confondu avec une nage ni une course, donc
   // rien ne perd à passer en premier.
   [/(etirement|mobilite|vacuum|rotation externe|extension terminale)/, 2.5],
+  // Vie quotidienne — les tâches de la maison.
+  //
+  // EN DEUXIÈME, juste après le travail postural, et c'est obligatoire : sans
+  // ça « Vie quotidienne — courses et port de sacs » se fait attraper par
+  // /(course|running|footing|trail|sentier)/ plus bas et part à 9,8, le MET de
+  // la course à pied. Une heure de courses facturée comme une heure de footing.
+  // C'est exactement le travers que ce fichier documente déjà trois fois ; on
+  // ne le répare pas après coup, on place le bloc avant.
+  //
+  // Le préfixe « vie quotidienne — » est donc porté par CHAQUE entrée, et c'est
+  // lui qu'on teste. Un nom d'exercice ordinaire ne peut pas le contenir par
+  // accident, là où « ménage », « rangement » ou « courses » seuls
+  // croiseraient des exercices existants.
+  //
+  // ── D'où viennent ces chiffres ──────────────────────────────────────────
+  //
+  // Du Compendium of Physical Activities, la table de référence du domaine,
+  // pour ceux que j'ai pu vérifier : aspirateur et serpillière 3,5 ; vaisselle
+  // et cuisine 3,3 ; port de meubles et de cartons 5,8 ; cartons montés à
+  // l'étage 9,0.
+  //
+  // Les autres — bricolage, peinture, linge, courses — sont INTERPOLÉS entre
+  // ces bornes, et c'est écrit ici plutôt que laissé à deviner. Se tromper d'un
+  // demi-MET décale une estimation de calories de quelques pour cent ; se
+  // tromper de bloc, comme ci-dessus, la triple.
+  [/vie quotidienne.*(demenagement|meuble|carton)/, 5.8],
+  [/vie quotidienne.*(etage|escalier)/, 9],
+  [/vie quotidienne.*(menage|aspirateur|sol)/, 3.5],
+  [/vie quotidienne.*(courses|sacs|bricolage|peinture)/, 3.3],
+  [/vie quotidienne/, 2.5],
   // Récupération PASSIVE : on ne bouge pas. Sans ligne dédiée, un sauna
   // retombait sur le MET par défaut, celui de la musculation.
   //
