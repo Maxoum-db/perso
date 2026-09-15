@@ -26,12 +26,11 @@ import { doitSassombrir, loadVeilleuse, moitieBasse } from '../lib/veilleuse'
 // reste donc affichée en bas — assez pour se lire dans le noir, assez discrète
 // pour ne pas rallumer la pièce.
 
-export function Veilleuse() {
+export function Veilleuse({ sombre, onSombre }: { sombre: boolean; onSombre: (v: boolean) => void }) {
   const { user } = useAuth()
   const capteur = useCapteur()
   const fcMax = useFcMax()
   const [active, setActive] = useState(false)
-  const [sombre, setSombre] = useState(false)
   const dernierGeste = useRef(Date.now())
 
   useEffect(() => {
@@ -39,12 +38,23 @@ export function Veilleuse() {
     loadVeilleuse(user.id).then(setActive).catch(() => {})
   }, [user])
 
-  const branchee = active && capteur.etat === 'connecté'
+  // Le voile est possible dès que le capteur mesure. Le réglage ne décide que
+  // de l'automatique (cf. plus bas).
+  const branchee = capteur.etat === 'connecté'
 
-  const reveiller = useCallback(() => {
-    dernierGeste.current = Date.now()
-    setSombre(false)
-  }, [])
+  const reveiller = useCallback(
+    (e?: Event) => {
+      // Le bouton « assombrir » de l'en-tête est un geste comme un autre, et
+      // c'est bien le problème : son pointerdown passe par l'écoute en capture
+      // AVANT son propre clic, et lèverait le voile que le clic vient de poser.
+      // On le laisse donc traverser sans réveiller.
+      const cible = e?.target
+      if (cible instanceof Element && cible.closest('[data-veilleuse-bouton]')) return
+      dernierGeste.current = Date.now()
+      onSombre(false)
+    },
+    [onSombre],
+  )
 
   // Tout geste repousse l'échéance. On écoute en phase de CAPTURE : sinon un
   // bouton qui arrête la propagation de son clic — il y en a — laisserait le
@@ -61,14 +71,19 @@ export function Veilleuse() {
 
   useEffect(() => {
     if (!branchee) {
-      setSombre(false)
+      onSombre(false)
       return
     }
+    // L'assombrissement AUTOMATIQUE obéit au réglage ; le bouton de l'en-tête,
+    // non. Le réglage dit « au bout d'une minute, tout seul » — l'éteindre ne
+    // veut pas dire « je ne veux jamais assombrir », ça veut dire « pas sans que
+    // je le demande ». Retirer le bouton avec reviendrait à confondre les deux.
+    if (!active) return
     const t = setInterval(() => {
-      if (doitSassombrir(dernierGeste.current, Date.now())) setSombre(true)
+      if (doitSassombrir(dernierGeste.current, Date.now())) onSombre(true)
     }, 1000)
     return () => clearInterval(t)
-  }, [branchee])
+  }, [branchee, active, onSombre])
 
   if (!branchee || !sombre) return null
 
@@ -85,7 +100,7 @@ export function Veilleuse() {
       role="button"
       tabIndex={0}
       aria-label="Écran assombri — touche le bas pour rallumer"
-      onKeyDown={reveiller}
+      onKeyDown={() => reveiller()}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
     >
       {/* La fréquence, très pâle : de quoi jeter un œil sans se rallumer la

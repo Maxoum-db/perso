@@ -46,6 +46,11 @@ const moreTabs = (onglet: Tab | null): Tab[] => [
 ]
 
 export function Layout({ children, sections }: { children: ReactNode; sections: Section[] }) {
+  // Le voile est posé ici et non dans `Veilleuse` : le bouton qui le déclenche
+  // vit dans l'en-tête, et le voile doit rester un enfant direct de la mise en
+  // page. Le rendre depuis l'en-tête le coincerait dans son contexte
+  // d'empilement — `z-20` — et la barre du bas, en `z-30`, passerait par-dessus.
+  const [sombre, setSombre] = useState(false)
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -76,7 +81,7 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
       <div className="fixed inset-x-0 top-0 z-20 h-[env(safe-area-inset-top)] bg-navy" />
 
       {/* `bg-navy` plein et non /95 : à 95 % on devinait la page derrière. */}
-      <Veilleuse />
+      <Veilleuse sombre={sombre} onSombre={setSombre} />
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy px-4 py-3 text-white">
         {/* Le logo ramène à l'accueil. C'est le geste attendu de toute application
             — on touche le titre pour revenir au début —, et il ne coûtait rien
@@ -85,7 +90,7 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
           <img src="/icon-192.png" alt="" className="h-9 w-9 rounded-lg object-cover" />
         </NavLink>
         <div className="ml-auto flex items-center gap-3">
-          <PastilleCardio />
+          <PastilleCardio onAssombrir={() => setSombre(true)} />
           {user?.user_metadata?.avatar_url ? (
             <img src={user.user_metadata.avatar_url} alt="" className="h-7 w-7 rounded-full border border-white/30" />
           ) : null}
@@ -344,12 +349,26 @@ function IconMore({ active }: IconProps) {
  * la MÊME que dans la séance : une pastille orange en haut de l'écran veut dire
  * exactement ce que la barre orange veut dire en bas.
  */
-function PastilleCardio() {
+function PastilleCardio({ onAssombrir }: { onAssombrir: () => void }) {
   const capteur = useCapteur()
   const fcMax = useFcMax()
   if (capteur.etat !== 'connecté' || capteur.bpm === null) return null
   const zone = fcMax ? ZONES.find((z) => z.id === zoneDe(capteur.bpm as number, fcMax)) : undefined
   return (
+    <>
+      {/* À GAUCHE de la fréquence, et sous exactement la même condition : le
+          bouton n'a de sens que pendant une mesure, et c'est la fréquence
+          affichée qui prouve qu'il y en a une. Un bouton « assombrir » seul dans
+          l'en-tête d'un écran ordinaire serait une trappe. */}
+      <button
+        data-veilleuse-bouton
+        onClick={onAssombrir}
+        aria-label="Assombrir l’écran"
+        title="Assombrir l’écran — touche le bas pour rallumer"
+        className="shrink-0 rounded-full px-1.5 py-0.5 text-sm leading-none text-white/60 transition hover:text-white"
+      >
+        🌙
+      </button>
     <span
       className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
       style={{
@@ -363,5 +382,6 @@ function PastilleCardio() {
           reçu reste affiché et on le croit à jour. */}
       {capteur.contact === false ? <span className="text-[10px] font-normal opacity-80">décroché</span> : null}
     </span>
+    </>
   )
 }
