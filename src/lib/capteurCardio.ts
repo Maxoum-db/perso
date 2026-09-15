@@ -59,9 +59,24 @@ import {
 //     exister — l'écran le dit plutôt que de proposer un bouton qui échoue ;
 //   · Firefox : même chose ;
 //   · hors HTTPS : l'API est refusée. Vercel sert en HTTPS, donc c'est bon ;
-//   · l'appairage demande un GESTE : impossible de se reconnecter tout seul au
-//     chargement de la page. C'est une protection du navigateur, pas un défaut
-//     à contourner.
+//   · l'appairage demande un GESTE. On ne peut donc pas rebrancher le capteur
+//     tout seul au lancement d'une séance : il faut un appui, à chaque fois.
+//
+//     Et ce n'est pas faute d'avoir cherché. La spécification prévoit bien de
+//     quoi s'en passer — `getDevices()` rend les appareils déjà autorisés,
+//     `watchAdvertisements()` dit quand l'un d'eux repasse à portée, et les
+//     « Persistent Device Permissions » font survivre l'autorisation à la
+//     fermeture du navigateur. Les trois ensemble permettraient un
+//     rebranchement silencieux.
+//
+//     Les trois sont derrière un drapeau Chrome
+//     (`#enable-experimental-web-platform-features` et
+//     `#enable-web-bluetooth-new-permissions-backend`), d'après le tableau
+//     d'état du groupe de travail lui-même. Les coder aujourd'hui ne servirait
+//     donc personne sur un téléphone ordinaire — et le repli serait de toute
+//     façon le bouton. À reconsidérer le jour où ces lignes perdent leur
+//     drapeau ; d'ici là, l'appui est la seule voie, et l'écran le demande
+//     franchement plutôt que de faire mine d'essayer.
 //
 // ── L'écran qui s'éteint ────────────────────────────────────────────────────
 //
