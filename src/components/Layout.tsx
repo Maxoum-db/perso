@@ -5,6 +5,7 @@ import { fetchSettings, readCachedSettings, type Discipline } from '../lib/setti
 import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
 import { useCapteur, useFcMax } from '../lib/capteurContexte'
+import { Veilleuse } from './Veilleuse'
 import { ZONES, zoneDe } from '../lib/cardio'
 
 type Tab = { to: string; label: string; icon: (p: IconProps) => ReactNode }
@@ -75,6 +76,7 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
       <div className="fixed inset-x-0 top-0 z-20 h-[env(safe-area-inset-top)] bg-navy" />
 
       {/* `bg-navy` plein et non /95 : à 95 % on devinait la page derrière. */}
+      <Veilleuse />
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-navy px-4 py-3 text-white">
         {/* Le logo ramène à l'accueil. C'est le geste attendu de toute application
             — on touche le titre pour revenir au début —, et il ne coûtait rien

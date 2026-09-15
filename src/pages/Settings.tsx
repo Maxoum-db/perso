@@ -21,6 +21,7 @@ import { faconDeLigne, loadModeleLignes, saveModeleLignes, type ModeleLignes } f
 import { coderSeance, decoderSeance } from '../lib/partageSeance'
 import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type MesureRepos as Mesure } from '../lib/cardioSeance'
 import { PolarFlowReglage } from '../components/PolarFlow'
+import { DELAI_S, loadVeilleuse, saveVeilleuse } from '../lib/veilleuse'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
 import { age } from '../lib/profil'
 import {
@@ -551,6 +552,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
   const [relevee, setRelevee] = useState<number | null>(null)
   const [saisie, setSaisie] = useState('')
   const [repos, setRepos] = useState<Mesure[]>([])
+  const [veilleuse, setVeilleuse] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -561,6 +563,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
       setSaisie(v === null ? '' : String(v))
     }).catch(() => {})
     loadRepos(userId).then(setRepos).catch(() => {})
+    loadVeilleuse(userId).then(setVeilleuse).catch(() => {})
     loadOptionsEteintes(userId).then(setEteintes).catch(() => {})
     chargerOptionsMuscu(userId, email).then(setAutorisees).catch(() => {})
   }, [userId, email])
@@ -656,6 +659,32 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
           </div>
         ) : null}
         {msg ? <p className="mt-1 text-xs text-copper">{msg}</p> : null}
+      </div>
+
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-xs font-bold text-ink">Écran sombre pendant la mesure</div>
+          <button
+            onClick={() => {
+              saveVeilleuse(userId, !veilleuse).then(setVeilleuse).catch(() => {})
+            }}
+            aria-pressed={veilleuse}
+            className={`chip shrink-0 text-[11px] transition ${
+              veilleuse ? 'bg-sage/25 text-sage ring-1 ring-sage' : 'bg-bg text-muted'
+            }`}
+          >
+            {veilleuse ? '☑ Activé' : '☐ Éteint'}
+          </button>
+        </div>
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          Brassard branché, l’écran se voile de noir après {DELAI_S} secondes sans y toucher, et la fréquence reste
+          lisible en tout petit. Touche la <b className="text-ink">moitié basse</b> pour rallumer.
+        </p>
+        <p className="mt-1 text-[11px] leading-snug text-muted/70">
+          C’est un masque, pas une extinction : l’écran doit rester allumé, sinon le Bluetooth du navigateur s’arrête et
+          la mesure avec. Sur la dalle IPS du XCover, le rétroéclairage reste donc au même niveau — ça évite de
+          s’éblouir et surtout les touches accidentelles, pas de vider la batterie moins vite.
+        </p>
       </div>
 
       {/* Polar Flow dépend du capteur : les deux parlent du même brassard, et ce
