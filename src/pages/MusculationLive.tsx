@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { estAuTempsOuDistance } from '../lib/muscu'
 import { loadAllures, saveAllures } from '../lib/allure'
 import { loadNegatifs, saveNegatifs } from '../lib/negatif'
+import { useCapteurCardio } from '../lib/capteurCardio'
+import { loadCardios, loadFcMaxRelevee, saveCardio } from '../lib/cardioSeance'
+import { fcMaxEstimee } from '../lib/cardio'
+import { age, loadProfil, PROFIL_DEFAUT, type Profil } from '../lib/profil'
+import { CardioLive } from '../components/CardioLive'
 import type { IntensiteId } from '../lib/intensite'
 import {
   exoTonnage,
@@ -238,6 +243,7 @@ function fmtClock(ms: number): string {
 export function LiveSession({
   userId,
   initial,
+  cardioActif,
   catalog,
   groups,
   sessions,
@@ -248,6 +254,8 @@ export function LiveSession({
 }: {
   userId: string
   initial: LiveState
+  /** Le capteur cardiaque est-il accordé et allumé pour ce compte ? */
+  cardioActif: boolean
   catalog: CatalogExercise[]
   groups: string[]
   /** Historique, pour conseiller la charge d'un exercice ajouté en cours de route. */
@@ -271,6 +279,23 @@ export function LiveSession({
   // de faire.
   const [changements, setChangements] = useState<Changement[]>([])
   const [materielOuvert, setMaterielOuvert] = useState(false)
+  // La fréquence maximale sert aux zones. Deux sources : celle qu'on a relevée
+  // sur le terrain, sinon l'estimation d'après l'âge. L'écran dit laquelle.
+  const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
+  const [fcMaxRelevee, setFcMaxRelevee] = useState<number | null>(null)
+  useEffect(() => {
+    if (!userId) return
+    loadProfil(userId).then(setProfil).catch(() => {})
+    loadFcMaxRelevee(userId).then(setFcMaxRelevee).catch(() => {})
+  }, [userId])
+  const fcMaxEstime = fcMaxEstimee(age(profil))
+  const fcMax = fcMaxRelevee ?? fcMaxEstime
+  const sourceFcMax = fcMaxRelevee
+    ? `une max relevée de ${fcMaxRelevee} bpm`
+    : fcMaxEstime
+      ? `une max estimée à ${fcMaxEstime} bpm (formule de Tanaka)`
+      : 'aucune max connue'
+  const capteur = useCapteurCardio(fcMax)
 
   useEffect(() => {
     storeLive(s)
@@ -470,6 +495,16 @@ export function LiveSession({
       )
       // Les allures déclarées, une fois la séance enregistrée : elles vivent en
       // KV indexées par séance + exercice, et la séance n'a d'identifiant qu'ici.
+      // La fréquence cardiaque, avant les autres : c'est la seule donnée que
+      // rien ne permet de retrouver après coup. Une coche se recoche, un
+      // battement ne se rejoue pas.
+      if (cardioActif && capteur.bilan) {
+        try {
+          await saveCardio(userId, id, capteur.bilan, capteur.nom, await loadCardios(userId))
+        } catch {
+          /* la séance est enregistrée, c'est elle qui compte */
+        }
+      }
       // Les descentes freinées, même chemin et même indulgence : une coche
       // perdue ne doit pas faire perdre la séance.
       const freinees = kept.filter((e) => e.negatif)
@@ -566,6 +601,11 @@ export function LiveSession({
       </div>
 
       {error ? <div className="card border-clay/40 bg-clay/5 p-3 text-sm text-clay">{error}</div> : null}
+
+      {/* La fréquence cardiaque juste sous le chrono : entre deux séries, on
+          lève les yeux une seconde, et c'est là qu'on regarde déjà l'heure.
+          Option éteinte : rien du tout, pas même un cadre vide. */}
+      {cardioActif ? <CardioLive capteur={capteur} fcMax={fcMax} source={sourceFcMax} /> : null}
 
       {/* ── Matériel de la séance ──
           Les outils que CETTE séance emploie, tous cochés d'entrée. On décoche

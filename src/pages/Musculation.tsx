@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { chargerOngletsMuscu, type Section as SectionAutorisee } from '../lib/acces'
+import { chargerOngletsMuscu, chargerOptionsMuscu, type Section as SectionAutorisee } from '../lib/acces'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { SubTabs } from '../components/SubTabs'
 import { Section } from '../components/training-ui'
@@ -9,6 +9,9 @@ import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { loadNegatifs, nettoyerNegatifs, saveNegatifs, type Negatifs } from '../lib/negatif'
+import { loadCardios, nettoyerCardios, type CardioSeance, type CardiosSeances } from '../lib/cardioSeance'
+import { loadOptionsEteintes, optionActive, type OptionMuscu } from '../lib/optionsMuscu'
+import { fmtSecondes, totalZones, ZONES } from '../lib/cardio'
 import {
   loadMusclesVisibles,
   loadOngletsMasques,
@@ -347,9 +350,15 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   // Réglages d'affichage du compte : onglets rangés, muscles au journal.
   const [ongletsMasques, setOngletsMasques] = useState<OngletMuscu[]>([])
   const [musclesVisibles, setMusclesVisibles] = useState(false)
+  // Ce que le capteur a relevé, séance par séance.
+  const [cardios, setCardios] = useState<CardiosSeances>({})
   // `null` = aucune restriction. Chargé à part des réglages du compte : ce
   // n'est pas une préférence, c'est une autorisation, et elle vient de la base.
   const [ongletsAutorises, setOngletsAutorises] = useState<OngletMuscu[] | null>(null)
+  // Le capteur cardiaque : accordé par le propriétaire, et allumé ou non par le
+  // compte. Éteint, il disparaît de la séance ET du journal — pas à moitié.
+  const [optionsEteintes, setOptionsEteintes] = useState<OptionMuscu[]>([])
+  const [optionsAutorisees, setOptionsAutorisees] = useState<OptionMuscu[] | null>(null)
   // Allures déclarées sur les exercices au temps ou à la distance, même index.
   const [allures, setAllures] = useState<Allures>({})
   // Séances décochées : au journal, mais hors du mannequin.
@@ -374,7 +383,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, mp, om, mv, oa, al, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, mp, om, mv, cd, oa, oe, opa, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -395,7 +404,10 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadModelesPerso(user.id).catch(() => ({}) as ModelesPerso),
         loadOngletsMasques(user.id).catch(() => [] as OngletMuscu[]),
         loadMusclesVisibles(user.id).catch(() => false),
+        loadCardios(user.id).catch(() => ({}) as CardiosSeances),
         chargerOngletsMuscu(user.id, user.email).catch(() => null),
+        loadOptionsEteintes(user.id).catch(() => [] as OptionMuscu[]),
+        chargerOptionsMuscu(user.id, user.email).catch(() => null),
         loadAllures(user.id).catch(() => ({}) as Allures),
         loadExclues(user.id).catch(() => ({}) as Exclues),
         // Un compte sans la course n'a pas de sorties : on ne demande rien.
@@ -422,7 +434,10 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       setModelesPerso(nettoyerModelesPerso(mp, new Set(t.map((x) => x.id))))
       setOngletsMasques(om)
       setMusclesVisibles(mv)
+      setCardios(nettoyerCardios(cd, new Set(s.map((x) => x.id))))
       setOngletsAutorises(oa)
+      setOptionsEteintes(oe)
+      setOptionsAutorisees(opa)
       setAllures(nettoyerAllures(al, new Set(s.map((x) => x.id))))
       setExclues(nettoyerExclues(ex, new Set(s.map((x) => x.id))))
       setNuits(nu)
@@ -526,6 +541,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
           modelesPerso={modelesPerso}
           onModelesPerso={setModelesPerso}
           musclesVisibles={musclesVisibles}
+          cardios={cardios}
+          cardioActif={optionActive('cardio', optionsEteintes, optionsAutorisees)}
           allures={allures}
           onAllures={setAllures}
           onCourbatures={(next) => {
@@ -616,6 +633,8 @@ export function Journal({
   modelesPerso,
   onModelesPerso,
   musclesVisibles,
+  cardios,
+  cardioActif,
   allures,
   onAllures,
   exclues,
@@ -665,6 +684,10 @@ export function Journal({
   onModelesPerso: (m: ModelesPerso) => void
   /** Écrire les muscles sollicités derrière chaque exercice du journal. */
   musclesVisibles: boolean
+  /** Fréquence cardiaque relevée au capteur, séance par séance. */
+  cardios: CardiosSeances
+  /** L'option capteur est-elle accordée ET allumée ? Sinon rien de cardiaque ne s'affiche. */
+  cardioActif: boolean
   /** Allures déclarées sur les exercices au temps ou à la distance. */
   allures: Allures
   onAllures: (a: Allures) => void
@@ -1133,6 +1156,7 @@ export function Journal({
       <LiveSession
         userId={userId}
         initial={live}
+        cardioActif={cardioActif}
         catalog={catalog}
         groups={groups}
         sessions={sessions}
@@ -1257,6 +1281,7 @@ export function Journal({
                       {s.exercises.length} exo{s.exercises.length > 1 ? 's' : ''}
                       {s.duration_min ? ` · ${s.duration_min} min` : ''}
                       {sessionTonnage(s.exercises) > 0 ? ` · 🏋️ ${fmtTonnage(sessionTonnage(s.exercises))}` : ''}
+                      {cardioActif && cardios[s.id] ? ` · ❤️ ${cardios[s.id].moyenne}` : ''}
                     </div>
                   </div>
                 </button>
@@ -1318,6 +1343,7 @@ export function Journal({
                         : ''}
                     </p>
                   ) : null}
+                  {cardioActif && cardios[s.id] ? <BlocCardio c={cardios[s.id]} /> : null}
                   {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
                   <div className="flex justify-end gap-3 text-xs">
                     <button onClick={() => startEdit(s)} className="font-semibold text-copper">
@@ -1510,6 +1536,55 @@ export function Journal({
           ) : null}
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Ce que le capteur a relevé pendant la séance.
+ *
+ * La moyenne et le maximum d'abord, parce qu'ils se comparent d'une séance à
+ * l'autre. Le temps par zone ensuite, qui dit ce que la durée ne dit pas : une
+ * heure de salle dont huit minutes au-dessus de 80 % et une heure dont trente
+ * portent le même « 60 min » au journal.
+ *
+ * Le nombre de mesures est écrit : une moyenne sur douze battements n'a pas le
+ * même poids qu'une moyenne sur trois mille, et rien d'autre ne permet de faire
+ * la différence après coup.
+ */
+function BlocCardio({ c }: { c: CardioSeance }) {
+  const total = totalZones(c.zones)
+  return (
+    <div className="rounded-xl2 border border-line/60 p-2">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+        <span className="font-bold text-ink">❤️ {c.moyenne} bpm</span>
+        <span className="text-muted">max {c.max}</span>
+        {c.capteur ? <span className="text-[10px] text-muted/70">{c.capteur}</span> : null}
+      </div>
+      {total > 0 ? (
+        <div className="mt-1.5 space-y-1">
+          {ZONES.filter((z) => c.zones[z.id] > 0)
+            .slice()
+            .reverse()
+            .map((z) => (
+              <div key={z.id} className="flex items-center gap-1.5">
+                <span className="w-16 shrink-0 text-[10px] font-semibold" style={{ color: z.couleur }}>
+                  {z.label}
+                </span>
+                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${Math.round((c.zones[z.id] / total) * 100)}%`, background: z.couleur }}
+                  />
+                </div>
+                <span className="w-16 shrink-0 text-right text-[10px] tabular-nums text-muted">
+                  {fmtSecondes(c.zones[z.id])}
+                </span>
+              </div>
+            ))}
+        </div>
+      ) : null}
+      <p className="mt-1 text-[10px] italic text-muted/70">{c.mesures} mesures reçues.</p>
     </div>
   )
 }
