@@ -20,7 +20,8 @@ import {
 //   · le RÉGLAGE — relier, délier — va dans les paramètres. On le fait une
 //     fois, et on n'y revient que pour défaire ;
 //   · les SÉANCES rapportées vont dans le sport, avec le reste du cardio. C'est
-//     là qu'on les regarde.
+//     là qu'on les regarde, et là qu'elles se relèvent — toutes seules à
+//     l'ouverture, le bouton ne servant qu'à forcer.
 //
 // ── Ce que cette route rapporte, et ce qu'elle ne rapporte pas ──────────────
 //
@@ -115,7 +116,9 @@ export function PolarFlowReglage() {
               {etat.note ? ` — ${etat.note}` : ''}
             </p>
           ) : (
-            <p className="text-[11px] text-muted/80">Jamais synchronisé. Le bouton est dans la carte cardio du journal.</p>
+            <p className="text-[11px] text-muted/80">
+              Jamais relevé. La carte cardio du journal s’en charge toute seule à l’ouverture.
+            </p>
           )}
         </div>
       ) : (
@@ -127,6 +130,52 @@ export function PolarFlowReglage() {
       {erreur ? <p className="mt-1 text-xs text-clay">{erreur}</p> : null}
     </div>
   )
+}
+
+// ── La relève automatique ───────────────────────────────────────────────────
+//
+// Un bouton qu'il faut penser à presser n'intègre rien « au fur et à mesure » :
+// il intègre quand on y pense. La carte relève donc toute seule en s'affichant.
+//
+// Deux freins, et ils servent à des choses différentes :
+//
+//   · `DELAI_AUTO`, mesuré sur `last_sync_at` qui vient du SERVEUR. C'est la
+//     bonne source : elle vaut pour tous les appareils à la fois, là où un
+//     compteur rangé dans le navigateur laisserait le téléphone et l'ordinateur
+//     relever chacun de son côté ;
+//   · `dernierEssai`, une variable de MODULE, qui compte les tentatives et pas
+//     les réussites. Sans elle, une relève qui échoue — Polar en panne, jeton
+//     révoqué — ne toucherait pas `last_sync_at`, et chaque affichage de la
+//     carte relancerait l'appel. Le frein serveur ne freine que ce qui marche.
+//
+// Elle survit aux remontages du composant et repart à zéro au rechargement de
+// la page, ce qui est exactement la granularité voulue : on ne martèle pas une
+// API tierce pendant qu'on navigue entre les onglets, et rouvrir l'application
+// laisse retenter tout de suite.
+
+const DELAI_AUTO = 30 * 60 * 1000
+
+let dernierEssai = 0
+
+/** Exporté pour les contrôles : sans ça on ne peut pas repartir d'un état neuf. */
+export function _remettreAZeroAuto() {
+  dernierEssai = 0
+}
+
+/**
+ * Faut-il relever maintenant ?
+ *
+ * `derniereSync` à `null` veut dire « jamais » : on relève, c'est le premier
+ * passage. Une date illisible est traitée comme jamais plutôt que comme
+ * récente — se tromper dans ce sens fait une requête de trop, dans l'autre il
+ * ne se passerait plus rien du tout.
+ */
+export function doitRelever(derniereSync: string | null, maintenant: number, essai = dernierEssai): boolean {
+  if (maintenant - essai < DELAI_AUTO) return false
+  if (!derniereSync) return true
+  const t = Date.parse(derniereSync)
+  if (!Number.isFinite(t)) return true
+  return maintenant - t >= DELAI_AUTO
 }
 
 /**
@@ -150,19 +199,36 @@ export function PolarFlowSeances({ userId }: { userId: string }) {
 
   useEffect(recharger, [recharger])
 
-  async function synchroniser() {
-    setOccupe(true)
-    setMsg(null)
-    try {
-      const r = await synchroniserPolar()
-      setMsg(r.note)
-      recharger()
-    } catch (e) {
-      setMsg((e as Error).message)
-    } finally {
-      setOccupe(false)
-    }
-  }
+  const synchroniser = useCallback(
+    async (auto = false) => {
+      dernierEssai = Date.now()
+      setOccupe(true)
+      if (!auto) setMsg(null)
+      try {
+        const r = await synchroniserPolar()
+        // Une relève automatique qui ne rapporte rien ne dit rien : afficher
+        // « Rien à rapporter » sans qu'on ait demandé donnerait l'impression
+        // d'un échec à chaque ouverture du journal. Une relève DEMANDÉE
+        // répond toujours, même pour dire qu'il n'y avait rien.
+        if (!auto || r.vues > 0) setMsg(r.note)
+        recharger()
+      } catch (e) {
+        // En revanche une erreur se dit dans les deux cas : un jeton révoqué
+        // doit se voir, pas se taire.
+        setMsg((e as Error).message)
+      } finally {
+        setOccupe(false)
+      }
+    },
+    [recharger],
+  )
+
+  // La relève d'elle-même, une fois l'état connu.
+  useEffect(() => {
+    if (chargement || !etat.configure || !etat.lie) return
+    if (!doitRelever(etat.derniereSync, Date.now())) return
+    void synchroniser(true)
+  }, [chargement, etat.configure, etat.lie, etat.derniereSync, synchroniser])
 
   if (chargement || !etat.configure || !etat.lie) return null
 
@@ -179,7 +245,11 @@ export function PolarFlowSeances({ userId }: { userId: string }) {
             {seances.length} · {ouvert ? '▴' : '▾'}
           </span>
         </button>
-        <button onClick={synchroniser} disabled={occupe} className="btn-ghost px-2 py-1 text-[11px] text-copper disabled:opacity-50">
+        {/* `() => synchroniser()` et pas `synchroniser` : passé directement à `onClick`,
+            React lui donnerait l'événement comme premier argument, et un
+            événement est truthy — chaque clic serait pris pour une relève
+            automatique et se tairait quand il n'y a rien. */}
+        <button onClick={() => synchroniser()} disabled={occupe} className="btn-ghost px-2 py-1 text-[11px] text-copper disabled:opacity-50">
           {occupe ? 'Lecture…' : '⟳ Relever Polar'}
         </button>
       </div>

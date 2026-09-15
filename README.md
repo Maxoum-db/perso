@@ -135,8 +135,15 @@ supabase functions deploy polar
 ```
 
 **c) Relier le compte** : Réglages › ❤️ Capteur cardiaque › Polar Flow › « Relier mon
-compte Polar ». Ensuite, le bouton « ⟳ Relever Polar » est dans la carte cardio du
-journal de musculation.
+compte Polar ».
+
+Ensuite la relève est **automatique** : la carte cardio du journal de musculation
+interroge Polar en s'affichant, au plus une fois par demi-heure. Le bouton
+« ⟳ Relever Polar » reste là pour forcer — au retour d'une séance, sans attendre.
+
+Le frein d'une demi-heure se mesure sur `last_sync_at`, qui vient du serveur : il
+vaut donc pour tous les appareils à la fois, là où un compteur rangé dans le
+navigateur laisserait le téléphone et l'ordinateur relever chacun de son côté.
 
 Tant que les trois secrets ne sont pas posés, l'écran affiche « pas encore
 configuré » au lieu d'une erreur.
