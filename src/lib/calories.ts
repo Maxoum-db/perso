@@ -143,6 +143,18 @@ const MET_PAR_MOTIF: Array<[RegExp, number]> = [
   // Gainage — après la natation, sinon « Jambes de brasse (planche) » devient
   // du gainage à cause du mot « planche ».
   [/(gainage|\bplanche\b|deadbug|bird-dog|hollow|pont cervical|suspension a la barre)/, 3.5],
+  // ── « Marche » tout court, en DERNIER ────────────────────────────────────
+  //
+  // Celle qu'enregistre le GPS. 3,5 : Compendium des activités physiques 2011,
+  // code 17190 — allure modérée (4,5 à 5,1 km/h) sur terrain plat et ferme.
+  // « Marche rapide » vaut 4,3 (code 17200) et garde son entrée.
+  //
+  // Sa place en fin de cascade n'est pas un rangement : c'est une correction.
+  // Posée juste après « marche rapide », elle attrapait « Marche du fermier »
+  // — six cents mètres à porter des haltères — et la facturait au prix d'une
+  // promenade, 3,5 au lieu de 6. Le motif le plus général doit passer après
+  // TOUS les plus précis, et il y en avait un plus bas.
+  [/\bmarche\b/, 3.5],
 ]
 
 /** MET par défaut d'un exercice de musculation avec charge. */

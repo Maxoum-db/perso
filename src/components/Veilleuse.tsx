@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { useCapteur, useFcMax } from '../lib/capteurContexte'
 import { ZONES, zoneDe } from '../lib/cardio'
+import { useMesureEnCours } from '../lib/mesureEnCours'
 import { entrerPleinEcran, sortirPleinEcran } from '../lib/pleinEcran'
 import { doitSassombrir, loadVeilleuse } from '../lib/veilleuse'
 
@@ -46,9 +47,15 @@ export function Veilleuse({ sombre, onSombre }: { sombre: boolean; onSombre: (v:
     loadVeilleuse(user.id).then(setActive).catch(() => {})
   }, [user])
 
-  // Le voile est possible dès que le capteur mesure. Le réglage ne décide que
-  // de l'automatique (cf. plus bas).
-  const branchee = capteur.etat === 'connecté'
+  // Le voile est possible dès que QUELQUE CHOSE mesure — le brassard, le GPS
+  // d'un trajet, ou les deux ensemble. Le réglage ne décide que de
+  // l'automatique (cf. plus bas).
+  //
+  // Ce n'était que le brassard, et l'enregistrement d'un trajet se retrouvait
+  // sans voile alors qu'il tient l'écran allumé pour la même raison et pendant
+  // aussi longtemps.
+  const mesure = useMesureEnCours()
+  const branchee = capteur.etat === 'connecté' || mesure
 
   const reveiller = useCallback(() => {
     dernierGeste.current = Date.now()
