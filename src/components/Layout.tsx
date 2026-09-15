@@ -6,6 +6,7 @@ import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
 import { useCapteur, useCardioActif, useFcMax } from '../lib/capteurContexte'
 import { bluetoothDisponible } from '../lib/capteurCardio'
+import { etatPastille, estBranche, peutBrancher } from '../lib/pastilleCardio'
 import { Veilleuse } from './Veilleuse'
 import { ZONES, zoneDe } from '../lib/cardio'
 
@@ -356,42 +357,31 @@ function PastilleCardio({ onAssombrir }: { onAssombrir: () => void }) {
   // écrans, y compris ceux des comptes à qui le capteur n'a pas été accordé.
   const cardioActif = useCardioActif()
   const fcMax = useFcMax()
-  // ── Débranché : le bouton pour brancher ────────────────────────────────
-  //
-  // Le brassard se branchait depuis l'écran de séance, ou depuis les réglages.
-  // Deux endroits, tous deux à plusieurs touchers — alors que le geste se fait
-  // une fois par séance, debout, au moment où l'on enfile la sangle.
-  //
-  // L'appairage demande un geste de l'utilisateur : le navigateur l'exige, et
-  // ce bouton en est un. Il ne s'affiche que si un brassard est possible
-  // (Bluetooth disponible) et qu'aucun n'est déjà branché — sinon il doublerait
-  // la pastille de fréquence sans rien apporter.
-  if (!cardioActif) return null
-  if (capteur.etat !== 'connecté') {
-    if (!bluetoothDisponible()) return null
-    const enCours = capteur.etat === 'recherche' || capteur.etat === 'connexion'
+  // La décision vit dans `lib/pastilleCardio.ts`, où elle s'énumère et se
+  // vérifie. Ici on ne fait que la traduire en pixels.
+  const vue = etatPastille({ cardioActif, bluetooth: bluetoothDisponible(), etat: capteur.etat, bpm: capteur.bpm })
+  if (vue === 'rien') return null
+
+  if (!estBranche(vue)) {
     return (
       <button
-        onClick={() => void capteur.connecter()}
-        disabled={enCours}
+        onClick={() => peutBrancher(vue) && void capteur.connecter()}
+        disabled={vue === 'connexion'}
         aria-label="Brancher le capteur cardiaque"
-        title={capteur.etat === 'perdu' ? 'Capteur perdu — rebrancher' : 'Brancher le capteur cardiaque'}
+        title={vue === 'perdu' ? 'Capteur perdu — rebrancher' : 'Brancher le capteur cardiaque'}
         className="shrink-0 rounded-full px-2 py-0.5 text-sm leading-none text-white/45 transition hover:text-white disabled:opacity-40"
       >
-        {enCours ? '⏳' : capteur.etat === 'perdu' ? '💔' : '🩶'}
+        {vue === 'connexion' ? '⏳' : vue === 'perdu' ? '💔' : '🩶'}
       </button>
     )
   }
-  // Branché mais pas encore un battement : on ne montre rien plutôt qu'un
-  // « — bpm » qui ferait croire à une panne pendant les deux secondes d'attente.
-  if (capteur.bpm === null) return null
-  const zone = fcMax ? ZONES.find((z) => z.id === zoneDe(capteur.bpm as number, fcMax)) : undefined
+
+  const zone = capteur.bpm !== null && fcMax ? ZONES.find((z) => z.id === zoneDe(capteur.bpm as number, fcMax)) : undefined
   return (
     <>
-      {/* À GAUCHE de la fréquence, et sous exactement la même condition : le
-          bouton n'a de sens que pendant une mesure, et c'est la fréquence
-          affichée qui prouve qu'il y en a une. Un bouton « assombrir » seul dans
-          l'en-tête d'un écran ordinaire serait une trappe. */}
+      {/* À GAUCHE de la fréquence, et dès que le brassard est branché — même
+          avant le premier battement. Poser son téléphone ne doit pas attendre
+          que le cœur ait parlé. */}
       <button
         data-veilleuse-bouton
         onClick={onAssombrir}
@@ -401,17 +391,19 @@ function PastilleCardio({ onAssombrir }: { onAssombrir: () => void }) {
       >
         🌙
       </button>
-    <span
-      className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-      style={{
-        background: zone ? `${zone.couleur}33` : 'rgba(255,255,255,.12)',
-        color: zone?.couleur ?? '#fff',
-      }}
-      title={zone ? `Zone ${zone.label}` : 'Fréquence cardiaque'}
-    >
-      ❤️ {capteur.bpm}
-      {/* Le brassard décroché se dit tout de suite : sinon le dernier chiffre
-          reçu reste affiché et on le croit à jour. */}
+      <span
+        className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+        style={{
+          background: zone ? `${zone.couleur}33` : 'rgba(255,255,255,.12)',
+          color: zone?.couleur ?? '#fff',
+        }}
+        title={vue === 'attente' ? 'Branché — en attente du premier battement' : zone ? `Zone ${zone.label}` : 'Fréquence cardiaque'}
+      >
+        {/* « ❤️ … » plutôt que rien : branché sans battement, l'en-tête restait
+            VIDE — pas même le bouton pour rebrancher, qui vit dans l'autre
+            branche. Deux secondes en général ; indéfiniment quand le brassard
+            est mal placé et n'envoie rien. */}
+        ❤️ {vue === 'attente' ? '…' : capteur.bpm}
       {capteur.contact === false ? <span className="text-[10px] font-normal opacity-80">décroché</span> : null}
     </span>
     </>
