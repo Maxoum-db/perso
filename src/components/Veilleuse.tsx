@@ -115,7 +115,31 @@ export function Veilleuse({ sombre, onSombre }: { sombre: boolean; onSombre: (v:
       {capteur.contact === false ? (
         <span className="mt-2 text-[11px] text-white/25">brassard décroché</span>
       ) : null}
-      <span className="absolute bottom-10 text-[11px] text-white/20">Touche ici pour rallumer</span>
+      {/* ── Ce que le voile NE FAIT PAS, écrit sous le voile ──────────────
+          L'écran a l'air éteint, et il ne l'est pas : la page tient un verrou
+          tant que le brassard est branché. Un téléphone qu'on glisse dans sa
+          poche en le croyant endormi éclaire sa doublure jusqu'à la panne.
+
+          Avant, l'écran allumé était lui-même l'avertissement. En le masquant,
+          j'ai supprimé le seul signal qui restait — il faut donc le remettre en
+          mots, et donner la sortie avec. */}
+      <div className="absolute inset-x-0 bottom-8 flex flex-col items-center gap-2">
+        <span className="text-[11px] text-white/20">Touche ici pour rallumer</span>
+        <span className="text-[10px] text-white/15">Brassard branché — l’écran reste allumé</span>
+        <button
+          // `stopPropagation` sur le POINTERDOWN, et pas seulement sur le clic :
+          // le voile écoute le pointerdown pour se lever, et il se lèverait
+          // avant que le clic n'atteigne ce bouton. Le bouton ne recevrait
+          // jamais rien.
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            capteur.deconnecter()
+          }}
+          className="rounded-full border border-white/15 px-3 py-1 text-[11px] text-white/35"
+        >
+          Débrancher le brassard
+        </button>
+      </div>
     </div>
   )
 }
