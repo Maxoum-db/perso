@@ -5,6 +5,8 @@ import { ArmorBodyDiagram, STATE_LABELS, pieceState, type PieceState } from '../
 import { Section, Stat } from '../components/training-ui'
 import { ARMOR_PIECES_TEMPLATE, type ArmorPiece } from '../data/behourd'
 import { EntrainementBehourd } from '../components/EntrainementBehourd'
+import { PolarFlowSeances } from '../components/PolarFlow'
+import { listSessions } from '../lib/muscu'
 import { chargerOptionsMuscu } from '../lib/acces'
 import { loadOptionsEteintes, optionActive, type OptionMuscu } from '../lib/optionsMuscu'
 
@@ -33,6 +35,10 @@ export function Behourd() {
   const [loaded, setLoaded] = useState(false)
   const [equipementOuvert, setEquipementOuvert] = useState(() => readKvCache<boolean>(EQUIPEMENT_KEY, false))
   const [cardioActif, setCardioActif] = useState(true)
+  const [polarActif, setPolarActif] = useState(false)
+  // Les séances du journal : elles disent lesquelles ont déjà été converties,
+  // et sans elles le bloc reproposerait indéfiniment la même séance.
+  const [journal, setJournal] = useState<Array<{ id: string; date: string }>>([])
 
   useEffect(() => {
     if (!user) return
@@ -52,11 +58,17 @@ export function Behourd() {
     fetchKv<boolean>(user.id, EQUIPEMENT_KEY, false).then(setEquipementOuvert).catch(() => {})
     // Le capteur suit la même autorisation que dans la musculation : c'est le
     // même brassard et le même réglage, il n'y a pas deux permissions à tenir.
+    listSessions(user.id)
+      .then((ss) => setJournal(ss.map((x) => ({ id: x.id, date: x.date }))))
+      .catch(() => {})
     Promise.all([
       loadOptionsEteintes(user.id).catch(() => [] as OptionMuscu[]),
       chargerOptionsMuscu(user.id, user.email).catch(() => null),
     ])
-      .then(([eteintes, autorisees]) => setCardioActif(optionActive('cardio', eteintes, autorisees)))
+      .then(([eteintes, autorisees]) => {
+        setCardioActif(optionActive('cardio', eteintes, autorisees))
+        setPolarActif(optionActive('polar', eteintes, autorisees))
+      })
       .catch(() => {})
   }, [user])
 
@@ -96,6 +108,25 @@ export function Behourd() {
       </div>
 
       <EntrainementBehourd userId={user?.id ?? ''} cardioActif={cardioActif} />
+
+      {/* ── La séance que le brassard a enregistrée seul ──────────────────
+          C'est LE cas du béhourd : on ne manipule pas un téléphone en
+          harnois. Le capteur enregistre dans sa mémoire, Polar Flow le vide,
+          et la séance se relève ici.
+
+          Le bloc vivait uniquement dans les paramètres, à l'intérieur d'un
+          volet replié, dans une carte qui parle de récupération. Il fallait
+          savoir qu'il existait et aller le chercher à trois touchers — depuis
+          l'écran où l'on vient justement de s'entraîner, il n'y avait rien. */}
+      {polarActif ? (
+        <PolarFlowSeances
+          userId={user?.id ?? ''}
+          journal={journal}
+          onSeanceCreee={() => {
+            if (user) listSessions(user.id).then((ss) => setJournal(ss.map((x) => ({ id: x.id, date: x.date })))).catch(() => {})
+          }}
+        />
+      ) : null}
 
 
       {/* ── Tout l'équipement, sous un seul volet ──────────────────────────

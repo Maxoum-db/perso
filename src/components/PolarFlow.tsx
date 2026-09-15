@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { saveSession } from '../lib/muscu'
 import { loadCardios, saveCardioPolar } from '../lib/cardioSeance'
+import { demandeDesZones, messageApres, seanceAcreer, TYPES, type TypeConversion } from '../lib/conversionPolar'
+import { RessentiPicker } from './RessentiPicker'
 import {
   conversionsVivantes,
   loadConversions,
@@ -208,6 +210,8 @@ export function PolarFlowSeances({
   const [occupe, setOccupe] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [ouvert, setOuvert] = useState(false)
+  // La séance dont on est en train de choisir le type, s'il y en a une.
+  const [choix, setChoix] = useState<string | null>(null)
 
   const recharger = useCallback(() => {
     if (!userId) return
@@ -222,25 +226,31 @@ export function PolarFlowSeances({
   /**
    * Fait d'une séance relevée une vraie séance du journal.
    *
-   * Sans exercices : Polar ne sait pas ce qu'on a soulevé, et en inventer
-   * serait pire que rien. La séance arrive avec sa date, sa durée et son sport,
-   * et s'ouvre ensuite comme n'importe quelle autre pour qu'on y ajoute ce
-   * qu'on a fait.
+   * Le TYPE est demandé, il n'est pas deviné. Polar sait qu'il y a eu
+   * quatre-vingt-dix minutes à 140 battements ; il ne sait pas si c'était du
+   * béhourd, de la musculation ou une marche — et son champ « sport » dépend de
+   * ce qu'on a sélectionné sur le brassard, quand on y a pensé. Deviner à
+   * partir de là rangerait une séance sur trois au mauvais endroit, sans que
+   * rien ne le signale.
+   *
+   * Ce que le type change : le titre et les lignes. La date, la durée et la
+   * fréquence cardiaque viennent de Polar dans tous les cas.
    */
-  async function convertir(s: SeanceImportee) {
+  async function convertir(s: SeanceImportee, type: TypeConversion, zones: string) {
     setOccupe(true)
     setMsg(null)
     try {
+      const forme = seanceAcreer(type, s, zones)
       const id = await saveSession(
         userId,
         {
           date: s.date,
-          name: titreSeance(s),
+          name: forme.name,
           duration_min: s.dureeS !== null ? Math.max(1, Math.round(s.dureeS / 60)) : null,
-          notes: `Relevée dans Polar Flow${s.appareil ? ` · ${s.appareil}` : ''}.`,
+          notes: forme.notes,
           template_id: null,
         },
-        [],
+        forme.lignes,
       )
       // La fréquence cardiaque rejoint la séance comme n'importe quelle autre,
       // pour qu'elle s'affiche au journal sans traitement de faveur.
@@ -248,7 +258,8 @@ export function PolarFlowSeances({
         await saveCardioPolar(userId, id, { moyenne: s.fcMoyenne, max: s.fcMax }, s.appareil, await loadCardios(userId))
       }
       setConversions(await saveConversion(userId, s.id, id, conversions))
-      setMsg('Séance créée dans le journal. Ouvre-la pour y mettre tes exercices.')
+      setChoix(null)
+      setMsg(messageApres(type))
       onSeanceCreee?.()
     } catch (e) {
       setMsg((e as Error).message)
@@ -324,7 +335,8 @@ export function PolarFlowSeances({
           <>
             <ul className="mt-1.5 space-y-1">
               {seances.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 rounded-xl2 bg-white/[0.03] px-2 py-1.5">
+                <li key={s.id} className="rounded-xl2 bg-white/[0.03] px-2 py-1.5">
+                  <div className="flex items-center gap-2">
                   <span className="w-14 shrink-0 text-[11px] text-muted">
                     {new Date(s.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </span>
@@ -341,8 +353,9 @@ export function PolarFlowSeances({
                     <span className="chip shrink-0 bg-sage/20 text-[10px] text-sage">✓ au journal</span>
                   ) : (
                     <button
-                      onClick={() => convertir(s)}
+                      onClick={() => setChoix((x) => (x === s.id ? null : s.id))}
                       disabled={occupe}
+                      aria-expanded={choix === s.id}
                       className="chip shrink-0 bg-bg text-[10px] text-copper disabled:opacity-50"
                     >
                       + journal
@@ -359,6 +372,15 @@ export function PolarFlowSeances({
                   >
                     ✕
                   </button>
+                  </div>
+
+                  {choix === s.id ? (
+                    <ChoisirType
+                      occupe={occupe}
+                      onAnnuler={() => setChoix(null)}
+                      onValider={(type, zones) => void convertir(s, type, zones)}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -492,6 +514,87 @@ export function RattacherMesurePolar({
         </ul>
       )}
       {msg ? <p className="mt-1 text-[10px] text-clay">{msg}</p> : null}
+    </div>
+  )
+}
+
+/**
+ * Le choix du type, au moment de faire entrer une séance au journal.
+ *
+ * ── Pourquoi on demande, et pourquoi on ne devine pas ────────────────────────
+ *
+ * Polar sait qu'il y a eu quatre-vingt-dix minutes à 140 battements. Il ne sait
+ * pas si c'était du béhourd, de la musculation ou une marche : son champ
+ * « sport » ne vaut que ce qu'on a sélectionné sur le brassard, quand on y a
+ * pensé — et le plus souvent on n'y pense pas, un brassard n'ayant pas d'écran
+ * pour le rappeler.
+ *
+ * Deviner rangerait donc une séance sur trois au mauvais endroit, en silence.
+ * Un toucher de plus coûte moins cher qu'une semaine de mannequin faussé.
+ *
+ * ── Les zones, tout de suite ────────────────────────────────────────────────
+ *
+ * Pour le béhourd, elles sont demandées ICI et pas après. Une séance de béhourd
+ * sans sa ligne de ressenti ne nourrit ni le mannequin, ni le suivi par zone,
+ * ni la récupération : elle ne pèse que par sa durée. La renvoyer à plus tard,
+ * c'était la version d'avant, et « plus tard » veut dire jamais.
+ *
+ * Elles restent facultatives : on peut valider sans rien cocher si on ne se
+ * souvient plus. Une ligne de ressenti vide vaut mieux qu'une séance abandonnée
+ * dans la liste des non converties.
+ */
+function ChoisirType({
+  occupe,
+  onValider,
+  onAnnuler,
+}: {
+  occupe: boolean
+  onValider: (type: TypeConversion, zones: string) => void
+  onAnnuler: () => void
+}) {
+  const [type, setType] = useState<TypeConversion | null>(null)
+  const [zones, setZones] = useState('')
+  const t = TYPES.find((x) => x.id === type)
+
+  return (
+    <div className="mt-2 space-y-2 border-t border-line pt-2">
+      <div className="text-[10px] font-bold text-ink">C’était quoi ?</div>
+      <div className="flex flex-wrap gap-1.5">
+        {TYPES.map((x) => (
+          <button
+            key={x.id}
+            onClick={() => setType(x.id)}
+            aria-pressed={type === x.id}
+            className={`chip text-[11px] transition ${
+              type === x.id ? 'bg-copper/25 text-copper ring-1 ring-copper' : 'bg-bg text-muted'
+            }`}
+          >
+            {x.icone} {x.label}
+          </button>
+        ))}
+      </div>
+
+      {t ? <p className="text-[10px] leading-snug text-muted/80">{t.aide}</p> : null}
+
+      {type && demandeDesZones(type) ? (
+        <div>
+          <div className="text-[10px] font-bold text-ink">Zones qui ont pris</div>
+          <RessentiPicker value={zones} onChange={setZones} />
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => type && onValider(type, zones)}
+          disabled={occupe || !type}
+          className="chip bg-copper/20 text-[11px] text-copper disabled:opacity-40"
+        >
+          Créer la séance
+        </button>
+        <button onClick={onAnnuler} className="text-[11px] text-muted hover:text-clay">
+          Annuler
+        </button>
+      </div>
     </div>
   )
 }
