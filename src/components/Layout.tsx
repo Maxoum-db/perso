@@ -423,8 +423,8 @@ function PastilleCardio({ onAssombrir }: { onAssombrir: () => void }) {
       <button
         data-veilleuse-bouton
         onClick={onAssombrir}
-        aria-label="Assombrir l’écran"
-        title="Assombrir l’écran — touche le bas pour rallumer"
+        aria-label="Assombrir et verrouiller l’écran"
+        title="Assombrir et verrouiller l’écran — le ☀ à gauche de la fréquence rallume"
         className="shrink-0 rounded-full px-1.5 py-0.5 text-sm leading-none text-white/60 transition hover:text-white"
       >
         🌙
