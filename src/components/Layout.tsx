@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { fetchSettings, readCachedSettings, type Discipline } from '../lib/settings'
 import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
+import { captureRapideEnCache, loadCaptureRapide } from '../lib/captureRapide'
 import { useCapteur, useCardioActif, useFcMax } from '../lib/capteurContexte'
 import { bluetoothDisponible } from '../lib/capteurCardio'
 import { etatPastille, estBranche, peutBrancher } from '../lib/pastilleCardio'
@@ -53,6 +54,9 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
   // page. Le rendre depuis l'en-tête le coincerait dans son contexte
   // d'empilement — `z-20` — et la barre du bas, en `z-30`, passerait par-dessus.
   const [sombre, setSombre] = useState(false)
+  // Lu d'abord dans le cache, pour que le bouton ne clignote pas à chaque
+  // navigation le temps que le réseau réponde.
+  const [capture, setCapture] = useState(captureRapideEnCache)
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -62,6 +66,9 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
   const [discipline, setDiscipline] = useState<Discipline>(() => readCachedSettings().discipline)
   useEffect(() => {
     if (user) fetchSettings(user.id).then((s) => setDiscipline(s.discipline))
+  }, [user])
+  useEffect(() => {
+    if (user) loadCaptureRapide(user.id).then(setCapture).catch(() => {})
   }, [user])
   const ouvert = (t: Tab) => routeAutorisee(t.to, sections)
   const primaryTabs = TOUS_PRINCIPAUX.filter(ouvert)
@@ -120,7 +127,7 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
 
       <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
 
-      {!moreOpen ? <QuickCapture /> : null}
+      {capture && !moreOpen ? <QuickCapture /> : null}
 
       {/* Voile pour fermer le menu Plus en touchant ailleurs */}
       {moreOpen ? <div className="fixed inset-0 z-20" onClick={() => setMoreOpen(false)} /> : null}
