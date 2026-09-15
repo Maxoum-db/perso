@@ -23,7 +23,7 @@ import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type Mesure
 import { PolarFlowReglage } from '../components/PolarFlow'
 import { CardioDuJour } from '../components/CardioDuJour'
 import { DELAI_S, loadVeilleuse, saveVeilleuse } from '../lib/veilleuse'
-import { loadCaptureRapide, saveCaptureRapide } from '../lib/captureRapide'
+import { CAPTURE_RAPIDE } from '../lib/reglagesInterface'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
 import { age } from '../lib/profil'
 import {
@@ -1238,7 +1238,7 @@ function CaptureRapideSection({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!userId) return
-    loadCaptureRapide(userId).then(setOn).catch(() => {})
+    CAPTURE_RAPIDE.load(userId).then(setOn).catch(() => {})
   }, [userId])
 
   return (
@@ -1247,7 +1247,7 @@ function CaptureRapideSection({ userId }: { userId: string }) {
         <h2 className="text-sm font-bold text-ink">➕ Bouton de capture rapide</h2>
         <button
           onClick={() => {
-            saveCaptureRapide(userId, !on).then(setOn).catch(() => {})
+            CAPTURE_RAPIDE.save(userId, !on).then(setOn).catch(() => {})
           }}
           aria-pressed={on}
           className={`chip shrink-0 text-[11px] transition ${
