@@ -21,6 +21,7 @@ import { faconDeLigne, loadModeleLignes, saveModeleLignes, type ModeleLignes } f
 import { coderSeance, decoderSeance } from '../lib/partageSeance'
 import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type MesureRepos as Mesure } from '../lib/cardioSeance'
 import { PolarFlowReglage } from '../components/PolarFlow'
+import { CardioDuJour } from '../components/CardioDuJour'
 import { DELAI_S, loadVeilleuse, saveVeilleuse } from '../lib/veilleuse'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
 import { age } from '../lib/profil'
@@ -553,6 +554,9 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
   const [saisie, setSaisie] = useState('')
   const [repos, setRepos] = useState<Mesure[]>([])
   const [veilleuse, setVeilleuse] = useState(false)
+  // Les séances datent les mesures cardiaques, rangées par identifiant de
+  // séance : sans elles, la charge de la semaine n'a pas de calendrier.
+  const [seances, setSeances] = useState<Array<{ id: string; date: string }>>([])
   const [msg, setMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -564,6 +568,9 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
     }).catch(() => {})
     loadRepos(userId).then(setRepos).catch(() => {})
     loadVeilleuse(userId).then(setVeilleuse).catch(() => {})
+    listSessions(userId)
+      .then((ss) => setSeances(ss.map((x) => ({ id: x.id, date: x.date }))))
+      .catch(() => {})
     loadOptionsEteintes(userId).then(setEteintes).catch(() => {})
     chargerOptionsMuscu(userId, email).then(setAutorisees).catch(() => {})
   }, [userId, email])
@@ -715,6 +722,20 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
         </div>
       ) : null}
 
+      {/* ── La récupération et la charge, revenues ici ────────────────────
+          Elles étaient passées dans le journal de musculation parce que la
+          MESURE y était enfermée : il fallait trois touchers pour brancher un
+          brassard, et la lecture du matin servait à décider de la séance.
+
+          Le brassard se branche maintenant depuis l'en-tête, sur n'importe quel
+          écran. L'argument est tombé, et la carte redevient ce qu'elle est :
+          un tableau de bord qu'on consulte, pas un geste qu'on fait.
+
+          ⚠️ Ce que ça coûte, et il faut le savoir : le verdict du matin n'est
+          plus sous les yeux au moment de composer la séance. Il faut venir le
+          chercher. */}
+      <CardioDuJour userId={userId} seances={seances} polarActif={polarActif} />
+
       {/* La mesure au repos a quitté cet écran. Elle se prend tous les matins,
           et ce qu'elle dit sert à décider de la séance du jour : elle vit
           maintenant dans Musculation › Journal, au-dessus du bouton qui compose
@@ -722,8 +743,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
       <div>
         <div className="text-xs font-bold text-ink">Mesure au repos</div>
         <p className="mt-0.5 text-xs leading-snug text-muted">
-          Elle est passée dans <b className="text-ink">Musculation › Journal</b>, avec la lecture de récupération et la
-          charge cardiaque de la semaine. C’est là qu’on décide de sa séance, donc là qu’elle sert.
+          Elle se prend dans la carte ci-dessus, avec la lecture de récupération et la charge cardiaque de la semaine.
           {repos.length ? ` ${repos.length} mesure${repos.length > 1 ? 's' : ''} enregistrée${repos.length > 1 ? 's' : ''}.` : ''}
         </p>
       </div>

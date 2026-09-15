@@ -5,8 +5,6 @@ import { ArmorBodyDiagram, STATE_LABELS, pieceState, type PieceState } from '../
 import { Section, Stat } from '../components/training-ui'
 import { ARMOR_PIECES_TEMPLATE, type ArmorPiece } from '../data/behourd'
 import { EntrainementBehourd } from '../components/EntrainementBehourd'
-import { CardioDuJour } from '../components/CardioDuJour'
-import { listSessions } from '../lib/muscu'
 import { chargerOptionsMuscu } from '../lib/acces'
 import { loadOptionsEteintes, optionActive, type OptionMuscu } from '../lib/optionsMuscu'
 
@@ -35,10 +33,6 @@ export function Behourd() {
   const [loaded, setLoaded] = useState(false)
   const [equipementOuvert, setEquipementOuvert] = useState(() => readKvCache<boolean>(EQUIPEMENT_KEY, false))
   const [cardioActif, setCardioActif] = useState(true)
-  const [polarActif, setPolarActif] = useState(false)
-  // Les séances datent les mesures cardiaques, qui sont rangées par identifiant
-  // de séance. Sans elles, la charge de la semaine n'a pas de calendrier.
-  const [seances, setSeances] = useState<Array<{ id: string; date: string }>>([])
 
   useEffect(() => {
     if (!user) return
@@ -62,13 +56,7 @@ export function Behourd() {
       loadOptionsEteintes(user.id).catch(() => [] as OptionMuscu[]),
       chargerOptionsMuscu(user.id, user.email).catch(() => null),
     ])
-      .then(([eteintes, autorisees]) => {
-        setCardioActif(optionActive('cardio', eteintes, autorisees))
-        setPolarActif(optionActive('polar', eteintes, autorisees))
-      })
-      .catch(() => {})
-    listSessions(user.id)
-      .then((ss) => setSeances(ss.map((s) => ({ id: s.id, date: s.date }))))
+      .then(([eteintes, autorisees]) => setCardioActif(optionActive('cardio', eteintes, autorisees)))
       .catch(() => {})
   }, [user])
 
@@ -109,10 +97,6 @@ export function Behourd() {
 
       <EntrainementBehourd userId={user?.id ?? ''} cardioActif={cardioActif} />
 
-      {/* Le même bloc qu'en musculation, et la même mesure : un seul brassard,
-          une seule base de comparaison. Un béhourd se décide comme une séance
-          de charges — en sachant si le corps suit. */}
-      {cardioActif && user ? <CardioDuJour userId={user.id} seances={seances} polarActif={polarActif} /> : null}
 
       {/* ── Tout l'équipement, sous un seul volet ──────────────────────────
           Bannière de précommande, compteurs, mannequin, réparations et fiches :
