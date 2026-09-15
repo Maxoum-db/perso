@@ -56,17 +56,25 @@ export function doitSassombrir(dernierGeste: number, maintenant: number, delaiS 
 }
 
 /**
- * Le geste tombe-t-il dans la moitié basse ?
+ * Où se touche le voile pour le lever.
  *
- * C'est la moitié qu'on atteint du pouce sans changer de prise, et c'est
- * surtout celle qu'on ne touche PAS en saisissant le téléphone : on l'attrape
- * par le haut ou par les bords. Un voile qui se lèverait au moindre contact ne
- * servirait à rien dans une poche ou sous une serviette.
+ * ── Pourquoi une ZONE, et non la moitié de l'écran ──────────────────────────
  *
- * Une hauteur nulle ou absurde ne rend pas `true` par accident : sans écran
- * mesurable on refuse, et le voile se lève par les autres moyens.
+ * La règle était « la moitié basse ». Elle ne tenait pas : le voile écoutait
+ * aussi les gestes au niveau du DOCUMENT, en phase de capture, pour repousser
+ * l'échéance — et cette écoute-là levait le voile sans regarder où l'on avait
+ * touché. La moitié haute rallumait donc tout aussi bien, contrairement à ce
+ * que l'écran annonçait.
+ *
+ * Deux règles pour une même chose, dont une invisible : c'est la pire des
+ * situations, parce que celle qui gagne n'est pas celle qui est écrite.
+ *
+ * Il n'y a donc plus qu'une seule porte, et c'est un vrai bouton — pas une
+ * comparaison de coordonnées. Un bouton se lit par un lecteur d'écran,
+ * s'atteint au clavier, et surtout : ce qui n'est pas lui n'ouvre rien. Tout
+ * le reste de la dalle est mort, poche et serviette comprises.
+ *
+ * Sa place est à GAUCHE de la fréquence, à l'aplomb du 🌙 de l'en-tête qui a
+ * posé le voile : on rallume là où on a éteint.
  */
-export function moitieBasse(y: number, hauteur: number): boolean {
-  if (!(hauteur > 0)) return false
-  return y > hauteur / 2
-}
+export const LARGEUR_REVEIL_REM = 3

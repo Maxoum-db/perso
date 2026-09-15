@@ -681,7 +681,8 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
         </div>
         <p className="mt-0.5 text-xs leading-snug text-muted">
           Brassard branché, l’écran se voile de noir après {DELAI_S} secondes sans y toucher, et la fréquence reste
-          lisible en tout petit. Touche la <b className="text-ink">moitié basse</b> pour rallumer.
+          lisible en tout petit. Le reste de la dalle est <b className="text-ink">verrouillé</b> : rien n’y répond, ni
+          toucher ni bouton. Seul le <b className="text-ink">☀</b>, à gauche de la fréquence, rallume.
           {' '}Éteint, il reste le bouton <b className="text-ink">🌙</b> de l’en-tête, à gauche de la fréquence : ce
           réglage ne commande que l’assombrissement automatique.
         </p>
@@ -689,6 +690,12 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
           C’est un masque, pas une extinction : l’écran doit rester allumé, sinon le Bluetooth du navigateur s’arrête et
           la mesure avec. Sur la dalle IPS du XCover, le rétroéclairage reste donc au même niveau — ça évite de
           s’éblouir et surtout les touches accidentelles, pas de vider la batterie moins vite.
+        </p>
+        <p className="mt-1 text-[11px] leading-snug text-muted/70">
+          Le voile prend aussi <b className="text-ink">tout l’écran</b> : l’heure, la batterie et le bandeau de
+          navigation d’Android s’en vont avec le reste. Quand le voile tombe tout seul, Android peut le refuser —
+          il réclame un geste récent, et une minute sans geste n’en laisse aucun ; le premier toucher sur la zone
+          verrouillée le rattrape. Demandé par le <b className="text-ink">🌙</b>, il passe du premier coup.
         </p>
       </div>
 
