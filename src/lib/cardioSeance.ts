@@ -17,6 +17,17 @@ export interface CardioSeance {
   mesures: number
   /** Nom du capteur, pour savoir d'où vient le chiffre. */
   capteur?: string
+  /**
+   * D'où vient la mesure, quand ce n'est pas le Bluetooth en direct.
+   *
+   * `'polar'` : relevée dans Polar Flow, sur une séance que le capteur a
+   * enregistrée seul. Ces mesures n'ont PAS de temps par zone — la route qui
+   * les rend ne le donne pas — et leur `mesures` vaut zéro, parce qu'aucune
+   * trame n'a été reçue ici. Sans ce champ, l'écran écrirait « 0 mesures
+   * reçues » sous une moyenne que Polar a calculée sur toute la séance, ce qui
+   * la ferait passer pour douteuse alors qu'elle est meilleure que la nôtre.
+   */
+  origine?: 'polar'
 }
 
 export type CardiosSeances = Record<string, CardioSeance>
@@ -41,6 +52,38 @@ export async function saveCardio(
   const next = { ...connus }
   if (!b || !b.mesures) delete next[sessionId]
   else next[sessionId] = { moyenne: b.moyenne, max: b.max, zones: b.zones, mesures: b.mesures, ...(capteur ? { capteur } : {}) }
+  await saveKv(userId, CLE, next)
+  return next
+}
+
+/**
+ * Range une mesure venue de Polar Flow.
+ *
+ * Séparé de `saveCardio`, et pas un paramètre de plus : celui-là refuse un
+ * bilan sans trame (`if (!b || !b.mesures) delete next[sessionId]`), ce qui est
+ * juste pour le Bluetooth — une moyenne sur zéro trame n'y veut rien dire — et
+ * faux ici, où le chiffre vient de Polar et vaut précisément parce qu'il n'a pas
+ * été calculé chez nous. Deux règles contraires dans une seule fonction auraient
+ * demandé un drapeau, et le drapeau se serait trompé un jour.
+ */
+export async function saveCardioPolar(
+  userId: string,
+  sessionId: string,
+  m: { moyenne: number; max: number },
+  capteur: string | null,
+  connus: CardiosSeances,
+): Promise<CardiosSeances> {
+  const next: CardiosSeances = {
+    ...connus,
+    [sessionId]: {
+      moyenne: m.moyenne,
+      max: m.max,
+      zones: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      mesures: 0,
+      origine: 'polar',
+      ...(capteur ? { capteur } : {}),
+    },
+  }
   await saveKv(userId, CLE, next)
   return next
 }

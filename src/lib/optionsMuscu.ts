@@ -22,7 +22,7 @@ import { fetchKv, saveKv } from './kv'
 // La première borne la seconde : on ne peut pas s'allumer une option qu'on n'a
 // pas reçue.
 
-export type OptionMuscu = 'cardio'
+export type OptionMuscu = 'cardio' | 'polar'
 
 export const OPTIONS_MUSCU: Array<{ id: OptionMuscu; label: string; aide: string }> = [
   {
@@ -30,7 +30,26 @@ export const OPTIONS_MUSCU: Array<{ id: OptionMuscu; label: string; aide: string
     label: '❤️ Capteur cardiaque',
     aide: 'Brassard Bluetooth pendant la séance, zones, mesure au repos. Inutile sans capteur.',
   },
+  {
+    id: 'polar',
+    label: '🔗 Polar Flow',
+    aide: 'Relève les séances que le capteur a enregistrées seul (mode vert). Demande un compte Polar.',
+  },
 ]
+
+/**
+ * Polar Flow ne s'allume pas sans le capteur cardiaque.
+ *
+ * Ce n'est pas une politesse d'affichage : les deux parlent du MÊME brassard, et
+ * les blocs Polar vivent à l'intérieur des écrans cardio — dans la carte du
+ * journal, dans la section des réglages. Cardio éteint, ces écrans n'existent
+ * pas, et une option « allumée » qui ne s'affiche nulle part est pire qu'une
+ * option éteinte : on la croit active et on cherche pourquoi rien ne vient.
+ *
+ * La dépendance est donc déclarée ici, à un seul endroit, plutôt que répétée à
+ * chaque appel.
+ */
+export const DEPEND_DE: Partial<Record<OptionMuscu, OptionMuscu>> = { polar: 'cardio' }
 
 export function estOptionConnue(id: string): id is OptionMuscu {
   return OPTIONS_MUSCU.some((o) => o.id === id)
@@ -45,9 +64,17 @@ export function estOptionConnue(id: string): id is OptionMuscu {
  * la colonne est nullable.
  */
 export function optionsActives(eteintes: OptionMuscu[], autorisees: OptionMuscu[] | null): OptionMuscu[] {
-  return OPTIONS_MUSCU.map((o) => o.id).filter(
+  const propres = OPTIONS_MUSCU.map((o) => o.id).filter(
     (id) => (autorisees === null || autorisees.includes(id)) && !eteintes.includes(id),
   )
+  // Puis on retire celles dont le parent est éteint. En deux temps, et pas en
+  // une condition : une option peut être autorisée, allumée par son compte, et
+  // rester inactive parce que ce dont elle dépend ne l'est pas. Les trois
+  // raisons sont distinctes et l'écran doit pouvoir les distinguer.
+  return propres.filter((id) => {
+    const parent = DEPEND_DE[id]
+    return parent === undefined || propres.includes(parent)
+  })
 }
 
 /** Raccourci de lecture : « est-ce que le cardio est allumé ici ? » */
