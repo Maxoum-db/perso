@@ -45,6 +45,7 @@ export type Section =
   | 'rustique'
   | 'flatterie'
   | 'saxophone'
+  | 'moto'
 
 /**
  * Une section a un identifiant, un libellé, et parfois UNE PAGE.
@@ -68,6 +69,7 @@ export const SECTIONS: Array<{ id: Section; label: string; icone: string; route?
   { id: 'mails', label: 'Mails', icone: '✉️', route: '/mails', aide: 'Boîte de réception (hors navigation).' },
   { id: 'rustique', label: 'Rustique', icone: '🧠', route: '/rustique', aide: 'Recettes, apiculture, distillation et BPREA du Hub Prométhée.' },
   { id: 'saxophone', label: 'Saxophone', icone: '🎷', route: '/saxophone', aide: 'Doigtés des notes sur le saxophone.' },
+  { id: 'moto', label: 'Moto', icone: '🏍️', route: '/moto', aide: 'Trajets enregistrés au GPS — kilomètres et durée, sans tracé.' },
   // Sans route : elle n'ajoute qu'une carte à l'accueil.
   { id: 'flatterie', label: 'Flatterie', icone: '✨', aide: 'Une carte d’accueil qui rappelle une vérité première.' },
 ]

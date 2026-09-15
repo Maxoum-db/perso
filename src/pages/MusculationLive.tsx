@@ -20,6 +20,8 @@ import { renommerSiAuto } from '../lib/nommage'
 import { OUTILS, outilDe, type OutilId } from '../lib/materiel'
 import { remodeler, type Changement } from '../lib/remodeler'
 import { AllurePicker } from '../components/AllurePicker'
+import { estMarche, MarcheGps } from '../components/MarcheGps'
+import { fmtDistance } from '../lib/gps'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { suggererCharge } from '../lib/charge'
 import { ExercisePicker } from '../components/ExercisePicker'
@@ -755,6 +757,21 @@ export function LiveSession({
                   />
                   kg
                 </label>
+                {/* La marche se mesure plutôt qu'elle ne se saisit : le GPS
+                    remplit la durée et écrit la distance dans les notes. Sur la
+                    ligne qu'elle concerne, et pas en tête d'écran — c'est une
+                    activité du catalogue, elle entre dans la dépense et dans la
+                    charge comme les autres. */}
+                {estMarche(e.name) ? (
+                  <MarcheGps
+                    onFini={(minutes, metres) =>
+                      updateExo(j, {
+                        reps: `${minutes} min`,
+                        notes: [e.notes.trim(), `${fmtDistance(metres)} au GPS`].filter(Boolean).join(' · '),
+                      })
+                    }
+                  />
+                ) : null}
                 {/* Mesuré en temps ou en distance : la charge ne dit rien de
                     l'effort, et c'est l'allure qui le dit. Trente secondes de
                     rameur en récupération et trente secondes à fond pesaient
