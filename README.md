@@ -99,9 +99,28 @@ Polar Flow, et Couanac vient les y chercher.
 **a) Créer le client AccessLink** — 5 minutes, à faire soi-même :
 
 1. Va sur <https://admin.polaraccesslink.com/> et connecte-toi avec ton compte Polar Flow.
-2. Crée un client. Renseigne l'URL de redirection : `https://<ton-domaine>/polar-callback`
-   (exactement celle-là, Polar la compare caractère par caractère).
-3. Note le **Client ID** et le **Client Secret**.
+2. Onglet **Application information** :
+   | Champ | Valeur |
+   |---|---|
+   | Application Name | `Couanac Aide` |
+   | Business contact | `maximilien@ferme-promethee.fr` |
+   | Application Web site | `https://couanac.vercel.app` |
+   | **Authorization redirect URL** | `https://couanac.vercel.app/polar-callback` |
+
+   L'URL de redirection est comparée **caractère par caractère** par Polar : `https`,
+   pas de barre oblique finale, pas de `www`. Elle doit être identique à
+   `POLAR_REDIRECT_URI` posé à l'étape (b).
+
+3. **Available data types** — n'active que ce qui sert :
+   | Type | | Pourquoi |
+   |---|---|---|
+   | Exercise data | ✅ | Les séances. C'est la seule chose que Couanac lit. |
+   | Daily activity data | ❌ | Pas / mille pas / calories de la journée : données de montre ou de bracelet. Le Verity Sense n'en produit pas. |
+   | Physical information data | ❌ | Taille, poids, VO2max du profil Polar. Couanac ne les lit pas — le poids et la FC max se saisissent dans l'app. |
+
+   Ces cases se modifient plus tard si besoin : autant commencer au strict nécessaire.
+
+4. Termine l'assistant et note le **Client ID** et le **Client Secret**.
 
 **b) Installer les identifiants côté serveur.** Le secret ne doit *jamais* entrer
 dans le bundle Vite — il partirait dans le JavaScript public. Il vit dans les
@@ -111,7 +130,7 @@ secrets Supabase :
 supabase secrets set \
   POLAR_CLIENT_ID=... \
   POLAR_CLIENT_SECRET=... \
-  POLAR_REDIRECT_URI=https://<ton-domaine>/polar-callback
+  POLAR_REDIRECT_URI=https://couanac.vercel.app/polar-callback
 supabase functions deploy polar
 ```
 
