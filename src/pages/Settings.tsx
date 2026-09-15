@@ -20,6 +20,7 @@ import { loadModelesPerso, marquerPerso, trierModeles, type ModelesPerso } from 
 import { faconDeLigne, loadModeleLignes, saveModeleLignes, type ModeleLignes } from '../lib/modeleLignes'
 import { coderSeance, decoderSeance } from '../lib/partageSeance'
 import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type MesureRepos as Mesure } from '../lib/cardioSeance'
+import { PolarFlowReglage } from '../components/PolarFlow'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
 import { age } from '../lib/profil'
 import {
@@ -654,6 +655,8 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
         ) : null}
         {msg ? <p className="mt-1 text-xs text-copper">{msg}</p> : null}
       </div>
+
+      <PolarFlowReglage />
 
       {/* La mesure au repos a quitté cet écran. Elle se prend tous les matins,
           et ce qu'elle dit sert à décider de la séance du jour : elle vit
