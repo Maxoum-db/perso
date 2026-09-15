@@ -9,9 +9,11 @@ import { listWeighins, type Weighin } from '../lib/workouts'
 import { ExercisePicker, normalizeName } from '../components/ExercisePicker'
 import { estAdaptable, loadDouceurs, nettoyerDouceurs, saveDouceurs, type Douceurs } from '../lib/douceur'
 import { loadNegatifs, nettoyerNegatifs, saveNegatifs, type Negatifs } from '../lib/negatif'
-import { loadCardios, nettoyerCardios, type CardioSeance, type CardiosSeances } from '../lib/cardioSeance'
+import { loadCardios, loadFcMaxRelevee, nettoyerCardios, type CardioSeance, type CardiosSeances } from '../lib/cardioSeance'
+import { caloriesCardiaques, ecartAuBareme } from '../lib/caloriesCardiaques'
+import { sessionCalories } from '../lib/calories'
 import { loadOptionsEteintes, optionActive, type OptionMuscu } from '../lib/optionsMuscu'
-import { fmtSecondes, totalZones, ZONES } from '../lib/cardio'
+import { fcMaxEstimee, fmtSecondes, totalZones, ZONES } from '../lib/cardio'
 import {
   loadMusclesVisibles,
   loadOngletsMasques,
@@ -39,6 +41,7 @@ import { chargeTotale, partDuCorps, poidsDuCorpsPorte } from '../lib/effort'
 import { GroupPicker } from '../components/GroupPicker'
 import { RessentiPicker } from '../components/RessentiPicker'
 import { CardioDuJour } from '../components/CardioDuJour'
+import { RattacherMesurePolar } from '../components/PolarFlow'
 import { RecuperationCard } from '../components/RecuperationCard'
 import { NeglectedMuscles } from '../components/NeglectedMuscles'
 import { ObservationsCard } from '../components/ObservationsCard'
@@ -97,7 +100,7 @@ import {
   type IntensiteId,
   type Intensites,
 } from '../lib/intensite'
-import { PROFIL_DEFAUT, loadProfil, type Profil } from '../lib/profil'
+import { PROFIL_DEFAUT, age, loadProfil, type Profil } from '../lib/profil'
 import { ProgressTab } from './MusculationProgress'
 import { BandeauSeance, LiveSession, clearLive, loadLive, storeLive, type LiveState } from './MusculationLive'
 import {
@@ -322,6 +325,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
   // Poids de corps de l'utilisateur connecté : sert de charge aux exercices
   // au poids du corps (chacun le sien).
   const [bodyWeight, setBodyWeight] = useState<number | null>(null)
+  const [fcMaxRelevee, setFcMaxRelevee] = useState<number | null>(null)
   // Pesées complètes : servent à déduire la balance énergétique, donc l'état de forme.
   const [weighins, setWeighins] = useState<Weighin[]>([])
   // Point faible à rattraper : pèse sur le générateur et sur l'alerte des négligés.
@@ -384,7 +388,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         console.warn('Amorçage du catalogue échoué :', e.message)
         setError(`Mise à jour du catalogue interrompue (${e.message}). Tes séances restent lisibles.`)
       })
-      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, mp, om, mv, cd, oa, oe, opa, al, ex, so] = await Promise.all([
+      const [t, s, c, g, w, f, cb, bl, pr, it, nu, ob, bh, du, dx, ng, ml, mp, om, mv, cd, fcm, oa, oe, opa, al, ex, so] = await Promise.all([
         listTemplates(user.id),
         listSessions(user.id),
         listCatalog(user.id),
@@ -406,6 +410,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
         loadOngletsMasques(user.id).catch(() => [] as OngletMuscu[]),
         loadMusclesVisibles(user.id).catch(() => false),
         loadCardios(user.id).catch(() => ({}) as CardiosSeances),
+        loadFcMaxRelevee(user.id).catch(() => null),
         chargerOngletsMuscu(user.id, user.email).catch(() => null),
         loadOptionsEteintes(user.id).catch(() => [] as OptionMuscu[]),
         chargerOptionsMuscu(user.id, user.email).catch(() => null),
@@ -436,6 +441,7 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
       setOngletsMasques(om)
       setMusclesVisibles(mv)
       setCardios(nettoyerCardios(cd, new Set(s.map((x) => x.id))))
+      setFcMaxRelevee(fcm)
       setOngletsAutorises(oa)
       setOptionsEteintes(oe)
       setOptionsAutorisees(opa)
@@ -532,6 +538,8 @@ export function Musculation({ sections = [] }: { sections?: SectionAutorisee[] }
             if (user) saveObservations(user.id, next).catch(() => {})
           }}
           sexe={profil.sex}
+          age={age(profil)}
+          fcMax={fcMaxRelevee ?? fcMaxEstimee(age(profil))}
           intensites={intensites}
           onIntensite={setIntensites}
           douceurs={douceurs}
@@ -643,6 +651,8 @@ export function Journal({
   exclues,
   onExclues,
   sexe,
+  age: ageProfil,
+  fcMax,
   onChange,
   composerAuto,
   onComposeConsomme,
@@ -700,6 +710,10 @@ export function Journal({
   onExclues: (e: Exclues) => void
   /** Silhouette du mannequin — déclarée dans Poids › profil. */
   sexe: Profil['sex']
+  /** Âge, pour l'équation de Keytel. `null` sans année de naissance. */
+  age: number | null
+  /** Fréquence maximale retenue — relevée si elle existe, estimée sinon. */
+  fcMax: number | null
   onChange: () => void
   /** Arrivée depuis l'accueil : composer la séance dès l'affichage. */
   composerAuto?: boolean
@@ -1373,7 +1387,20 @@ export function Journal({
                         : ''}
                     </p>
                   ) : null}
-                  {cardioActif && cardios[s.id] ? <BlocCardio c={cardios[s.id]} /> : null}
+                  {cardioActif && cardios[s.id] ? (
+                    <BlocCardio
+                      c={cardios[s.id]}
+                      seance={s}
+                      poidsKg={bodyWeight}
+                      age={ageProfil}
+                      sexe={sexe}
+                      fcMax={fcMax}
+                    />
+                  ) : cardioActif && polarActif ? (
+                    /* Pas de fréquence sur cette séance : elle a peut-être été
+                       enregistrée par le capteur seul pendant ce temps-là. */
+                    <RattacherMesurePolar userId={userId} seance={s} onFait={onChange} />
+                  ) : null}
                   {s.notes ? <p className="rounded-xl2 bg-white/5 p-2 text-xs text-muted">📝 {s.notes}</p> : null}
                   <div className="flex justify-end gap-3 text-xs">
                     <button onClick={() => startEdit(s)} className="font-semibold text-copper">
@@ -1569,8 +1596,34 @@ export function Journal({
  * même poids qu'une moyenne sur trois mille, et rien d'autre ne permet de faire
  * la différence après coup.
  */
-function BlocCardio({ c }: { c: CardioSeance }) {
+function BlocCardio({
+  c,
+  seance,
+  poidsKg,
+  age: ageProfil,
+  sexe,
+  fcMax,
+}: {
+  c: CardioSeance
+  seance: MuscuSession
+  poidsKg: number | null
+  age: number | null
+  sexe: Profil['sex']
+  fcMax: number | null
+}) {
   const total = totalZones(c.zones)
+  // Le barème vient d'où il vient toujours, pour que les deux chiffres
+  // comparés soient bien celui de l'application et celui du cœur.
+  const bareme = sessionCalories(seance, poidsKg)
+  const mesure = caloriesCardiaques({
+    moyenne: c.moyenne,
+    minutes: bareme.minutes,
+    poidsKg,
+    age: ageProfil,
+    sexe,
+    fcMax,
+  })
+  const ecart = ecartAuBareme(mesure?.kcal ?? null, bareme.kcal)
   return (
     <div className="rounded-xl2 border border-line/60 p-2">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
@@ -1601,6 +1654,28 @@ function BlocCardio({ c }: { c: CardioSeance }) {
             ))}
         </div>
       ) : null}
+      {/* Ce que la fréquence dit des calories, et l'écart au barème.
+          L'écart est le vrai sujet : un chiffre de plus n'apprend rien, la
+          DIFFÉRENCE entre ce que l'application supposait et ce que le cœur a
+          mesuré, si. */}
+      {mesure ? (
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-line/40 pt-1.5 text-[11px]">
+          <span className="font-bold text-copper">{mesure.kcal} kcal</span>
+          <span className="text-muted">d’après ta fréquence</span>
+          {ecart !== null ? (
+            <span className={`tabular-nums ${Math.abs(ecart) >= 15 ? 'text-copper' : 'text-muted/70'}`}>
+              {ecart > 0 ? '+' : ''}
+              {ecart} % vs le barème ({bareme.kcal})
+            </span>
+          ) : null}
+        </div>
+      ) : c.moyenne && fcMax && c.moyenne < fcMax * 0.5 ? (
+        <p className="mt-1.5 border-t border-line/40 pt-1.5 text-[10px] leading-snug text-muted/70">
+          Fréquence moyenne sous la moitié de ta maximale : trop calme pour que l’équation cardiaque ait cours. Les{' '}
+          {bareme.kcal} kcal affichées viennent du barème.
+        </p>
+      ) : null}
+
       {/* Le nombre de trames ne veut rien dire pour une mesure venue de Polar :
           elle n'a traversé aucun Bluetooth ici, et sa moyenne — calculée par le
           capteur sur toute la séance — vaut mieux que la nôtre. Écrire

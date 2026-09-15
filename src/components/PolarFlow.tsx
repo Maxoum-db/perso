@@ -374,3 +374,124 @@ export function PolarFlowSeances({
     </div>
   )
 }
+
+/**
+ * Rattacher une mesure Polar à une séance déjà au journal.
+ *
+ * ── Le manque que ça comble ─────────────────────────────────────────────────
+ *
+ * Une séance en direct récupère sa fréquence toute seule : le brassard est
+ * branché, le bilan se colle à la séance à « Terminer ». Mais une séance SAISIE
+ * APRÈS COUP n'a rien, alors que le capteur, lui, a peut-être tout enregistré en
+ * mode vert pendant ce temps-là. Les deux existaient côte à côte sans jamais se
+ * rencontrer : la séance au journal, la mesure dans sa petite liste.
+ *
+ * ── Pourquoi le rapprochement n'est pas automatique ─────────────────────────
+ *
+ * Les séances du journal portent une DATE, pas une heure de début : la table
+ * n'a pas de colonne pour ça. Deux séances le même jour ne peuvent donc pas
+ * être départagées par le calcul, et rattacher la mauvaise mesure serait pire
+ * que de ne rien rattacher — le chiffre aurait l'air juste.
+ *
+ * On propose donc les mesures du JOUR, avec leur heure, et c'est la personne
+ * qui reconnaît la sienne. Un geste, et il ne peut pas se tromper tout seul.
+ */
+export function RattacherMesurePolar({
+  userId,
+  seance,
+  onFait,
+}: {
+  userId: string
+  seance: { id: string; date: string }
+  onFait: () => void
+}) {
+  const [candidates, setCandidates] = useState<SeanceImportee[] | null>(null)
+  const [occupe, setOccupe] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  /**
+   * Chargé à la DEMANDE, et c'est délibéré : ce bouton s'affiche sous chaque
+   * séance sans cardio du journal. Charger la liste au rendu ferait une requête
+   * par séance à l'ouverture de l'écran, pour une liste que l'on ne regarde
+   * presque jamais.
+   */
+  async function ouvrir() {
+    setOccupe(true)
+    setMsg(null)
+    try {
+      const [toutes, deja] = await Promise.all([listerSeancesPolar(userId), loadConversions(userId)])
+      // Le même jour, et pas déjà utilisée ailleurs : une mesure rattachée à
+      // deux séances compterait deux fois dans la semaine.
+      const prises = new Set(Object.keys(deja))
+      setCandidates(toutes.filter((s) => s.date === seance.date && !prises.has(s.id)))
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  async function rattacher(s: SeanceImportee) {
+    if (s.fcMoyenne === null || s.fcMax === null) {
+      setMsg('Cette mesure n’a pas de fréquence moyenne — rien à rattacher.')
+      return
+    }
+    setOccupe(true)
+    try {
+      await saveCardioPolar(userId, seance.id, { moyenne: s.fcMoyenne, max: s.fcMax }, s.appareil, await loadCardios(userId))
+      await saveConversion(userId, s.id, seance.id, await loadConversions(userId))
+      onFait()
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  if (candidates === null) {
+    return (
+      <div>
+        <button onClick={ouvrir} disabled={occupe} className="chip bg-bg text-[10px] text-copper disabled:opacity-50">
+          {occupe ? 'Lecture…' : '❤️ Rattacher une mesure Polar'}
+        </button>
+        {msg ? <p className="mt-1 text-[10px] text-clay">{msg}</p> : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl2 border border-line/60 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Mesures de ce jour</span>
+        <button onClick={() => setCandidates(null)} className="text-[10px] text-muted hover:text-ink">
+          Fermer
+        </button>
+      </div>
+      {candidates.length === 0 ? (
+        <p className="mt-1 text-[10px] leading-snug text-muted">
+          Aucune mesure Polar disponible ce jour-là. Soit le capteur n’a rien enregistré, soit elle est déjà rattachée à
+          une autre séance.
+        </p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {candidates.map((s) => (
+            <li key={s.id}>
+              <button
+                onClick={() => rattacher(s)}
+                disabled={occupe}
+                className="flex w-full items-center gap-2 rounded-lg bg-white/[0.03] px-2 py-1.5 text-left disabled:opacity-50"
+              >
+                <span className="min-w-0 flex-1 truncate text-[11px] text-ink">{titreSeance(s)}</span>
+                <span className="shrink-0 text-[10px] text-muted">
+                  {fmtDuree(s.dureeS)}
+                  {s.fcMoyenne !== null ? ` · ❤️ ${s.fcMoyenne}` : ' · pas de fréquence'}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {msg ? <p className="mt-1 text-[10px] text-clay">{msg}</p> : null}
+    </div>
+  )
+}
