@@ -101,29 +101,60 @@ export function Veilleuse({ sombre, onSombre }: { sombre: boolean; onSombre: (v:
       tabIndex={0}
       aria-label="Écran assombri — touche le bas pour rallumer"
       onKeyDown={() => reveiller()}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
+      className="veilleuse fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black px-3"
     >
-      {/* La fréquence, très pâle : de quoi jeter un œil sans se rallumer la
-          figure. Elle garde la couleur de sa zone, à peine. */}
+      {/* ── Pourquoi une hauteur change la mise en page ────────────────────
+          En fenêtre contextuelle, Samsung impose une hauteur minimale qu'on ne
+          peut pas descendre. Le voile s'y affichait comme sur une page pleine :
+          un grand chiffre au milieu, trois lignes en bas, et beaucoup de noir
+          entre les deux.
+
+          Ce qu'on veut dans une petite fenêtre, c'est un BANDEAU : le chiffre,
+          et rien. Les explications sont utiles la première fois, sur un écran
+          entier ; elles ne valent pas la place qu'elles prennent dans une
+          fenêtre haute comme trois lignes de texte.
+
+          La règle est donc dans la feuille de style, pas dans une condition
+          JavaScript : c'est la HAUTEUR DISPONIBLE qui décide, et elle change
+          quand on redimensionne la fenêtre, sans que rien n'ait à se
+          remonter. */}
+      {/* La double classe `.veilleuse .veilleuse-aide` n'est pas ce qui fait
+          gagner cette règle : ce bloc est rendu dans le corps du document, donc
+          APRÈS la feuille de style, et à spécificité égale c'est le dernier qui
+          l'emporte. Une mutation qui retire le premier sélecteur ne change donc
+          rien, et aucun contrôle ne la voit — c'est normal.
+
+          Gardée quand même : elle protège du jour où ce bloc remonterait
+          ailleurs, et elle coûte huit caractères. */}
+      <style>{`
+        @media (max-height: 320px) {
+          .veilleuse .veilleuse-aide { display: none; }
+          .veilleuse .veilleuse-bpm { font-size: 3rem; line-height: 1; }
+        }
+        @media (max-height: 200px) {
+          .veilleuse .veilleuse-bpm { font-size: 2.25rem; }
+        }
+      `}</style>
+
       {capteur.bpm !== null ? (
-        <span className="text-5xl font-bold tabular-nums opacity-25" style={{ color: zone?.couleur ?? '#fff' }}>
+        <span className="veilleuse-bpm text-6xl font-bold tabular-nums opacity-25" style={{ color: zone?.couleur ?? '#fff' }}>
           {capteur.bpm}
         </span>
       ) : (
         <span className="text-sm text-white/20">en attente du brassard…</span>
       )}
       {capteur.contact === false ? (
-        <span className="mt-2 text-[11px] text-white/25">brassard décroché</span>
+        <span className="veilleuse-aide text-[11px] text-white/25">brassard décroché</span>
       ) : null}
+
       {/* ── Ce que le voile NE FAIT PAS, écrit sous le voile ──────────────
           L'écran a l'air éteint, et il ne l'est pas : la page tient un verrou
           tant que le brassard est branché. Un téléphone qu'on glisse dans sa
           poche en le croyant endormi éclaire sa doublure jusqu'à la panne.
 
-          Avant, l'écran allumé était lui-même l'avertissement. En le masquant,
-          j'ai supprimé le seul signal qui restait — il faut donc le remettre en
-          mots, et donner la sortie avec. */}
-      <div className="absolute inset-x-0 bottom-8 flex flex-col items-center gap-2">
+          Ces lignes disparaissent dans une petite fenêtre : là, l'écran du
+          téléphone est visible autour, et personne ne croit qu'il dort. */}
+      <div className="veilleuse-aide flex flex-col items-center gap-2">
         <span className="text-[11px] text-white/20">Touche ici pour rallumer</span>
         <span className="text-[10px] text-white/15">Brassard branché — l’écran reste allumé</span>
         <button
