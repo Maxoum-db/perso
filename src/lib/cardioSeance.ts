@@ -52,12 +52,19 @@ export function nettoyerCardios(connus: CardiosSeances, idsVivants: Set<string>)
   return out
 }
 
-// ── La mesure au repos ──────────────────────────────────────────────────────
+// ── Les mesures au repos ────────────────────────────────────────────────────
 //
-// Une seule, la plus récente. Un historique de variabilité aurait du sens, mais
-// pas sans protocole : une RMSSD relevée debout après un café et une autre
-// relevée au réveil ne se comparent pas, et les aligner sur une courbe ferait
-// croire à une évolution là où il n'y a qu'un changement de posture.
+// Un HISTORIQUE, et c'est un changement. Il n'y avait d'abord que la dernière,
+// au motif qu'« une RMSSD relevée debout après un café et une autre relevée au
+// réveil ne se comparent pas ». C'est vrai, et c'était la mauvaise conclusion :
+// sans historique, la mesure ne veut RIEN dire du tout. « Variabilité 20 ms »
+// n'est ni bon ni mauvais — la RMSSD varie d'un facteur trois entre deux
+// personnes saines, et aucun barème universel n'existe.
+//
+// Ce qui veut dire quelque chose, c'est l'écart à SA PROPRE base. Il faut donc
+// garder les précédentes. Le protocole reste la condition — il est rappelé à
+// l'écran à chaque mesure —, mais il se rappelle, il ne s'obtient pas en
+// jetant les données.
 
 export interface MesureRepos {
   /** Date ISO de la mesure. */
@@ -71,13 +78,41 @@ export interface MesureRepos {
 
 const CLE_REPOS = 'muscu_cardio_repos'
 
-export async function loadRepos(userId: string): Promise<MesureRepos | null> {
-  const v = await fetchKv<MesureRepos | null>(userId, CLE_REPOS, null)
-  return v && typeof v === 'object' && typeof v.bpm === 'number' ? v : null
+/**
+ * Combien de mesures on garde.
+ *
+ * Soixante : de quoi tenir deux mois à une mesure par jour, et assez pour voir
+ * une dérive de fond. Au-delà, on ne compare plus une saison à elle-même.
+ */
+export const REPOS_GARDES = 60
+
+/**
+ * Les mesures au repos, de la plus RÉCENTE à la plus ancienne.
+ *
+ * Tolère l'ancien format — une mesure seule, avant qu'il y ait un historique —
+ * et la rend comme une liste d'un élément. Sans ça, la première mesure de
+ * chacun disparaîtrait le jour de la mise à jour.
+ */
+export async function loadRepos(userId: string): Promise<MesureRepos[]> {
+  const v = await fetchKv<MesureRepos[] | MesureRepos | null>(userId, CLE_REPOS, [])
+  const brut = Array.isArray(v) ? v : v && typeof v === 'object' ? [v] : []
+  return brut
+    .filter((m): m is MesureRepos => !!m && typeof m === 'object' && typeof m.bpm === 'number' && typeof m.date === 'string')
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, REPOS_GARDES)
 }
 
-export async function saveRepos(userId: string, m: MesureRepos): Promise<void> {
-  await saveKv(userId, CLE_REPOS, m)
+export async function saveRepos(userId: string, m: MesureRepos, connues: MesureRepos[]): Promise<MesureRepos[]> {
+  const next = [m, ...connues].sort((a, b) => b.date.localeCompare(a.date)).slice(0, REPOS_GARDES)
+  await saveKv(userId, CLE_REPOS, next)
+  return next
+}
+
+/** Retire une mesure ratée — bougée, trop courte, prise debout par erreur. */
+export async function oublierRepos(userId: string, date: string, connues: MesureRepos[]): Promise<MesureRepos[]> {
+  const next = connues.filter((m) => m.date !== date)
+  await saveKv(userId, CLE_REPOS, next)
+  return next
 }
 
 // ── La fréquence maximale ───────────────────────────────────────────────────

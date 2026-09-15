@@ -550,7 +550,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
   const [autorisees, setAutorisees] = useState<OptionMuscu[] | null>(null)
   const [relevee, setRelevee] = useState<number | null>(null)
   const [saisie, setSaisie] = useState('')
-  const [repos, setRepos] = useState<Mesure | null>(null)
+  const [repos, setRepos] = useState<Mesure[]>([])
   const [msg, setMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -658,7 +658,7 @@ function CardioSection({ userId, email }: { userId: string; email: string | null
 
       <div>
         <div className="text-xs font-bold text-ink">Mesure au repos</div>
-        <MesureRepos userId={userId} derniere={repos} onFini={setRepos} />
+        <MesureRepos userId={userId} historique={repos} onFini={setRepos} />
       </div>
         </>
       )}
