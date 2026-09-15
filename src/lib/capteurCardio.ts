@@ -34,10 +34,23 @@ import {
 // Le service PMD de Polar donne en plus le PPI — les intervalles entre
 // battements, avec leur marge d'erreur. Sur un capteur optique comme le Verity
 // Sense, le service normalisé ne publie généralement AUCUN intervalle : sans
-// PMD, la mesure de variabilité ne marcherait jamais avec ce brassard. On le
-// demande donc quand il est là, et on s'en passe quand il n'y est pas — une
-// ceinture d'une autre marque garde ses battements et ses zones, elle perd
-// seulement la variabilité.
+// PMD, la mesure de variabilité ne marcherait jamais avec ce brassard.
+//
+// ⚠️ MAIS LE PPI COÛTE CHER, et la documentation de Polar est formelle
+// (documentation/products/PolarVeritySense.md) :
+//
+//   « When PPI recording is enabled, HR is only updated every 5 seconds. Also
+//     it takes around 25 seconds for the first sample batch to be sent […]
+//     enabling PPI recording will abort any ongoing training. »
+//
+// Autrement dit : demander le PPI pendant une séance dégrade la fréquence
+// cardiaque à une mesure toutes les cinq secondes — exactement le chiffre
+// qu'on regarde entre deux séries —, met vingt-cinq secondes à démarrer, et
+// interrompt l'enregistrement interne du brassard.
+//
+// Le PPI ne se demande donc QUE là où la variabilité est le sujet : la mesure
+// au repos, où l'on ne bouge pas pendant deux minutes et où un battement
+// toutes les cinq secondes ne gêne personne. En séance, on s'en passe.
 //
 // ── Ce qui ne marchera pas, et il faut le dire ──────────────────────────────
 //
@@ -139,7 +152,8 @@ interface GattServiceMin {
  *               enregistre alors les battements sans les ranger, plutôt que de
  *               les ranger n'importe où.
  */
-export function useCapteurCardio(fcMax: number | null): Capteur {
+export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean }): Capteur {
+  const veutPpi = options?.ppi === true
   const [etat, setEtat] = useState<EtatCapteur>(() => (bluetoothDisponible() ? 'prêt' : 'absent'))
   const [nom, setNom] = useState<string | null>(null)
   const [bpm, setBpm] = useState<number | null>(null)
@@ -241,7 +255,7 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
       await caract.startNotifications()
       setEtat('connecté')
       void prendreVerrou(verrou)
-      void brancherPpi(serveur)
+      if (veutPpi) void brancherPpi(serveur)
     } catch (e) {
       const msg = (e as Error).message ?? ''
       // Fermer le sélecteur du navigateur n'est pas une panne : on retourne à
@@ -252,7 +266,7 @@ export function useCapteurCardio(fcMax: number | null): Capteur {
         setEtat('prêt')
       }
     }
-  }, [surMesure])
+  }, [surMesure, brancherPpi, veutPpi])
 
   const deconnecter = useCallback(() => {
     // On arrête la mesure Polar avant de couper : un capteur laissé en PPI

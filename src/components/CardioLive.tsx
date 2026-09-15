@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { bluetoothDisponible, type Capteur } from '../lib/capteurCardio'
 import { fmtSecondes, totalZones, zone, zoneDe, ZONES } from '../lib/cardio'
 
@@ -88,10 +89,13 @@ export function CardioLive({ capteur, fcMax, source }: { capteur: Capteur; fcMax
       ) : capteur.etat === 'connecté' ? (
         <p className="mt-2 text-center text-[11px] text-muted">En attente du premier battement…</p>
       ) : (
-        <p className="mt-1 text-[11px] leading-snug text-muted">
-          Allume le brassard et touche « Brancher ». Rien ne part sur internet : la mesure passe du capteur au
-          téléphone, et reste dans ta séance.
-        </p>
+        <>
+          <p className="mt-1 text-[11px] leading-snug text-muted">
+            Allume le brassard et touche « Brancher ». Rien ne part sur internet : la mesure passe du capteur au
+            téléphone, et reste dans ta séance.
+          </p>
+          <AideMode />
+        </>
       )}
 
       {total > 0 && fcMax ? (
@@ -133,5 +137,60 @@ export function CardioLive({ capteur, fcMax, source }: { capteur: Capteur; fcMax
         </div>
       ) : null}
     </section>
+  )
+}
+
+/**
+ * Le mode du brassard, replié — mais présent là où il sert.
+ *
+ * Un Verity Sense a trois modes, et DEUX D'ENTRE EUX N'ÉMETTENT RIEN : le vert
+ * enregistre dans le brassard, le blanc est pour la natation. Choisi par
+ * inadvertance, le capteur semble en panne — il ne se connecte à rien, ni ici,
+ * ni dans l'application de Polar, ni sur une montre. Et le mode se VERROUILLE
+ * quelques secondes après l'allumage : on ne peut plus en changer sans
+ * éteindre.
+ *
+ * C'est la panne la plus fréquente de ce capteur, et elle n'a rien à voir avec
+ * l'application. L'écrire ici évite de chercher du côté du téléphone pendant
+ * une demi-heure.
+ *
+ * Source : manuel Polar, « Choosing training mode » et « Training in heart rate
+ * mode », plus documentation/products/PolarVeritySense.md du SDK, qui appelle
+ * ce mode « sensor mode (the heart on the optical leds, blue side LED) ».
+ */
+function AideMode() {
+  const [ouvert, setOuvert] = useState(false)
+  return (
+    <div className="mt-2">
+      <button onClick={() => setOuvert((o) => !o)} aria-expanded={ouvert} className="text-[11px] text-copper">
+        {ouvert ? '▾' : '▸'} Le brassard n’apparaît pas ?
+      </button>
+      {ouvert ? (
+        <div className="mt-1 space-y-1.5 rounded-xl2 bg-white/5 p-2 text-[11px] leading-snug text-muted">
+          <p>
+            <b className="text-ink">Le mode d’abord.</b> Appuie brièvement sur le bouton jusqu’à ce que le voyant à
+            côté du <b className="text-ink">cœur</b> s’allume, et que le voyant latéral soit{' '}
+            <b style={{ color: '#4aa3df' }}>bleu</b>. Attends que les six voyants s’allument : il est prêt.
+          </p>
+          <p>
+            <b style={{ color: '#5bbf6a' }}>Vert</b> = enregistrement dans le brassard et{' '}
+            <b className="text-ink">blanc</b> = natation : ces deux-là <b className="text-ink">n’émettent rien</b>. En
+            vert ou en blanc, aucune application ne verra ton rythme — pas plus celle de Polar que celle-ci.
+          </p>
+          <p>
+            Le mode se <b className="text-ink">verrouille</b> quelques secondes après l’allumage. Pour en changer :
+            éteins le brassard et rallume-le.
+          </p>
+          <p>
+            <b className="text-ink">Le port ensuite.</b> Haut sur le bras, serré. Pousse le bracelet des deux côtés :
+            le capteur ne doit pas décoller, et aucune lumière ne doit s’échapper sur les bords.
+          </p>
+          <p>
+            Il reste muet ? Vérifie qu’il n’est pas déjà relié à autre chose — une montre, l’application Polar
+            ouverte en arrière-plan — et oublie-le dans les réglages Bluetooth d’Android avant de recommencer.
+          </p>
+        </div>
+      ) : null}
+    </div>
   )
 }

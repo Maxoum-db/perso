@@ -31,7 +31,11 @@ export function MesureRepos({
   derniere: Mesure | null
   onFini: (m: Mesure) => void
 }) {
-  const capteur = useCapteurCardio(null)
+  // Le seul endroit qui demande le PPI : ici la variabilité EST le sujet, et
+  // le prix qu'il coûte — une fréquence rafraîchie toutes les cinq secondes,
+  // vingt-cinq secondes avant le premier lot — ne gêne pas quelqu'un d'assis
+  // qui ne bouge pas. En séance, ce serait l'inverse.
+  const capteur = useCapteurCardio(null, { ppi: true })
   const [enCours, setEnCours] = useState(false)
   const [reste, setReste] = useState(DUREE_S)
   const [msg, setMsg] = useState<string | null>(null)
