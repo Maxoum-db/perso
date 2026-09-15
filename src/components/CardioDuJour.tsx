@@ -3,6 +3,7 @@ import { MesureRepos } from './MesureRepos'
 import { loadCardios, loadRepos, oublierRepos, type CardiosSeances, type MesureRepos as Mesure } from '../lib/cardioSeance'
 import { baseDe, COULEUR_VERDICT, fmtEcart, INTERVALLES_MIN, lireRecup, mesureFiable } from '../lib/recupCardiaque'
 import { bilanCardiaque, ecartMoyenne, type BilanCardiaque } from '../lib/chargeCardiaque'
+import { PolarFlowSeances } from './PolarFlow'
 
 // Le cardio là où l'on s'entraîne, et plus dans les réglages.
 //
@@ -116,6 +117,8 @@ export function CardioDuJour({
       {ouvert === 'aide' ? <PourquoiPasEnContinu /> : null}
 
       <ChargeSemaine bilan={bilan} />
+
+      <PolarFlowSeances userId={userId} />
     </section>
   )
 }

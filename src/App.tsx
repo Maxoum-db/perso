@@ -16,6 +16,7 @@ import { Saxophone } from './pages/Saxophone'
 import { Notes } from './pages/Notes'
 import { Partage } from './pages/Partage'
 import { Mails } from './pages/Mails'
+import { PolarCallback } from './pages/PolarCallback'
 
 /**
  * Écran d'une section non accordée.
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/brassage" element={garde('/brassage', <Brassage />)} />
         <Route path="/rustique" element={garde('/rustique', <Rustique />)} />
         <Route path="/saxophone" element={garde('/saxophone', <Saxophone />)} />
+        <Route path="/polar-callback" element={<PolarCallback />} />
         <Route path="/reglages" element={<Settings sections={sections} />} />
         {/* Mails en veille : la route reste accessible en direct, mais la
             section a quitté la navigation. */}

@@ -82,6 +82,54 @@ pense à le renommer « Hub Perso » dans *Settings → General*) :
 
 ---
 
+### 4) Polar Flow — relever les séances du capteur (optionnel)
+
+Sert **uniquement** aux séances que le Verity Sense enregistre seul, en mode vert,
+sans téléphone. Le capteur les garde en mémoire, l'application Polar les vide vers
+Polar Flow, et Couanac vient les y chercher.
+
+> ⚠️ **L'application Polar reste nécessaire.** C'est le seul logiciel qui sait vider
+> la mémoire du capteur et mettre à jour son firmware. Ne la supprime pas.
+>
+> ⚠️ **Pas de sommeil ni de Nightly Recharge.** Ces routes de l'API existent, mais
+> elles décrivent des données de **montre**. Le Verity Sense est un capteur
+> d'entraînement : il ne se porte pas la nuit et ne mesure pas en continu. Le suivi
+> 24/24 n'est pas possible avec ce matériel, et encore moins depuis une page web.
+
+**a) Créer le client AccessLink** — 5 minutes, à faire soi-même :
+
+1. Va sur <https://admin.polaraccesslink.com/> et connecte-toi avec ton compte Polar Flow.
+2. Crée un client. Renseigne l'URL de redirection : `https://<ton-domaine>/polar-callback`
+   (exactement celle-là, Polar la compare caractère par caractère).
+3. Note le **Client ID** et le **Client Secret**.
+
+**b) Installer les identifiants côté serveur.** Le secret ne doit *jamais* entrer
+dans le bundle Vite — il partirait dans le JavaScript public. Il vit dans les
+secrets Supabase :
+
+```bash
+supabase secrets set \
+  POLAR_CLIENT_ID=... \
+  POLAR_CLIENT_SECRET=... \
+  POLAR_REDIRECT_URI=https://<ton-domaine>/polar-callback
+supabase functions deploy polar
+```
+
+**c) Relier le compte** : Réglages › ❤️ Capteur cardiaque › Polar Flow › « Relier mon
+compte Polar ». Ensuite, le bouton « ⟳ Relever Polar » est dans la carte cardio du
+journal de musculation.
+
+Tant que les trois secrets ne sont pas posés, l'écran affiche « pas encore
+configuré » au lieu d'une erreur.
+
+**Ce qui remonte** : début, durée, fréquence moyenne et maximale, calories, distance,
+charge Polar. **Pas le temps par zone** — la route `GET /v3/exercises` ne le donne
+pas, et la route transactionnelle qui le donnerait efface les séances de façon
+irréversible dès qu'on valide la transaction. Ces séances ne comptent donc pas dans
+la charge cardiaque hebdomadaire.
+
+---
+
 ## 💻 Développement local
 
 ```bash
