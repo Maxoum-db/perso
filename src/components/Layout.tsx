@@ -4,7 +4,8 @@ import { useAuth } from '../lib/auth'
 import { fetchSettings, readCachedSettings, type Discipline } from '../lib/settings'
 import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
-import { useCapteur, useFcMax } from '../lib/capteurContexte'
+import { useCapteur, useCardioActif, useFcMax } from '../lib/capteurContexte'
+import { bluetoothDisponible } from '../lib/capteurCardio'
 import { Veilleuse } from './Veilleuse'
 import { ZONES, zoneDe } from '../lib/cardio'
 
@@ -351,8 +352,39 @@ function IconMore({ active }: IconProps) {
  */
 function PastilleCardio({ onAssombrir }: { onAssombrir: () => void }) {
   const capteur = useCapteur()
+  // Rien de cardiaque dans l'en-tête sans l'option : elle est sur tous les
+  // écrans, y compris ceux des comptes à qui le capteur n'a pas été accordé.
+  const cardioActif = useCardioActif()
   const fcMax = useFcMax()
-  if (capteur.etat !== 'connecté' || capteur.bpm === null) return null
+  // ── Débranché : le bouton pour brancher ────────────────────────────────
+  //
+  // Le brassard se branchait depuis l'écran de séance, ou depuis les réglages.
+  // Deux endroits, tous deux à plusieurs touchers — alors que le geste se fait
+  // une fois par séance, debout, au moment où l'on enfile la sangle.
+  //
+  // L'appairage demande un geste de l'utilisateur : le navigateur l'exige, et
+  // ce bouton en est un. Il ne s'affiche que si un brassard est possible
+  // (Bluetooth disponible) et qu'aucun n'est déjà branché — sinon il doublerait
+  // la pastille de fréquence sans rien apporter.
+  if (!cardioActif) return null
+  if (capteur.etat !== 'connecté') {
+    if (!bluetoothDisponible()) return null
+    const enCours = capteur.etat === 'recherche' || capteur.etat === 'connexion'
+    return (
+      <button
+        onClick={() => void capteur.connecter()}
+        disabled={enCours}
+        aria-label="Brancher le capteur cardiaque"
+        title={capteur.etat === 'perdu' ? 'Capteur perdu — rebrancher' : 'Brancher le capteur cardiaque'}
+        className="shrink-0 rounded-full px-2 py-0.5 text-sm leading-none text-white/45 transition hover:text-white disabled:opacity-40"
+      >
+        {enCours ? '⏳' : capteur.etat === 'perdu' ? '💔' : '🩶'}
+      </button>
+    )
+  }
+  // Branché mais pas encore un battement : on ne montre rien plutôt qu'un
+  // « — bpm » qui ferait croire à une panne pendant les deux secondes d'attente.
+  if (capteur.bpm === null) return null
   const zone = fcMax ? ZONES.find((z) => z.id === zoneDe(capteur.bpm as number, fcMax)) : undefined
   return (
     <>

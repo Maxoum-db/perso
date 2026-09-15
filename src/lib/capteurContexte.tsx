@@ -4,6 +4,8 @@ import { fcMaxEstimee } from './cardio'
 import { loadFcMaxRelevee } from './cardioSeance'
 import { age, loadProfil, PROFIL_DEFAUT, type Profil } from './profil'
 import { useAuth } from './auth'
+import { chargerOptionsMuscu } from './acces'
+import { loadOptionsEteintes, optionActive, type OptionMuscu } from './optionsMuscu'
 
 // La liaison au brassard vit au-dessus des écrans.
 //
@@ -44,6 +46,18 @@ interface ValeurContexte {
    * différentes d'un écran à l'autre le temps que les requêtes reviennent.
    */
   fcMax: number | null
+  /**
+   * Le compte a-t-il le capteur cardiaque ?
+   *
+   * Chargé ici parce que l'en-tête en a besoin, et que l'en-tête est sur TOUS
+   * les écrans — y compris ceux qui n'ont rien à voir avec le sport. Un bouton
+   * « brancher un brassard » chez quelqu'un à qui l'option n'a pas été accordée
+   * annoncerait une fonction qui n'existe pas pour lui.
+   *
+   * `false` tant que le chargement n'a pas répondu : on préfère montrer un
+   * bouton en retard que le montrer à qui n'y a pas droit.
+   */
+  cardioActif: boolean
 }
 
 const Contexte = createContext<ValeurContexte | null>(null)
@@ -52,6 +66,7 @@ export function CapteurProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [profil, setProfil] = useState<Profil>(PROFIL_DEFAUT)
   const [relevee, setRelevee] = useState<number | null>(null)
+  const [cardioActif, setCardioActif] = useState(false)
 
   // La fréquence maximale découpe les zones. Elle est chargée ICI plutôt que
   // passée par chaque écran : c'est un réglage du compte, pas une propriété de
@@ -60,11 +75,17 @@ export function CapteurProvider({ children }: { children: ReactNode }) {
     if (!user) return
     loadProfil(user.id).then(setProfil).catch(() => {})
     loadFcMaxRelevee(user.id).then(setRelevee).catch(() => {})
+    Promise.all([
+      loadOptionsEteintes(user.id).catch(() => [] as OptionMuscu[]),
+      chargerOptionsMuscu(user.id, user.email).catch(() => null),
+    ])
+      .then(([eteintes, autorisees]) => setCardioActif(optionActive('cardio', eteintes, autorisees)))
+      .catch(() => {})
   }, [user])
 
   const fcMax = relevee ?? fcMaxEstimee(age(profil))
   const capteur = useCapteurCardio(fcMax)
-  return <Contexte.Provider value={{ capteur, fcMax }}>{children}</Contexte.Provider>
+  return <Contexte.Provider value={{ capteur, fcMax, cardioActif }}>{children}</Contexte.Provider>
 }
 
 /**
@@ -81,6 +102,11 @@ export function useCapteur(): Capteur {
 /** La fréquence maximale retenue, pour traduire un battement en zone. */
 export function useFcMax(): number | null {
   return useContexteCapteur().fcMax
+}
+
+/** L'option « capteur cardiaque » est-elle accordée ET allumée pour ce compte ? */
+export function useCardioActif(): boolean {
+  return useContexteCapteur().cardioActif
 }
 
 function useContexteCapteur(): ValeurContexte {
