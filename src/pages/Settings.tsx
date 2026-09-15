@@ -23,6 +23,7 @@ import { loadCardios, loadFcMaxRelevee, loadRepos, saveFcMaxRelevee, type Mesure
 import { PolarFlowReglage } from '../components/PolarFlow'
 import { CardioDuJour } from '../components/CardioDuJour'
 import { DELAI_S, loadVeilleuse, saveVeilleuse } from '../lib/veilleuse'
+import { loadCaptureRapide, saveCaptureRapide } from '../lib/captureRapide'
 import { fcMaxEstimee, ZONES } from '../lib/cardio'
 import { age } from '../lib/profil'
 import {
@@ -101,6 +102,8 @@ export function Settings({ sections }: { sections: Section[] }) {
           {settings?.drive_synthese_folder_id ? 'Changer' : 'Choisir un dossier'}
         </Link>
       </section>
+
+      <CaptureRapideSection userId={user?.id ?? ''} />
 
       <DisciplineSection
         userId={user?.id ?? ''}
@@ -1217,6 +1220,47 @@ function AccesSection({ monId }: { monId: string }) {
           )
         })}
       </div>
+    </section>
+  )
+}
+
+
+/**
+ * Le bouton « + » flottant, qu'on peut éteindre.
+ *
+ * Allumé par défaut, et ça compte : la capture rapide sert surtout à qui vit
+ * dans l'agenda et les notes. « Je ne l'utilise jamais » est vrai pour celui
+ * qui le dit — le retirer du code le retirerait à tout le monde, sans que
+ * personne d'autre n'ait rien demandé.
+ */
+function CaptureRapideSection({ userId }: { userId: string }) {
+  const [on, setOn] = useState(true)
+
+  useEffect(() => {
+    if (!userId) return
+    loadCaptureRapide(userId).then(setOn).catch(() => {})
+  }, [userId])
+
+  return (
+    <section className="card p-4">
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-sm font-bold text-ink">➕ Bouton de capture rapide</h2>
+        <button
+          onClick={() => {
+            saveCaptureRapide(userId, !on).then(setOn).catch(() => {})
+          }}
+          aria-pressed={on}
+          className={`chip shrink-0 text-[11px] transition ${
+            on ? 'bg-sage/25 text-sage ring-1 ring-sage' : 'bg-bg text-muted'
+          }`}
+        >
+          {on ? '☑ Affiché' : '☐ Masqué'}
+        </button>
+      </div>
+      <p className="mt-1 text-xs leading-snug text-muted">
+        Le rond orange en bas à droite, sur toutes les pages : une note, une tâche ou un événement en deux touchers,
+        avec dictée. Masqué, il libère le coin de l’écran — le reste de l’application ne change pas.
+      </p>
     </section>
   )
 }
