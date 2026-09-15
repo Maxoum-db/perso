@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'
 import { fetchSettings, readCachedSettings, type Discipline } from '../lib/settings'
 import { disciplineAffichee, routeAutorisee, type Section } from '../lib/acces'
 import { QuickCapture } from './QuickCapture'
-import { captureRapideEnCache, loadCaptureRapide } from '../lib/captureRapide'
+import { BARRE_REPLIEE, CAPTURE_RAPIDE } from '../lib/reglagesInterface'
 import { useCapteur, useCardioActif, useFcMax } from '../lib/capteurContexte'
 import { bluetoothDisponible } from '../lib/capteurCardio'
 import { etatPastille, estBranche, peutBrancher } from '../lib/pastilleCardio'
@@ -56,7 +56,8 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
   const [sombre, setSombre] = useState(false)
   // Lu d'abord dans le cache, pour que le bouton ne clignote pas à chaque
   // navigation le temps que le réseau réponde.
-  const [capture, setCapture] = useState(captureRapideEnCache)
+  const [capture, setCapture] = useState(CAPTURE_RAPIDE.enCache)
+  const [repliee, setRepliee] = useState(BARRE_REPLIEE.enCache)
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -68,7 +69,9 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
     if (user) fetchSettings(user.id).then((s) => setDiscipline(s.discipline))
   }, [user])
   useEffect(() => {
-    if (user) loadCaptureRapide(user.id).then(setCapture).catch(() => {})
+    if (!user) return
+    CAPTURE_RAPIDE.load(user.id).then(setCapture).catch(() => {})
+    BARRE_REPLIEE.load(user.id).then(setRepliee).catch(() => {})
   }, [user])
   const ouvert = (t: Tab) => routeAutorisee(t.to, sections)
   const primaryTabs = TOUS_PRINCIPAUX.filter(ouvert)
@@ -125,7 +128,9 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
+      {/* La marge basse dégage la barre. Repliée, elle n'a plus besoin de
+          sept rem — et c'est cette place-là qu'on vient chercher. */}
+      <main className={`flex-1 px-4 pt-4 ${repliee && !moreOpen ? 'pb-12' : 'pb-28'}`}>{children}</main>
 
       {capture && !moreOpen ? <QuickCapture /> : null}
 
@@ -138,9 +143,24 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
           <div className="mx-auto max-w-3xl px-2 py-2 pb-[env(safe-area-inset-bottom)]">
             <div className="mb-1 flex items-center justify-between px-2">
               <span className="text-xs font-bold text-muted">Toutes les sections</span>
-              <button onClick={() => setMoreOpen(false)} className="text-xs font-semibold text-copper">
-                Fermer ▾
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Replier depuis ICI, et pas depuis la barre : c'est le seul
+                    écran qui montre toutes les destinations, donc le seul où
+                    l'on voit qu'on ne perd rien en repliant. */}
+                <button
+                  onClick={() => {
+                    const suivant = !repliee
+                    setRepliee(suivant)
+                    if (user) BARRE_REPLIEE.save(user.id, suivant).catch(() => {})
+                  }}
+                  className="text-xs font-semibold text-muted hover:text-ink"
+                >
+                  {repliee ? '⌃ Rouvrir la barre' : '⌄ Replier la barre'}
+                </button>
+                <button onClick={() => setMoreOpen(false)} className="text-xs font-semibold text-copper">
+                  Fermer ▾
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-4 gap-1">
               {rubriques.map((t) => (
@@ -165,8 +185,19 @@ export function Layout({ children, sections }: { children: ReactNode; sections: 
               ))}
             </div>
           </div>
+        ) : repliee ? (
+          /* Repliée : une poignée, qui ouvre le menu complet. Aucune
+             destination n'est perdue — le menu les contient toutes, accueil
+             compris ; seuls les quatre raccourcis disparaissent. */
+          <button
+            onClick={() => setMoreOpen(true)}
+            aria-label="Ouvrir le menu"
+            className="flex w-full items-center justify-center py-1.5 pb-[env(safe-area-inset-bottom)] text-[13px] leading-none text-muted transition hover:text-ink"
+          >
+            <span className={moreActive ? 'text-copper' : undefined}>•••</span>
+          </button>
         ) : (
-          /* Barre repliée : 4 onglets principaux + Plus */
+          /* Barre dépliée : 4 onglets principaux + Plus */
           <div className="mx-auto flex max-w-3xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
             {primaryTabs.map((t) => (
               <NavLink
