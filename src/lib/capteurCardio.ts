@@ -110,6 +110,41 @@ export interface Capteur {
   remettreAZero: () => void
 }
 
+/**
+ * Combien de temps on attend une étape de connexion avant d'abandonner.
+ *
+ * Quinze secondes : un appairage qui marche prend une à trois secondes. Au-delà,
+ * ce n'est plus de la lenteur, c'est que ça ne viendra pas — et le plus souvent
+ * parce qu'une autre application tient déjà le capteur.
+ */
+const DELAI_CONNEXION_MS = 15_000
+
+/**
+ * Impose un délai à une promesse qui pourrait ne jamais se résoudre.
+ *
+ * Web Bluetooth ne garantit AUCUN délai : `connect()` peut rester en suspens
+ * indéfiniment, sans succès ni erreur. Une promesse qui ne retombe jamais est
+ * le pire des cas pour une interface — elle ne montre ni résultat, ni panne,
+ * juste un bouton grisé.
+ */
+export function sousDelai<T>(promesse: Promise<T>, etape: string, ms = DELAI_CONNEXION_MS): Promise<T> {
+  return Promise.race([
+    promesse,
+    new Promise<T>((_, rejeter) =>
+      setTimeout(
+        () =>
+          rejeter(
+            new Error(
+              `Le capteur n’a pas répondu (${etape}). Le plus souvent, une autre application le tient déjà : ` +
+                `ferme Polar Flow ou Polar Beat, éteins et rallume le brassard, puis réessaie.`,
+            ),
+          ),
+        ms,
+      ),
+    ),
+  ])
+}
+
 /** Web Bluetooth est-il seulement là ? Testé sans rien demander à l'utilisateur. */
 export function bluetoothDisponible(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator
@@ -198,8 +233,8 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
   const brancherPpi = useCallback(
     async (serveur: { getPrimaryService(u: string): Promise<GattServiceMin> }) => {
       try {
-        const service = await serveur.getPrimaryService(PMD_SERVICE)
-        const donnees = await service.getCharacteristic(PMD_DATA)
+        const service = await sousDelai(serveur.getPrimaryService(PMD_SERVICE), 'le service Polar')
+        const donnees = await sousDelai(service.getCharacteristic(PMD_DATA), 'les données Polar')
         donnees.addEventListener('characteristicvaluechanged', (e: Event) => {
           const vue = (e.target as unknown as { value: DataView }).value
           try {
@@ -209,8 +244,8 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
             // Trame d'un autre type de mesure, ou abîmée : on saute celle-là.
           }
         })
-        await donnees.startNotifications()
-        const controle = await service.getCharacteristic(PMD_CONTROL)
+        await sousDelai(donnees.startNotifications(), 'l’abonnement au PPI')
+        const controle = await sousDelai(service.getCharacteristic(PMD_CONTROL), 'le point de contrôle Polar')
         // Le point de contrôle répond par une notification : il faut l'écouter
         // AVANT d'écrire, sinon la réponse du capteur tombe dans le vide et
         // certaines piles Bluetooth rejettent l'écriture suivante.
@@ -248,16 +283,30 @@ export function useCapteurCardio(fcMax: number | null, options?: { ppi?: boolean
       appareil.current = dev
       setNom(dev.name ?? 'Capteur')
       dev.addEventListener('gattserverdisconnected', () => setEtat('perdu'))
-      const serveur = await dev.gatt!.connect()
-      const service = await serveur.getPrimaryService(SERVICE_FC)
-      const caract = await service.getCharacteristic(CARACT_MESURE)
+      // Chaque étape sous délai. Sans ça, un `connect()` qui ne rend jamais la
+      // main laisse « Connexion… » grisé POUR TOUJOURS : pas d'erreur, pas de
+      // retour en arrière, rien à faire que recharger la page. C'est ce qui
+      // arrive quand une autre application tient déjà le capteur — et c'est un
+      // défaut de cet écran, pas seulement du brassard : une attente sans fin
+      // n'est pas un message.
+      const serveur = await sousDelai(dev.gatt!.connect(), 'la liaison')
+      const service = await sousDelai(serveur.getPrimaryService(SERVICE_FC), 'le service cardiaque')
+      const caract = await sousDelai(service.getCharacteristic(CARACT_MESURE), 'la mesure')
       caract.addEventListener('characteristicvaluechanged', surMesure)
-      await caract.startNotifications()
+      await sousDelai(caract.startNotifications(), 'l’abonnement aux battements')
       setEtat('connecté')
       void prendreVerrou(verrou)
       if (veutPpi) void brancherPpi(serveur)
     } catch (e) {
       const msg = (e as Error).message ?? ''
+      // On lâche la liaison à moitié ouverte : sans ça, le capteur reste
+      // occupé par une connexion que plus personne n'écoute, et l'essai
+      // suivant échoue pour la même raison que le premier.
+      try {
+        appareil.current?.gatt?.disconnect()
+      } catch {
+        /* rien à rendre */
+      }
       // Fermer le sélecteur du navigateur n'est pas une panne : on retourne à
       // l'état d'avant, sans message rouge.
       if (/User cancelled|cancell?ed/i.test(msg)) setEtat('prêt')
